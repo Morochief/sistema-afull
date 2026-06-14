@@ -12,8 +12,8 @@ export function InsumosPanel({
   insumosCatalogo,
   onAdd,
 }: {
-  insumosCatalogo: { id: number, nombre: string, precio: number }[]
-  onAdd: (entry: { insumoId: number; cantidad: number }) => void
+  insumosCatalogo: { id: string, nombre: string, precio_unitario: any }[]
+  onAdd: (entry: { insumoId: string; cantidad: number }) => void
 }) {
   const [insumoId, setInsumoId] = useState("")
   const [quantity, setQuantity] = useState("1")
@@ -23,7 +23,7 @@ export function InsumosPanel({
 
   function handleAdd() {
     if (!canSubmit) return
-    onAdd({ insumoId: Number(insumoId), cantidad: qty })
+    onAdd({ insumoId, cantidad: qty })
     setInsumoId("")
     setQuantity("1")
   }
@@ -34,11 +34,13 @@ export function InsumosPanel({
         <FieldLabel>Insumo</FieldLabel>
         <Select value={insumoId} onValueChange={(val) => setInsumoId(val || "")}>
           <SelectTrigger className="h-12 rounded-xl text-base">
-            <SelectValue placeholder="Selecciona el insumo" />
+            <SelectValue placeholder="Selecciona el insumo">
+              {insumoId ? insumosCatalogo.find(i => i.id === insumoId)?.nombre : undefined}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {insumosCatalogo.map(i => (
-              <SelectItem key={i.id} value={i.id.toString()}>{i.nombre}</SelectItem>
+              <SelectItem key={i.id} value={i.id}>{i.nombre}</SelectItem>
             ))}
           </SelectContent>
         </Select>

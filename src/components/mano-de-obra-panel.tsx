@@ -13,8 +13,8 @@ export function ManoDeObraPanel({
   colaboradores,
   onComplete,
 }: {
-  colaboradores: { id: number, nombre: string, tarifa: number }[]
-  onComplete: (entry: { colaboradorId: number; inicio: string; fin: string; description: string }) => void
+  colaboradores: { id: string, nombre: string, tarifa_minuto: any }[]
+  onComplete: (entry: { colaboradorId: string; inicio: string; fin: string; description: string }) => void
 }) {
   const [colaboradorId, setColaboradorId] = useState<string>("")
   const [inicio, setInicio] = useState("")
@@ -26,7 +26,7 @@ export function ManoDeObraPanel({
   function handleToggle() {
     if (canSubmit) {
       onComplete({
-        colaboradorId: Number(colaboradorId),
+        colaboradorId,
         inicio,
         fin,
         description: description.trim() || "Tarea sin descripción",
@@ -43,11 +43,13 @@ export function ManoDeObraPanel({
         <FieldLabel>Colaborador</FieldLabel>
         <Select value={colaboradorId} onValueChange={(val) => setColaboradorId(val || "")}>
           <SelectTrigger className="h-12 rounded-xl text-base">
-            <SelectValue placeholder="Selecciona el colaborador" />
+            <SelectValue placeholder="Selecciona el colaborador">
+              {colaboradorId ? colaboradores.find(c => c.id === colaboradorId)?.nombre : undefined}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {colaboradores.map(c => (
-              <SelectItem key={c.id} value={c.id.toString()}>{c.nombre}</SelectItem>
+              <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -56,23 +58,55 @@ export function ManoDeObraPanel({
       <div className="flex gap-4">
         <Field className="flex-1">
           <FieldLabel htmlFor="inicio">Hora Inicio</FieldLabel>
-          <Input
-            id="inicio"
-            type="time"
-            value={inicio}
-            onChange={(e) => setInicio(e.target.value)}
-            className="h-12 rounded-xl text-base"
-          />
+          <div className="flex flex-col gap-1.5">
+            <Input
+              id="inicio"
+              type="time"
+              value={inicio}
+              onChange={(e) => setInicio(e.target.value)}
+              className="h-12 rounded-xl text-base"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const now = new Date()
+                const hours = String(now.getHours()).padStart(2, '0')
+                const minutes = String(now.getMinutes()).padStart(2, '0')
+                setInicio(`${hours}:${minutes}`)
+              }}
+              className="h-8 rounded-lg text-xs"
+            >
+              Iniciar labor
+            </Button>
+          </div>
         </Field>
         <Field className="flex-1">
           <FieldLabel htmlFor="fin">Hora Fin</FieldLabel>
-          <Input
-            id="fin"
-            type="time"
-            value={fin}
-            onChange={(e) => setFin(e.target.value)}
-            className="h-12 rounded-xl text-base"
-          />
+          <div className="flex flex-col gap-1.5">
+            <Input
+              id="fin"
+              type="time"
+              value={fin}
+              onChange={(e) => setFin(e.target.value)}
+              className="h-12 rounded-xl text-base"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const now = new Date()
+                const hours = String(now.getHours()).padStart(2, '0')
+                const minutes = String(now.getMinutes()).padStart(2, '0')
+                setFin(`${hours}:${minutes}`)
+              }}
+              className="h-8 rounded-lg text-xs"
+            >
+              Finalizar labor
+            </Button>
+          </div>
         </Field>
       </div>
 

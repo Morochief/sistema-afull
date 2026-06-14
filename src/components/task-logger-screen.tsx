@@ -31,7 +31,7 @@ export function TaskLoggerScreen() {
   
   const [proyectoId, setProyectoId] = useState<string>("")
 
-  function onAddManoDeObra(entry: { colaboradorId: number; inicio: string; fin: string; description: string }) {
+  function onAddManoDeObra(entry: { colaboradorId: string; inicio: string; fin: string; description: string }) {
     if (!proyectoId) return alert("Selecciona un proyecto primero")
     handleAgregarMO({
       proyectoId,
@@ -39,7 +39,7 @@ export function TaskLoggerScreen() {
     });
   }
 
-  function onAddInsumo(entry: { insumoId: number; cantidad: number }) {
+  function onAddInsumo(entry: { insumoId: string; cantidad: number }) {
     if (!proyectoId) return alert("Selecciona un proyecto primero")
     handleAgregarInsumo({
       proyectoId,
@@ -60,7 +60,9 @@ export function TaskLoggerScreen() {
               className="h-14 w-full rounded-xl px-4 text-base [&>span]:flex [&>span]:items-center [&>span]:gap-2"
             >
               <FolderIcon className="size-5 shrink-0 text-primary" />
-              <SelectValue placeholder="Selecciona un proyecto" />
+              <SelectValue placeholder="Selecciona un proyecto">
+                {proyectoId ? PROYECTOS?.find((p: any) => p.id === proyectoId)?.nombre : undefined}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
