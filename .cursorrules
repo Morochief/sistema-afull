@@ -1,0 +1,17 @@
+# Reglas de Proyecto: Sistema aFull
+
+## Contexto Reciente (Memoria de Corto Plazo)
+Siempre que inicies una sesión conmigo, recuerda las últimas 3 entradas del CHANGELOG.md para mantener la continuidad:
+- [1.0.0] Refactorización de Dashboard a Server Component.
+- [1.0.0] Implementación de Middleware y Auth JWT.
+- [1.0.0] Integración de Prisma ORM y triggers SQL.
+
+## Responsabilidades del Ingeniero de Documentación
+1. Toda tarea de código debe actualizar DOCUMENTATION.md y CHANGELOG.md.
+2. Mantener la integridad de los Server Actions y el Middleware.
+3. Ante cualquier error, prioriza verificar los logs en la tabla `logs_auditoria`.
+
+## Reglas de Arquitectura
+- No inyectes lógica de negocio en el frontend. Toda validación de costos y tiempos reside en la DB.
+- Los Server Actions son la única vía de comunicación con la base de datos.
+- Usa siempre `withAuth` para proteger las inserciones.

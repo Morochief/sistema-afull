@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Clientes {
+  id        String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  nombre    String      @db.VarChar(150)
+  creado_en DateTime?   @default(now()) @db.Timestamptz(6)
+  proyectos Proyectos[]
+
+  @@map("clientes")
+}
+
+model Proyectos {
+  id         String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  cliente_id String      @db.Uuid
+  nombre     String      @db.VarChar(200)
+  estado     String?     @default("in_progress") @db.VarChar(50)
+  creado_en  DateTime?   @default(now()) @db.Timestamptz(6)
+  cliente    Clientes    @relation(fields: [cliente_id], references: [id], onDelete: Restrict)
+  registros  Registros[]
+
+  @@index([cliente_id], map: "idx_proyectos_cliente_id")
+  @@map("proyectos")
+}
+
+model Colaboradores {
+  id            String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  nombre        String      @db.VarChar(100)
+  tarifa_minuto Decimal     @default(350.00) @db.Decimal(10, 2)
+  activo        Boolean?    @default(true)
+  creado_en     DateTime?   @default(now()) @db.Timestamptz(6)
+  registros     Registros[]
+
+  @@map("colaboradores")
+}
+
+model Insumos {
+  id              String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  nombre          String      @db.VarChar(150)
+  precio_unitario Decimal     @db.Decimal(15, 2)
+  activo          Boolean?    @default(true)
+  creado_en       DateTime?   @default(now()) @db.Timestamptz(6)
+  registros       Registros[]
+
+  @@map("insumos")
+}
+
+model Registros {
+  id                 String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  proyecto_id        String         @db.Uuid
+  tipo               String         @db.VarChar(20)
+  fecha              DateTime       @default(dbgenerated("CURRENT_DATE")) @db.Date
+  colaborador_id     String?        @db.Uuid
+  hora_inicio        DateTime?      @db.Time(6)
+  hora_fin           DateTime?      @db.Time(6)
+  minutos_calculados Int?
+  insumo_id          String?        @db.Uuid
+  cantidad           Decimal?       @db.Decimal(10, 2)
+  total_calculado    Decimal        @default(0.00) @db.Decimal(15, 2)
+  descripcion        String?
+  creado_por         String         @db.VarChar(100)
+  creado_en          DateTime?      @default(now()) @db.Timestamptz(6)
+  colaborador        Colaboradores? @relation(fields: [colaborador_id], references: [id], onDelete: Restrict)
+  insumo             Insumos?       @relation(fields: [insumo_id], references: [id], onDelete: Restrict)
+  proyecto           Proyectos      @relation(fields: [proyecto_id], references: [id], onDelete: Cascade)
+
+  @@index([fecha], map: "idx_registros_fecha")
+  @@index([proyecto_id], map: "idx_registros_proyecto_id")
+  @@map("registros")
+}
+
+model LogsAuditoria {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tabla_afectada String    @db.VarChar(50)
+  registro_id    String    @db.Uuid
+  accion         String    @db.VarChar(10)
+  usuario        String    @db.VarChar(100)
+  fecha_accion   DateTime? @default(now()) @db.Timestamptz(6)
+  detalles       Json?
+
+  @@map("logs_auditoria")
+}
+
+// Ojo: Prisma no soporta crear modelos directamente desde una vista sin ID primary key 
+// de manera automática si no se mapea un @unique.
+// Definimos la vista para consultas tipadas:
+model ReporteCostosProyectos {
+  proyecto_id     String  @unique @db.Uuid
+  nombre_proyecto String?
+  nombre_cliente  String?
+  estado          String?
+  total_mo        Decimal?
+  total_insumos   Decimal?
+  costo_total     Decimal?
+
+  @@map("reporte_costos_proyectos")
+}
