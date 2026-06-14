@@ -61,7 +61,7 @@ export function MaterialCombobox({
                   key={material}
                   value={material}
                   data-checked={value === material}
-                  onSelect={(current) => {
+                  onSelect={(current: string) => {
                     onChange(current === value ? "" : current)
                     setOpen(false)
                   }}
