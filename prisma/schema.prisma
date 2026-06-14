@@ -86,3 +86,15 @@ model LogsAuditoria {
 
   @@map("logs_auditoria")
 }
+
+model ReporteCostosProyectos {
+  proyecto_id     String  @unique @db.Uuid
+  nombre_proyecto String?
+  nombre_cliente  String?
+  estado          String?
+  total_mo        Decimal?
+  total_insumos   Decimal?
+  costo_total     Decimal?
+
+  @@map("reporte_costos_proyectos")
+}
