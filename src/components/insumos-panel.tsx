@@ -32,7 +32,7 @@ export function InsumosPanel({
     <FieldGroup className="gap-5">
       <Field>
         <FieldLabel>Insumo</FieldLabel>
-        <Select value={insumoId} onValueChange={setInsumoId}>
+        <Select value={insumoId} onValueChange={(val) => setInsumoId(val || "")}>
           <SelectTrigger className="h-12 rounded-xl text-base">
             <SelectValue placeholder="Selecciona el insumo" />
           </SelectTrigger>

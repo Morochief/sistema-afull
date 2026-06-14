@@ -41,7 +41,7 @@ export function ManoDeObraPanel({
     <FieldGroup className="gap-5">
       <Field>
         <FieldLabel>Colaborador</FieldLabel>
-        <Select value={colaboradorId} onValueChange={setColaboradorId}>
+        <Select value={colaboradorId} onValueChange={(val) => setColaboradorId(val || "")}>
           <SelectTrigger className="h-12 rounded-xl text-base">
             <SelectValue placeholder="Selecciona el colaborador" />
           </SelectTrigger>

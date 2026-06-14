@@ -54,7 +54,7 @@ export function TaskLoggerScreen() {
           <Label htmlFor="proyecto" className="text-sm font-medium">
             Proyecto
           </Label>
-          <Select value={proyectoId} onValueChange={setProyectoId} disabled={isPending}>
+          <Select value={proyectoId} onValueChange={(val) => setProyectoId(val || "")} disabled={isPending}>
             <SelectTrigger
               id="proyecto"
               className="h-14 w-full rounded-xl px-4 text-base [&>span]:flex [&>span]:items-center [&>span]:gap-2"

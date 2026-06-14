@@ -124,7 +124,7 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
             />
           </div>
           <div className="flex gap-3">
-            <Select value={cliente} onValueChange={setCliente}>
+            <Select value={cliente} onValueChange={(val) => setCliente(val || "")}>
               <SelectTrigger className="w-full sm:w-48" aria-label="Filtrar por cliente">
                 <SelectValue placeholder="Cliente">
                   {(value: string) =>
@@ -141,7 +141,7 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={estado} onValueChange={setEstado}>
+            <Select value={estado} onValueChange={(val) => setEstado(val || "")}>
               <SelectTrigger className="w-full sm:w-44" aria-label="Filtrar por estado">
                 <SelectValue placeholder="Estado">
                   {(value: string) =>
