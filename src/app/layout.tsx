@@ -13,9 +13,9 @@ export default async function RootLayout({
   children: React.ReactNode
 }) {
   // Fetch catalogs for AppProvider
-  let insumos = [];
-  let colaboradores = [];
-  let proyectos = [];
+  let insumos: any[] = [];
+  let colaboradores: any[] = [];
+  let proyectos: any[] = [];
   
   try {
     insumos = await prisma.insumos.findMany({ where: { activo: true } });
