@@ -13,18 +13,21 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+
 const navMain = [
-  { label: "Panel", icon: LayoutDashboard, active: true },
-  { label: "Proyectos", icon: FolderKanban },
-  { label: "Clientes", icon: Users },
-  { label: "Costos MO", icon: Receipt },
-  { label: "Insumos", icon: Boxes },
-  { label: "Reportes", icon: BarChart3 },
+  { label: "Panel", icon: LayoutDashboard, href: "/" },
+  { label: "Proyectos", icon: FolderKanban, href: "/proyectos" },
+  { label: "Clientes", icon: Users, href: "/clientes" },
+  { label: "Registrar Horas/Insumos", icon: Receipt, href: "/registro" },
+  { label: "Insumos", icon: Boxes, href: "/insumos" },
+  { label: "Colaboradores", icon: Users, href: "/colaboradores" },
 ]
 
 const navSecondary = [
-  { label: "Configuración", icon: Settings },
-  { label: "Soporte", icon: LifeBuoy },
+  { label: "Configuración", icon: Settings, href: "#" },
+  { label: "Soporte", icon: LifeBuoy, href: "#" },
 ]
 
 export function DashboardSidebar({
@@ -34,6 +37,8 @@ export function DashboardSidebar({
   open?: boolean
   onClose?: () => void
 } = {}) {
+  const pathname = usePathname()
+
   return (
     <>
       {/* Mobile overlay */}
@@ -69,35 +74,38 @@ export function DashboardSidebar({
           <p className="px-3 pb-2 text-xs font-medium uppercase tracking-wider text-sidebar-foreground/40">
             General
           </p>
-          {navMain.map((item) => (
-            <a
-              key={item.label}
-              href="#"
-              aria-current={item.active ? "page" : undefined}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                item.active
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              )}
-            >
-              <item.icon className="size-4.5 shrink-0" />
-              {item.label}
-            </a>
-          ))}
+          {navMain.map((item) => {
+            const isActive = pathname === item.href
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
+                aria-current={isActive ? "page" : undefined}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                )}
+              >
+                <item.icon className="size-4.5 shrink-0" />
+                {item.label}
+              </Link>
+            )
+          })}
 
           <p className="px-3 pb-2 pt-5 text-xs font-medium uppercase tracking-wider text-sidebar-foreground/40">
             Sistema
           </p>
           {navSecondary.map((item) => (
-            <a
+            <Link
               key={item.label}
-              href="#"
+              href={item.href}
               className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             >
               <item.icon className="size-4.5 shrink-0" />
               {item.label}
-            </a>
+            </Link>
           ))}
         </nav>
 
