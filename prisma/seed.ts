@@ -6,11 +6,10 @@ import * as fs from 'fs'
 const prisma = new PrismaClient()
 
 async function main() {
-  const excelFilePath = path.join(process.cwd(), 'Kevin.xlsx')
+  const excelFilePath = path.join(__dirname, '../Kevin.xlsx')
 
   if (!fs.existsSync(excelFilePath)) {
     console.error(`❌ El archivo no se encuentra en la ruta: ${excelFilePath}`)
-    console.error(`Asegúrate de colocar 'Kevin.xlsx' en la raíz de 'app-unificada'.`)
     process.exit(1)
   }
 
