@@ -87,11 +87,9 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
             </CardDescription>
           </div>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button className="gap-2 self-start sm:self-auto">
-                <Download className="size-4" />
-                Exportar
-              </Button>
+            <DropdownMenuTrigger render={<Button className="gap-2 self-start sm:self-auto" />}>
+              <Download className="size-4" />
+              Exportar
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuLabel>Exportar reporte</DropdownMenuLabel>
