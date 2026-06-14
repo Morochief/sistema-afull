@@ -14,7 +14,16 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
-import type { WorkLog } from "@/lib/workshop-data"
+export type WorkLog = {
+  id: string
+  type: "mano-de-obra" | "insumo"
+  project: string
+  time: string
+  description?: string
+  duration?: string
+  material?: string
+  quantity?: number
+}
 
 export function RecentLogs({ logs }: { logs: WorkLog[] }) {
   return (

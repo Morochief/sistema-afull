@@ -35,17 +35,14 @@ export async function getSession() {
   return await verifyToken(token)
 }
 
-// Wrapper for Server Actions
-export function withAuth<T extends (...args: any[]) => Promise<any>>(action: T) {
-  return async (...args: Parameters<T>): Promise<ReturnType<T>> => {
+export function withAuth<Arg, Ret>(
+  action: (arg: Arg, session: UserPayload) => Promise<Ret>
+) {
+  return async (arg: Arg): Promise<Ret> => {
     const session = await getSession()
     if (!session) {
       throw new Error("No autenticado")
     }
-    // Inject session into the first parameter if it's an object, or we could just 
-    // let the action call `getSession()` itself. For simplicity in Next.js Server Actions,
-    // it's often easier to just call getSession() inside the action itself.
-    // However, if we strictly want a wrapper:
-    return action(...args, session) as ReturnType<T>
+    return action(arg, session)
   }
 }
