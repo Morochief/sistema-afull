@@ -42,7 +42,8 @@ export async function login(nombre: string) {
     return { success: true }
   } catch (error) {
     console.error("Login error:", error)
-    return { error: "Error interno del servidor" }
+    // TEMPORAL: Devolver el error real para diagnosticar el problema en Vercel
+    return { error: error instanceof Error ? error.message : String(error) }
   }
 }
 
