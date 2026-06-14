@@ -28,12 +28,12 @@ const navSecondary = [
 ]
 
 export function DashboardSidebar({
-  open,
+  open = true,
   onClose,
 }: {
-  open: boolean
-  onClose: () => void
-}) {
+  open?: boolean
+  onClose?: () => void
+} = {}) {
   return (
     <>
       {/* Mobile overlay */}
