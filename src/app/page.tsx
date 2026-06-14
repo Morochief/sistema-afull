@@ -36,7 +36,7 @@ export default async function DashboardPage() {
       totalHoras: horasEstimadas,
       costoMO: mo,
       costoInsumos: insumos,
-      estado: p.estado || "in_progress",
+      estado: (p.estado as "in_progress" | "completed" | "on_hold") || "in_progress",
     }
   })
 
