@@ -1,33 +1,30 @@
 "use client"
 
 import { useState } from "react"
-import { HardHatIcon } from "lucide-react"
+import { HardHatIcon, SendIcon, WalletIcon } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatCurrency } from "@/lib/projects-data"
 
 export function ManoDeObraPanel({
   colaboradores,
   onComplete,
+  isPending,
 }: {
   colaboradores: { id: string, nombre: string, tarifa_minuto: any }[]
   onComplete: (
     entry: { colaboradorId: string; inicio: string; fin: string; description: string },
     clearForm?: () => void
   ) => void
+  isPending?: boolean
 }) {
   const [colaboradorId, setColaboradorId] = useState<string>("")
   const [inicio, setInicio] = useState("")
   const [fin, setFin] = useState("")
   const [description, setDescription] = useState("")
 
-  const canSubmit = colaboradorId !== "" && inicio !== "" && fin !== ""
+  const canSubmit = colaboradorId !== "" && inicio !== "" && fin !== "" && !isPending
   
-  // Calcular costo estimado en tiempo real
   const colaborador = colaboradores.find(c => c.id === colaboradorId)
   const tarifaMin = colaborador ? Number(colaborador.tarifa_minuto) : 0
   let minutos = 0
@@ -56,105 +53,85 @@ export function ManoDeObraPanel({
   }
 
   return (
-    <FieldGroup className="gap-5">
-      <Field>
-        <FieldLabel>Colaborador</FieldLabel>
-        <Select value={colaboradorId} onValueChange={(val) => setColaboradorId(val || "")}>
-          <SelectTrigger className="h-12 rounded-xl text-base">
-            <SelectValue placeholder="Selecciona el colaborador">
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      {/* Colaborador Select */}
+      <div className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border border-white/20 dark:border-slate-800/40 p-6 rounded-3xl space-y-3 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)]">
+        <label className="text-xs font-semibold text-primary uppercase tracking-wider block">Colaborador</label>
+        <Select value={colaboradorId} onValueChange={(val) => setColaboradorId(val || "")} disabled={isPending}>
+          <SelectTrigger className="h-12 w-full bg-white/50 dark:bg-slate-950/50 border border-white/20 dark:border-slate-800/50 rounded-xl px-4 text-base shadow-sm transition-all hover:bg-white/60 dark:hover:bg-slate-900/60">
+            <SelectValue placeholder="Seleccionar personal...">
               {colaboradorId ? colaboradores.find(c => c.id === colaboradorId)?.nombre : undefined}
             </SelectValue>
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-slate-200/50 dark:border-slate-800/50">
             {colaboradores.map(c => (
-              <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>
+              <SelectItem key={c.id} value={c.id} className="cursor-pointer">
+                {c.nombre}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
-      </Field>
-
-      <div className="flex gap-4">
-        <Field className="flex-1">
-          <FieldLabel htmlFor="inicio">Hora Inicio</FieldLabel>
-          <div className="flex flex-col gap-1.5">
-            <Input
-              id="inicio"
-              type="time"
-              value={inicio}
-              onChange={(e) => setInicio(e.target.value)}
-              className="h-12 rounded-xl text-base"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const now = new Date()
-                const hours = String(now.getHours()).padStart(2, '0')
-                const minutes = String(now.getMinutes()).padStart(2, '0')
-                setInicio(`${hours}:${minutes}`)
-              }}
-              className="h-8 rounded-lg text-xs"
-            >
-              Iniciar labor
-            </Button>
-          </div>
-        </Field>
-        <Field className="flex-1">
-          <FieldLabel htmlFor="fin">Hora Fin</FieldLabel>
-          <div className="flex flex-col gap-1.5">
-            <Input
-              id="fin"
-              type="time"
-              value={fin}
-              onChange={(e) => setFin(e.target.value)}
-              className="h-12 rounded-xl text-base"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const now = new Date()
-                const hours = String(now.getHours()).padStart(2, '0')
-                const minutes = String(now.getMinutes()).padStart(2, '0')
-                setFin(`${hours}:${minutes}`)
-              }}
-              className="h-8 rounded-lg text-xs"
-            >
-              Finalizar labor
-            </Button>
-          </div>
-        </Field>
       </div>
 
-      {minutos > 0 && colaboradorId && (
-        <div className="bg-primary/5 border border-primary/10 rounded-xl p-3 text-sm flex justify-between items-center text-primary-foreground/90">
-          <span className="text-muted-foreground font-medium">Cálculo estimado ({minutos} min):</span>
-          <span className="font-bold text-primary">{formatCurrency(costoEstimado)}</span>
+      {/* Time Inputs */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border border-white/20 dark:border-slate-800/40 p-6 rounded-3xl space-y-3 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)]">
+          <label className="text-xs font-semibold text-primary uppercase tracking-wider block">Inicio</label>
+          <input
+            type="time"
+            value={inicio}
+            onChange={(e) => setInicio(e.target.value)}
+            disabled={isPending}
+            className="w-full h-12 bg-white/50 dark:bg-slate-950/50 border border-white/20 dark:border-slate-800/50 rounded-xl px-4 text-base shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 dark:text-white"
+          />
         </div>
-      )}
+        <div className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border border-white/20 dark:border-slate-800/40 p-6 rounded-3xl space-y-3 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)]">
+          <label className="text-xs font-semibold text-primary uppercase tracking-wider block">Fin</label>
+          <input
+            type="time"
+            value={fin}
+            onChange={(e) => setFin(e.target.value)}
+            disabled={isPending}
+            className="w-full h-12 bg-white/50 dark:bg-slate-950/50 border border-white/20 dark:border-slate-800/50 rounded-xl px-4 text-base shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 dark:text-white"
+          />
+        </div>
+      </div>
 
-      <Field>
-        <FieldLabel htmlFor="actividad">Descripción de la actividad</FieldLabel>
-        <Textarea
-          id="actividad"
+      {/* Description */}
+      <div className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border border-white/20 dark:border-slate-800/40 p-6 rounded-3xl space-y-3 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)]">
+        <label className="text-xs font-semibold text-primary uppercase tracking-wider block">Descripción</label>
+        <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Describe qué estás haciendo..."
-          className="min-h-24 resize-none rounded-xl text-base"
+          disabled={isPending}
+          placeholder="Detalle de las tareas realizadas..."
+          rows={3}
+          className="w-full bg-white/50 dark:bg-slate-950/50 border border-white/20 dark:border-slate-800/50 rounded-xl p-4 text-base shadow-sm resize-none transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 dark:text-white"
         />
-      </Field>
+      </div>
 
-      <Button
-        size="lg"
+      {/* Dynamic Cost Display */}
+      <div className="bg-primary/5 dark:bg-primary/10 border border-primary/20 p-6 rounded-3xl flex justify-between items-center transition-all duration-300">
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-primary uppercase">Costo Estimado ({minutos} min)</p>
+          <div className="text-2xl font-bold text-slate-900 dark:text-white">
+            {formatCurrency(costoEstimado)}
+          </div>
+        </div>
+        <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+          <WalletIcon className="text-primary size-6" />
+        </div>
+      </div>
+
+      {/* Action Button */}
+      <button
         onClick={handleToggle}
         disabled={!canSubmit}
-        className="h-14 w-full rounded-2xl text-base font-semibold bg-primary hover:bg-primary/90"
+        className="w-full h-14 mt-2 bg-primary text-primary-foreground font-semibold rounded-2xl flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(var(--primary),0.3)] hover:shadow-[0_0_25px_rgba(var(--primary),0.5)] active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none disabled:shadow-none"
       >
-        <HardHatIcon className="mr-2" />
-        Registrar Horas
-      </Button>
-    </FieldGroup>
+        <SendIcon className="size-5 fill-current" />
+        Registrar Actividad
+      </button>
+    </div>
   )
 }
