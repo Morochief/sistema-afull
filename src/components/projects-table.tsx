@@ -17,7 +17,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -27,13 +26,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { cn } from "@/lib/utils"
 import {
   type Project,
   costoTotal,
   formatCurrency,
-  statusConfig,
 } from "@/lib/projects-data"
+import { ProjectStatusToggle } from "@/components/project-status-toggle"
 
 export function ProjectsTable({ projects }: { projects: Project[] }) {
   const [query, setQuery] = useState("")
@@ -113,13 +111,13 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
   const totalPages = Math.ceil(sorted.length / itemsPerPage)
 
   return (
-    <Card className="border-border/70 shadow-sm">
+    <Card className="border-border/70 shadow-sm animate-fade-in">
       <CardHeader className="gap-4 border-b border-border/60">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <CardTitle className="text-lg">Proyectos Activos</CardTitle>
             <CardDescription>
-              Detalle de horas, mano de obra e insumos por proyecto.
+              Detalle de horas, mano de obra e insumos. Haz click en el estado de un proyecto para cambiarlo.
             </CardDescription>
           </div>
         </div>
@@ -223,7 +221,6 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
                 </TableRow>
               ) : (
                 paginated.map((p) => {
-                  const status = statusConfig[p.estado]
                   return (
                     <TableRow key={p.id} className="group">
                       <TableCell>
@@ -250,12 +247,7 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
                         {formatCurrency(costoTotal(p))}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge
-                          variant="outline"
-                          className={cn("font-medium", status.className)}
-                        >
-                          {status.label}
-                        </Badge>
+                        <ProjectStatusToggle id={p.id} currentStatus={p.estado} />
                       </TableCell>
                     </TableRow>
                   )

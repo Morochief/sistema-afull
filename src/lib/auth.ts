@@ -1,13 +1,17 @@
 import { SignJWT, jwtVerify } from "jose"
 import { cookies } from "next/headers"
+import { AuthError, PermissionError } from "@/lib/errors"
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || "super-secret-key-for-dev"
 )
 
+export type UserRole = 'admin' | 'jefe_proyecto' | 'usuario'
+
 export type UserPayload = {
   colaborador_id: string
   nombre: string
+  rol: UserRole
 }
 
 export async function signToken(payload: UserPayload) {
@@ -35,14 +39,42 @@ export async function getSession() {
   return await verifyToken(token)
 }
 
+export async function requireAuth(): Promise<UserPayload> {
+  const session = await getSession()
+  if (!session) {
+    throw new AuthError()
+  }
+  return session
+}
+
+export async function requireRole(requiredRoles: UserRole[]): Promise<UserPayload> {
+  const session = await requireAuth()
+
+  if (!requiredRoles.includes(session.rol)) {
+    throw new PermissionError()
+  }
+
+  return session
+}
+
 export function withAuth<Arg, Ret>(
   action: (arg: Arg, session: UserPayload) => Promise<Ret>
 ) {
   return async (arg: Arg): Promise<Ret> => {
     const session = await getSession()
     if (!session) {
-      throw new Error("No autenticado")
+      throw new AuthError()
     }
+    return action(arg, session)
+  }
+}
+
+export function withRole<Arg, Ret>(
+  requiredRoles: UserRole[],
+  action: (arg: Arg, session: UserPayload) => Promise<Ret>
+) {
+  return async (arg: Arg): Promise<Ret> => {
+    const session = await requireRole(requiredRoles)
     return action(arg, session)
   }
 }

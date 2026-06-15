@@ -3,52 +3,88 @@
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
+import { logAuditAction } from "@/lib/audit"
+import { ValidationError, NotFoundError, formatError } from "@/lib/errors"
 
 export const createRegistroMO = withAuth(async (data: {
   proyectoId: string
   inicio: string
   fin: string
   description: string
-}, session: any) => {
-  // session viene inyectado por withAuth (el segundo parámetro)
-  const colaboradorId = session.colaborador_id
-  const creadoPor = session.nombre
-
-  // Validación básica
-  if (!data.proyectoId || !data.inicio || !data.fin) {
-    throw new Error("Faltan datos requeridos")
-  }
-
-  // La base de datos calcula automáticamente los minutos y el cruce de medianoche vía Trigger
-  // Para Prisma 6.x con fechas, tenemos que pasar strings ISO o Date objects válidos.
-  // Como `hora_inicio` en Postgres es TIME(6), y Prisma lo mapea a DateTime, 
-  // necesitamos crear objetos Date ficticios con esas horas (ej. 1970-01-01T10:00:00.000Z).
-  
-  const now = new Date()
-  const [h1, m1] = data.inicio.split(':').map(Number)
-  const [h2, m2] = data.fin.split(':').map(Number)
-  
-  const horaInicioDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h1, m1, 0)
-  const horaFinDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h2, m2, 0)
-
+}, session) => {
   try {
+    // Validación mejorada
+    if (!data.proyectoId?.trim()) {
+      throw new ValidationError("Proyecto es requerido", "INVALID_PROJECT")
+    }
+
+    if (!data.inicio?.trim() || !data.fin?.trim()) {
+      throw new ValidationError("Horas de inicio y fin son requeridas", "INVALID_TIME")
+    }
+
+    if (data.description && data.description.length > 500) {
+      throw new ValidationError("Descripción máximo 500 caracteres", "DESCRIPTION_TOO_LONG")
+    }
+
+    // Validar formato de hora (HH:mm)
+    const timeRegex = /^([0-1]\d|2[0-3]):([0-5]\d)$/
+    if (!timeRegex.test(data.inicio) || !timeRegex.test(data.fin)) {
+      throw new ValidationError("Formato de hora inválido (debe ser HH:mm)", "INVALID_TIME_FORMAT")
+    }
+
+    // Verificar proyecto existe
+    const proyecto = await prisma.proyectos.findUnique({
+      where: { id: data.proyectoId }
+    })
+
+    if (!proyecto) {
+      throw new NotFoundError("Proyecto", "PROJECT_NOT_FOUND")
+    }
+
+    const now = new Date()
+    const [h1, m1] = data.inicio.split(':').map(Number)
+    const [h2, m2] = data.fin.split(':').map(Number)
+
+    const horaInicioDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h1, m1, 0)
+    const horaFinDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h2, m2, 0)
+
+    // Validar que fin > inicio
+    if (horaFinDate <= horaInicioDate) {
+      throw new ValidationError("La hora de fin debe ser después que la de inicio", "INVALID_TIME_RANGE")
+    }
+
     const registro = await prisma.registros.create({
       data: {
         proyecto_id: data.proyectoId,
         tipo: 'MO',
-        colaborador_id: colaboradorId,
+        colaborador_id: session.colaborador_id,
         hora_inicio: horaInicioDate,
         hora_fin: horaFinDate,
-        descripcion: data.description,
-        creado_por: creadoPor,
+        descripcion: data.description || null,
+        creado_por: session.nombre,
       }
     })
-    
-    revalidatePath("/") // Refresca el dashboard
+
+    // Auditoría
+    await logAuditAction({
+      colaborador_id: session.colaborador_id,
+      accion: 'CREATE_REGISTRO',
+      tabla_afectada: 'registros',
+      registro_id: registro.id,
+      cambios: {
+        tipo: 'MO',
+        proyecto_id: data.proyectoId,
+        hora_inicio: data.inicio,
+        hora_fin: data.fin
+      }
+    })
+
+    revalidatePath("/")
+    revalidatePath("/registro")
+
     return { success: true, registro }
   } catch (error) {
-    console.error("Error creando registro MO:", error)
-    return { error: "No se pudo crear el registro de mano de obra" }
+    return formatError(error)
   }
 })
 
@@ -56,37 +92,72 @@ export const createRegistroInsumo = withAuth(async (data: {
   proyectoId: string
   insumoId: string
   cantidad: number
-}, session: any) => {
-  const creadoPor = session.nombre
-
-  if (!data.proyectoId || !data.insumoId || data.cantidad <= 0) {
-    throw new Error("Datos inválidos o cantidad no permitida")
-  }
-
-  // Verificar si el insumo existe
-  const insumo = await prisma.insumos.findUnique({
-    where: { id: data.insumoId }
-  })
-
-  if (!insumo) {
-    return { error: "El insumo seleccionado no existe" }
-  }
-
+}, session) => {
   try {
+    // Validación mejorada
+    if (!data.proyectoId?.trim()) {
+      throw new ValidationError("Proyecto es requerido", "INVALID_PROJECT")
+    }
+
+    if (!data.insumoId?.trim()) {
+      throw new ValidationError("Insumo es requerido", "INVALID_INSUMO")
+    }
+
+    if (typeof data.cantidad !== 'number' || data.cantidad <= 0) {
+      throw new ValidationError("Cantidad debe ser un número positivo", "INVALID_QUANTITY")
+    }
+
+    if (data.cantidad > 999999.99) {
+      throw new ValidationError("Cantidad máxima: 999999.99", "QUANTITY_TOO_HIGH")
+    }
+
+    // Verificar proyecto y insumo existen
+    const [proyecto, insumo] = await Promise.all([
+      prisma.proyectos.findUnique({ where: { id: data.proyectoId } }),
+      prisma.insumos.findUnique({ where: { id: data.insumoId } })
+    ])
+
+    if (!proyecto) {
+      throw new NotFoundError("Proyecto", "PROJECT_NOT_FOUND")
+    }
+
+    if (!insumo) {
+      throw new NotFoundError("Insumo", "INSUMO_NOT_FOUND")
+    }
+
+    if (!insumo.activo) {
+      throw new ValidationError("El insumo está inactivo", "INSUMO_INACTIVE")
+    }
+
     const registro = await prisma.registros.create({
       data: {
         proyecto_id: data.proyectoId,
         tipo: 'INSUMO',
         insumo_id: data.insumoId,
         cantidad: data.cantidad,
-        creado_por: creadoPor,
+        creado_por: session.nombre,
+      }
+    })
+
+    // Auditoría
+    await logAuditAction({
+      colaborador_id: session.colaborador_id,
+      accion: 'CREATE_REGISTRO',
+      tabla_afectada: 'registros',
+      registro_id: registro.id,
+      cambios: {
+        tipo: 'INSUMO',
+        proyecto_id: data.proyectoId,
+        insumo_id: data.insumoId,
+        cantidad: data.cantidad
       }
     })
 
     revalidatePath("/")
+    revalidatePath("/registro")
+
     return { success: true, registro }
   } catch (error) {
-    console.error("Error creando registro de insumo:", error)
-    return { error: "No se pudo registrar el consumo del insumo" }
+    return formatError(error)
   }
 })
