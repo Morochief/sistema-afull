@@ -38,10 +38,12 @@ export function DashboardSidebar({
   open = true,
   onClose,
   userName = "Colaborador",
+  userRole = "usuario",
 }: {
   open?: boolean
   onClose?: () => void
   userName?: string
+  userRole?: string
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -146,7 +148,7 @@ export function DashboardSidebar({
                 {userName}
               </p>
               <p className="truncate text-xs text-sidebar-foreground/60">
-                Colaborador
+                {userRole === "admin" ? "Administrador" : userRole === "jefe_proyecto" ? "Jefe de Proyecto" : "Colaborador"}
               </p>
             </div>
           </div>

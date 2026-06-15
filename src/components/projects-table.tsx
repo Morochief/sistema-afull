@@ -31,9 +31,9 @@ import {
   costoTotal,
   formatCurrency,
 } from "@/lib/projects-data"
-import { ProjectStatusToggle } from "@/components/project-status-toggle"
+import { ProjectStatusSelect } from "@/components/project-status-select"
 
-export function ProjectsTable({ projects }: { projects: Project[] }) {
+export function ProjectsTable({ projects, canEditStatus = false }: { projects: Project[]; canEditStatus?: boolean }) {
   const [query, setQuery] = useState("")
   const [cliente, setCliente] = useState("all")
   const [estado, setEstado] = useState("all")
@@ -65,8 +65,7 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
       const matchesQuery =
         query.trim() === "" ||
         p.proyecto.toLowerCase().includes(query.toLowerCase()) ||
-        p.cliente.toLowerCase().includes(query.toLowerCase()) ||
-        p.id.toLowerCase().includes(query.toLowerCase())
+        p.cliente.toLowerCase().includes(query.toLowerCase())
       const matchesCliente = cliente === "all" || p.cliente === cliente
       const matchesEstado = estado === "all" || p.estado === estado
       return matchesQuery && matchesCliente && matchesEstado
@@ -117,7 +116,7 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
           <div className="space-y-1">
             <CardTitle className="text-lg">Proyectos Activos</CardTitle>
             <CardDescription>
-              Detalle de horas, mano de obra e insumos. Haz click en el estado de un proyecto para cambiarlo.
+              Detalle de horas, mano de obra e insumos por proyecto.
             </CardDescription>
           </div>
         </div>
@@ -132,7 +131,7 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
                 setQuery(e.target.value)
                 setPage(1)
               }}
-              placeholder="Buscar por proyecto, cliente o código..."
+              placeholder="Buscar por proyecto o cliente..."
               className="pl-9"
               aria-label="Buscar proyectos"
             />
@@ -263,9 +262,6 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
                         <div className="font-medium text-foreground">
                           {p.cliente}
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          {p.id}
-                        </div>
                       </TableCell>
                       <TableCell className="text-foreground">
                         {p.proyecto}
@@ -283,7 +279,11 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
                         {formatCurrency(costoTotal(p))}
                       </TableCell>
                       <TableCell className="text-center">
-                        <ProjectStatusToggle id={p.id} currentStatus={p.estado} />
+                        <ProjectStatusSelect
+                          projectId={p.id}
+                          currentStatus={p.estado}
+                          canEdit={canEditStatus}
+                        />
                       </TableCell>
                     </TableRow>
                   )

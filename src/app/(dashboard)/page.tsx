@@ -1,11 +1,19 @@
 import { MetricsCards } from "@/components/metrics-cards"
 import { ProjectsTable } from "@/components/projects-table"
 import { prisma } from "@/lib/prisma"
+import { getSession } from "@/lib/auth"
 import { MARKUP_RATE } from "@/lib/constants"
+import Link from "next/link"
+import { PlusCircle, FolderKanban } from "lucide-react"
+import { buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 
 export default async function DashboardPage() {
+  const session = await getSession()
+  const canEditStatus = session?.rol === 'admin' || session?.rol === 'jefe_proyecto'
+
   const proyectosDb = await prisma.proyectos.findMany({
     include: { cliente: true }
   })
@@ -56,12 +64,36 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in-up">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Panel de Costos</h1>
-        <p className="text-muted-foreground">Resumen general de proyectos y costos reales en tiempo real.</p>
+      {/* Header con saludo y acciones rápidas */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Hola, {session?.nombre || "Colaborador"} 👋
+          </h1>
+          <p className="text-muted-foreground">
+            Resumen general de proyectos y costos reales en tiempo real.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/proyectos"
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-9 gap-1.5")}
+          >
+            <FolderKanban className="size-4" />
+            Ver Proyectos
+          </Link>
+          <Link
+            href="/registro"
+            className={cn(buttonVariants({ variant: "default", size: "sm" }), "h-9 gap-1.5")}
+          >
+            <PlusCircle className="size-4" />
+            Nuevo Registro
+          </Link>
+        </div>
       </div>
+
       <MetricsCards activos={activos} costoMO={costoMO} costoInsumos={costoInsumos} rentabilidad={rentabilidad} />
-      <ProjectsTable projects={projectsData} />
+      <ProjectsTable projects={projectsData} canEditStatus={canEditStatus} />
     </div>
   )
 }

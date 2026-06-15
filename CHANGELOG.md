@@ -4,6 +4,18 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## [1.4.0] - 2026-06-15
+
+### [Added]
+- **Saludo y Acciones Rápidas:** Añadida sección superior en el Dashboard desktop con saludo personalizado y botones de acceso directo a "Ver Proyectos" y "Nuevo Registro".
+
+### [Changed]
+- **Unificación de Estados de Proyecto:** Removido el componente legacy `ProjectStatusToggle`, unificando a `ProjectStatusSelect` en el Dashboard. Ahora respeta los roles de usuario (solo Admins y Jefes de Proyecto pueden editar el estado).
+- **Limpieza de Datos Obsoletos:** Eliminados más de 90 líneas de datos dummy legacy en `projects-data.ts` manteniendo solo definiciones limpias de tipos y utilidades.
+- **Consistencia de Markup:** Eliminada la constante redundante `REVENUE_MARKUP` (45%) a favor de `MARKUP_RATE` (35%) de `constants.ts`.
+- **Limpieza Visual de Tabla:** Ocultado el UUID del proyecto en la tabla del panel principal para simplificar y limpiar la visualización.
+- **Visualización de Roles:** La barra lateral (Sidebar) ahora detecta y muestra el rol real del usuario logueado (ej. Administrador, Jefe de Proyecto) en lugar del valor hardcodeado "Colaborador".
+
 ## [1.3.0] - 2026-06-15
 
 ### [Added]

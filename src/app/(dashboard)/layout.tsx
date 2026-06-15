@@ -30,6 +30,7 @@ export default async function DashboardLayout({
   // Get session user
   const session = await getSession();
   const userName = session?.nombre || "Colaborador";
+  const userRole = session?.rol || "usuario";
 
   return (
     <AppProvider
@@ -48,7 +49,7 @@ export default async function DashboardLayout({
       <div className="flex min-h-dvh w-full flex-col bg-muted/40 md:flex-row">
         {/* Desktop Sidebar */}
         <aside className="hidden md:block" aria-label="Navegación principal">
-          <DashboardSidebar userName={userName} />
+          <DashboardSidebar userName={userName} userRole={userRole} />
         </aside>
 
         {/* Main Content Area */}
