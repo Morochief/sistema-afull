@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { statusConfig } from "@/lib/projects-data"
 import { cn } from "@/lib/utils"
+import { CreateProjectSheet } from "@/components/create-project-sheet"
 
 export const dynamic = "force-dynamic"
 
@@ -18,6 +19,12 @@ export default async function ProyectosPage() {
     orderBy: { creado_en: 'desc' }
   })
 
+  // Obtener la lista de clientes para pasársela al formulario de creación
+  const clientes = await prisma.clientes.findMany({
+    select: { id: true, nombre: true },
+    orderBy: { nombre: 'asc' }
+  })
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -25,6 +32,7 @@ export default async function ProyectosPage() {
           <h1 className="text-2xl font-bold tracking-tight">Proyectos</h1>
           <p className="text-muted-foreground">Listado completo de proyectos registrados en el sistema.</p>
         </div>
+        <CreateProjectSheet clientes={clientes} />
       </div>
 
       <Card className="border-border/70 shadow-sm">

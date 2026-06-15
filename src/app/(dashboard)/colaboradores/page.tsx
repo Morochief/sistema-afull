@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma"
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatCurrency } from "@/lib/projects-data"
+import { CreateColaboradorSheet } from "@/components/create-colaborador-sheet"
+import { ToggleColaboradorButton } from "@/components/toggle-colaborador-button"
 
 export const dynamic = "force-dynamic"
 
@@ -13,15 +14,18 @@ export default async function ColaboradoresPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Colaboradores</h1>
-        <p className="text-muted-foreground">Equipo de trabajo registrado y sus tarifas asignadas.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Colaboradores</h1>
+          <p className="text-muted-foreground">Equipo de trabajo registrado y sus tarifas asignadas.</p>
+        </div>
+        <CreateColaboradorSheet />
       </div>
 
       <Card className="border-border/70 shadow-sm">
         <CardHeader>
           <CardTitle className="text-lg">Equipo de Trabajo</CardTitle>
-          <CardDescription>Visualiza las tarifas por minuto y hora de cada integrante.</CardDescription>
+          <CardDescription>Tarifas por minuto y hora de cada integrante. Haz click en el estado para alternar.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -52,9 +56,7 @@ export default async function ColaboradoresPage() {
                         {formatCurrency(Number(c.tarifa_minuto) * 60)}/h
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant={c.activo ? "default" : "secondary"} className="font-medium">
-                          {c.activo ? "Activo" : "Inactivo"}
-                        </Badge>
+                        <ToggleColaboradorButton id={c.id} initialActivo={!!c.activo} />
                       </TableCell>
                     </TableRow>
                   ))

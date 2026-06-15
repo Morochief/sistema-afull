@@ -4,6 +4,23 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## [1.2.0] - 2026-06-15
+
+### [Added]
+- **Pantalla de carga (Skeletons):** Añadido `ui/skeleton.tsx` para animaciones pulse tipo shimmer. Implementados Skeletons personalizados para el Dashboard (`loading.tsx`) y las tablas de catálogos (`proyectos/loading.tsx`, `clientes/loading.tsx`, `insumos/loading.tsx`, `colaboradores/loading.tsx`).
+- **Global Error Boundary:** Creado `error.tsx` en el grupo de dashboard para atrapar errores de red o Base de Datos, mostrando un aviso amigable y botón de reintento.
+- **Creación en Catálogos (CRUD):** Añadidos formularios tipo slide-over (`Sheet` de ShadCN/Base UI) y Server Actions para crear proyectos, clientes, insumos y colaboradores sin cambiar de página.
+- **Toggle de Estados Activo/Inactivo:** Componentes interactivos `ToggleInsumoButton` y `ToggleColaboradorButton` para cambiar instantáneamente la disponibilidad de insumos y equipo de trabajo desde sus respectivas tablas.
+- **Notificaciones Toast:** Integrada la biblioteca `sonner` para mostrar feedbacks de éxito o error no bloqueantes al usuario.
+- **Ordenamiento y Paginación en Panel:** La tabla de proyectos activos ahora cuenta con sorting real de columnas (Proyecto, Horas, Costo Total) y paginación en el cliente (10 filas por página).
+
+### [Changed]
+- **Costo en Tiempo Real en Formularios:**
+  - El panel de Mano de Obra calcula y dibuja el costo proyectado en tiempo real basado en la diferencia horaria y la tarifa del colaborador.
+  - El panel de Insumos muestra el subtotal de consumo en vivo según el precio unitario del material seleccionado.
+
+---
+
 ## [1.1.0] - 2026-06-15
 
 ### [Added]

@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Search, FileSpreadsheet, FileText, Download, ArrowUpDown } from "lucide-react"
+import { Search, ArrowUpDown } from "lucide-react"
 import {
   Card,
   CardContent,
@@ -27,14 +27,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import {
   type Project,
@@ -48,11 +40,28 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
   const [cliente, setCliente] = useState("all")
   const [estado, setEstado] = useState("all")
 
+  // Estados de paginación y ordenamiento
+  const [sortField, setSortField] = useState<"totalHoras" | "costoTotal" | "proyecto">("proyecto")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
+  const [page, setPage] = useState(1)
+  const itemsPerPage = 10
+
   const clientes = useMemo(
     () => Array.from(new Set(projects.map((p) => p.cliente))).sort(),
     [projects],
   )
 
+  const handleSort = (field: "totalHoras" | "costoTotal" | "proyecto") => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+    } else {
+      setSortField(field)
+      setSortOrder("desc")
+    }
+    setPage(1)
+  }
+
+  // Filtrado
   const filtered = useMemo(() => {
     return projects.filter((p) => {
       const matchesQuery =
@@ -66,15 +75,42 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
     })
   }, [projects, query, cliente, estado])
 
-  function exportData(format: "pdf" | "excel") {
-    // Placeholder export — wire to a real generator or API route.
-    console.log(`[v0] Exporting ${filtered.length} rows to ${format}`)
-    alert(
-      `Se exportarán ${filtered.length} proyectos a ${
-        format === "pdf" ? "PDF" : "Excel"
-      }.`,
-    )
-  }
+  // Ordenamiento real con índices seguros
+  const sorted = useMemo(() => {
+    const list = [...filtered]
+    list.sort((a, b) => {
+      let valA: any
+      let valB: any
+
+      if (sortField === "costoTotal") {
+        valA = costoTotal(a)
+        valB = costoTotal(b)
+      } else if (sortField === "proyecto") {
+        valA = a.proyecto
+        valB = b.proyecto
+      } else {
+        valA = a.totalHoras
+        valB = b.totalHoras
+      }
+
+      if (typeof valA === "string") {
+        return sortOrder === "asc"
+          ? valA.localeCompare(valB)
+          : valB.localeCompare(valA)
+      } else {
+        return sortOrder === "asc" ? valA - valB : valB - valA
+      }
+    })
+    return list
+  }, [filtered, sortField, sortOrder])
+
+  // Paginación real
+  const paginated = useMemo(() => {
+    const start = (page - 1) * itemsPerPage
+    return sorted.slice(start, start + itemsPerPage)
+  }, [sorted, page])
+
+  const totalPages = Math.ceil(sorted.length / itemsPerPage)
 
   return (
     <Card className="border-border/70 shadow-sm">
@@ -86,27 +122,6 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
               Detalle de horas, mano de obra e insumos por proyecto.
             </CardDescription>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button className="gap-2 self-start sm:self-auto" />}>
-              <Download className="size-4" />
-              Exportar
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>Exportar reporte</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => exportData("pdf")} className="gap-2">
-                <FileText className="size-4" />
-                Exportar a PDF
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => exportData("excel")}
-                className="gap-2"
-              >
-                <FileSpreadsheet className="size-4" />
-                Exportar a Excel
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
 
         {/* Filters */}
@@ -115,19 +130,23 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value)
+                setPage(1)
+              }}
               placeholder="Buscar por proyecto, cliente o código..."
               className="pl-9"
               aria-label="Buscar proyectos"
             />
           </div>
           <div className="flex gap-3">
-            <Select value={cliente} onValueChange={(val) => setCliente(val || "")}>
+            <Select value={cliente} onValueChange={(val) => {
+              setCliente(val || "")
+              setPage(1)
+            }}>
               <SelectTrigger className="w-full sm:w-48" aria-label="Filtrar por cliente">
                 <SelectValue placeholder="Cliente">
-                  {(value: string) =>
-                    value === "all" ? "Todos los clientes" : value
-                  }
+                  {cliente === "all" ? "Todos los clientes" : cliente}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -139,17 +158,19 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={estado} onValueChange={(val) => setEstado(val || "")}>
+            <Select value={estado} onValueChange={(val) => {
+              setEstado(val || "")
+              setPage(1)
+            }}>
               <SelectTrigger className="w-full sm:w-44" aria-label="Filtrar por estado">
                 <SelectValue placeholder="Estado">
-                  {(value: string) =>
-                    value === "all"
-                      ? "Todos los estados"
-                      : value === "in_progress"
-                        ? "En progreso"
-                        : value === "completed"
-                          ? "Completado"
-                          : "En pausa"
+                  {estado === "all"
+                    ? "Todos los estados"
+                    : estado === "in_progress"
+                      ? "En progreso"
+                      : estado === "completed"
+                        ? "Completado"
+                        : "En pausa"
                   }
                 </SelectValue>
               </SelectTrigger>
@@ -170,20 +191,28 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
                 <TableHead className="min-w-44">Cliente</TableHead>
-                <TableHead className="min-w-56">Proyecto</TableHead>
-                <TableHead className="text-right">
+                <TableHead className="min-w-56 cursor-pointer select-none hover:bg-muted/30 transition-colors" onClick={() => handleSort("proyecto")}>
                   <span className="inline-flex items-center gap-1">
-                    Total Horas <ArrowUpDown className="size-3.5 opacity-50" />
+                    Proyecto {sortField === "proyecto" && <ArrowUpDown className="size-3.5 opacity-70" />}
+                  </span>
+                </TableHead>
+                <TableHead className="text-right cursor-pointer select-none hover:bg-muted/30 transition-colors" onClick={() => handleSort("totalHoras")}>
+                  <span className="inline-flex items-center gap-1">
+                    Total Horas {sortField === "totalHoras" && <ArrowUpDown className="size-3.5 opacity-70" />}
                   </span>
                 </TableHead>
                 <TableHead className="text-right">Costo MO</TableHead>
                 <TableHead className="text-right">Costo Insumos</TableHead>
-                <TableHead className="text-right">Costo Total</TableHead>
+                <TableHead className="text-right cursor-pointer select-none hover:bg-muted/30 transition-colors" onClick={() => handleSort("costoTotal")}>
+                  <span className="inline-flex items-center gap-1">
+                    Costo Total {sortField === "costoTotal" && <ArrowUpDown className="size-3.5 opacity-70" />}
+                  </span>
+                </TableHead>
                 <TableHead className="text-center">Estado</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 ? (
+              {paginated.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={7}
@@ -193,7 +222,7 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((p) => {
+                paginated.map((p) => {
                   const status = statusConfig[p.estado]
                   return (
                     <TableRow key={p.id} className="group">
@@ -236,12 +265,42 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
           </Table>
         </div>
 
-        <div className="flex items-center justify-between border-t border-border/60 px-5 py-3 text-sm text-muted-foreground">
+        {/* Paginación */}
+        <div className="flex items-center justify-between border-t border-border/60 px-5 py-4 text-sm text-muted-foreground flex-col gap-3 sm:flex-row">
           <span>
             Mostrando{" "}
-            <span className="font-medium text-foreground">{filtered.length}</span>{" "}
-            de {projects.length} proyectos
+            <span className="font-medium text-foreground">
+              {sorted.length > 0 ? (page - 1) * itemsPerPage + 1 : 0}
+            </span>{" "}
+            a{" "}
+            <span className="font-medium text-foreground">
+              {Math.min(page * itemsPerPage, sorted.length)}
+            </span>{" "}
+            de {sorted.length} proyectos
           </span>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.max(p - 1, 1))}
+                disabled={page === 1}
+                className="h-8 rounded-lg"
+              >
+                Anterior
+              </Button>
+              <span className="px-2 text-xs">Pág. {page} de {totalPages}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.min(p + 1, totalPages))}
+                disabled={page === totalPages}
+                className="h-8 rounded-lg"
+              >
+                Siguiente
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

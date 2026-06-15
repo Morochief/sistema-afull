@@ -315,6 +315,15 @@ Usuario ingresa nombre → Server Action "login(nombre)"
   5. Llama `revalidatePath("/")` para refrescar el dashboard
 - **Retorno:** `{ success: true, registro }` o `{ error: string }`
 
+### 6.5 Catálogos Actions (`src/app/actions/catalogs.ts`)
+
+- **createProyecto(data):** Crea un proyecto asignándolo a un cliente existente. Revalida `/proyectos` y `/`.
+- **createCliente(data):** Agrega una nueva empresa. Revalida `/clientes`.
+- **createInsumo(data):** Crea un insumo asignándole un costo por unidad. Revalida `/insumos`.
+- **toggleInsumoActivo(id):** Habilita/deshabilita la visibilidad del insumo en el sistema. Revalida `/insumos`.
+- **createColaborador(data):** Registra un miembro con su tarifa por minuto. Revalida `/colaboradores`.
+- **toggleColaboradorActivo(id):** Habilita/deshabilita el login y cómputo del colaborador. Revalida `/colaboradores`.
+
 ---
 
 ## 7. AppContext (Estado Global del Cliente)
@@ -443,20 +452,32 @@ El `AppProvider` centraliza los catálogos (insumos, colaboradores, proyectos) q
 
 | Componente | Archivo | Props | Descripción |
 |------------|---------|-------|-------------|
-| `MetricsCards` | `metrics-cards.tsx` | `activos, costoMO, costoInsumos, rentabilidad` | 4 tarjetas KPI con iconos, valores y deltas de tendencia |
-| `ProjectsTable` | `projects-table.tsx` | `projects: Project[]` | Tabla interactiva con filtros (búsqueda, cliente, estado) y exportación placeholder |
+| `MetricsCards` | `metrics-cards.tsx` | `activos, costoMO, costoInsumos, rentabilidad` | 4 tarjetas KPI Bento Grid con animaciones hover sutiles |
+| `ProjectsTable` | `projects-table.tsx` | `projects: Project[]` | Tabla interactiva con filtros, ordenamiento real y paginación integrada |
 
 ### 9.3 Componentes de Registro
 
 | Componente | Archivo | Props | Descripción |
 |------------|---------|-------|-------------|
-| `TaskLoggerScreen` | `task-logger-screen.tsx` | — (usa `AppContext`) | Pantalla principal de registro. Selector de proyecto + tabs MO/Insumos |
-| `ManoDeObraPanel` | `mano-de-obra-panel.tsx` | `colaboradores[], onComplete` | Formulario de horas: selector de colaborador, hora inicio/fin (con botones "Iniciar/Finalizar labor"), descripción |
-| `InsumosPanel` | `insumos-panel.tsx` | `insumosCatalogo[], onAdd` | Formulario de consumo: selector de insumo, cantidad numérica |
+| `TaskLoggerScreen` | `task-logger-screen.tsx` | — (usa `AppContext`) | Pantalla de registro. Proyecto + tabs MO/Insumos con revalidación y toast |
+| `ManoDeObraPanel` | `mano-de-obra-panel.tsx` | `colaboradores[], onComplete` | Formulario de horas con costo estimado en tiempo real |
+| `InsumosPanel` | `insumos-panel.tsx` | `insumosCatalogo[], onAdd` | Formulario de insumos con subtotal estimado en tiempo real |
 
-### 9.4 Componentes UI (ShadCN)
+### 9.4 Formularios Slide-over (Sheets) e Interactividad
 
-Todos en `src/components/ui/`: `avatar`, `badge`, `button`, `card`, `command`, `dialog`, `dropdown-menu`, `field`, `input`, `input-group`, `label`, `popover`, `select`, `separator`, `table`, `tabs`, `textarea`.
+| Componente | Archivo | Props | Descripción |
+|------------|---------|-------|-------------|
+| `CreateProjectSheet` | `create-project-sheet.tsx` | `clientes[]` | Slide-over para creación instantánea de proyectos |
+| `CreateClientSheet` | `create-client-sheet.tsx` | — | Slide-over para registro de nuevas empresas |
+| `CreateInsumoSheet` | `create-insumo-sheet.tsx` | — | Slide-over para añadir materiales con precio unitario |
+| `CreateColaboradorSheet` | `create-colaborador-sheet.tsx` | — | Slide-over para registrar colaboradores con tarifa |
+| `ToggleInsumoButton` | `toggle-insumo-button.tsx` | `id, initialActivo` | Switch badge para activar/desactivar insumos |
+| `ToggleColaboradorButton` | `toggle-colaborador-button.tsx` | `id, initialActivo` | Switch badge para activar/desactivar colaboradores |
+| `Skeleton` | `ui/skeleton.tsx` | — | Shimmer loading animation placeholder |
+
+### 9.5 Componentes UI (ShadCN)
+
+Todos en `src/components/ui/`: `avatar`, `badge`, `button`, `card`, `command`, `dialog`, `dropdown-menu`, `field`, `input`, `input-group`, `label`, `popover`, `select`, `separator`, `sheet`, `table`, `tabs`, `textarea`.
 
 ---
 

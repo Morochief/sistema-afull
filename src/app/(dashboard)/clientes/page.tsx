@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { CreateClientSheet } from "@/components/create-client-sheet"
 
 export const dynamic = "force-dynamic"
 
@@ -16,9 +17,12 @@ export default async function ClientesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Clientes</h1>
-        <p className="text-muted-foreground">Listado de clientes registrados en el sistema.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Clientes</h1>
+          <p className="text-muted-foreground">Listado de clientes registrados en el sistema.</p>
+        </div>
+        <CreateClientSheet />
       </div>
 
       <Card className="border-border/70 shadow-sm">

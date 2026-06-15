@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sistema aFull (app-unificada)
 
-## Getting Started
+Aplicación monolítica Full-Stack para el costeo de proyectos, registro de mano de obra y consumo de insumos en tiempo real. Construida sobre Next.js 16 (App Router), React 19, Tailwind CSS v4, Prisma 6 y PostgreSQL (Supabase).
 
-First, run the development server:
+## 🚀 Características Principales
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- 📊 **Dashboard Bento Grid:** Indicadores clave (KPIs) dinámicos y métricas de rentabilidad basadas en el 35% de markup.
+- 🕒 **Control de Horas Detallado:** Cálculo exacto de minutos y costos en Mano de Obra a nivel de base de datos (con trigger SQL de cruce de medianoche).
+- 📦 **Consumo de Insumos:** Desglose y costeo de materiales imputados en cada proyecto.
+- 🔗 **Navegación Fluida:** Shell unificada con barra de navegación móvil (bottom nav) e interactividad responsive.
+- ⚡ **Velocidad Extrema:** Estados de carga optimizados con Skeleton screens (`shimmer effects`) y notificaciones dinámicas via `sonner`.
+- 🔐 **Sesiones Protegidas:** Autenticación fluida con tokens JWT (cookie HTTP-only via `jose`) y protección integral por middleware.
+- 🗃️ **CRUDs Integrados:** Registro interactivo de proyectos, clientes, insumos y colaboradores mediante slide-overs (`Sheets`).
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🛠️ Stack Tecnológico
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Framework:** Next.js 16 (App Router con Turbopack)
+- **Biblioteca UI:** React 19 (Client & Server Components, useTransition, useForm)
+- **Estilos:** Tailwind CSS v4 + ShadCN UI
+- **ORM:** Prisma Client v6
+- **Base de Datos:** PostgreSQL en Supabase
+- **Seguridad:** JWT (`jose`)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## ⚡ Comandos de Inicialización
 
-## Learn More
+1. **Instalar Dependencias:**
+   ```bash
+   npm install
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+2. **Configurar Variables de Entorno (`.env`):**
+   Crea un archivo `.env` en la raíz con tus credenciales de Supabase:
+   ```env
+   DATABASE_URL="postgresql://postgres.xxx:xxx@aws-1-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true"
+   DIRECT_URL="postgresql://postgres.xxx:xxx@aws-1-us-east-2.pooler.supabase.com:5432/postgres"
+   JWT_SECRET="tu-clave-secreta-de-32-caracteres"
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+3. **Iniciar Servidor de Desarrollo:**
+   ```bash
+   npm run dev
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+4. **Compilar para Producción:**
+   ```bash
+   npm run build
+   ```
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Para más detalles técnicos, consulta la [Documentación Completa](file:///c:/Users/Morochief/Downloads/Sistema%20aFull/app-unificada/DOCUMENTATION.md) y el [Historial de Cambios](file:///c:/Users/Morochief/Downloads/Sistema%20aFull/app-unificada/CHANGELOG.md).

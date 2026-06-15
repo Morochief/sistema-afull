@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma"
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatCurrency } from "@/lib/projects-data"
+import { CreateInsumoSheet } from "@/components/create-insumo-sheet"
+import { ToggleInsumoButton } from "@/components/toggle-insumo-button"
 
 export const dynamic = "force-dynamic"
 
@@ -13,15 +14,18 @@ export default async function InsumosPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Catálogo de Insumos</h1>
-        <p className="text-muted-foreground">Materiales y consumibles disponibles con sus costos.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Catálogo de Insumos</h1>
+          <p className="text-muted-foreground">Materiales y consumibles disponibles con sus costos.</p>
+        </div>
+        <CreateInsumoSheet />
       </div>
 
       <Card className="border-border/70 shadow-sm">
         <CardHeader>
           <CardTitle className="text-lg">Insumos Registrados</CardTitle>
-          <CardDescription>Lista de materiales y precios de costo vigentes.</CardDescription>
+          <CardDescription>Lista de materiales y precios de costo vigentes. Haz click en el estado para alternar.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -48,9 +52,7 @@ export default async function InsumosPage() {
                         {formatCurrency(Number(i.precio_unitario))}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant={i.activo ? "default" : "secondary"} className="font-medium">
-                          {i.activo ? "Activo" : "Inactivo"}
-                        </Badge>
+                        <ToggleInsumoButton id={i.id} initialActivo={!!i.activo} />
                       </TableCell>
                     </TableRow>
                   ))
