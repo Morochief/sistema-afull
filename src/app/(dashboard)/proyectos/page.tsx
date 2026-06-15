@@ -1,14 +1,16 @@
 import { prisma } from "@/lib/prisma"
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { statusConfig } from "@/lib/projects-data"
-import { cn } from "@/lib/utils"
 import { CreateProjectSheet } from "@/components/create-project-sheet"
+import { ProjectStatusSelect } from "@/components/project-status-select"
+import { getSession } from "@/lib/auth"
 
 export const dynamic = "force-dynamic"
 
 export default async function ProyectosPage() {
+  const session = await getSession()
+  const canEditStatus = session?.rol === 'admin' || session?.rol === 'jefe_proyecto'
+
   const proyectos = await prisma.proyectos.findMany({
     include: {
       cliente: true,
@@ -60,23 +62,21 @@ export default async function ProyectosPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  proyectos.map((p) => {
-                    const estadoKey = (p.estado as "in_progress" | "completed" | "on_hold") || "in_progress"
-                    const status = statusConfig[estadoKey] || { label: estadoKey, className: "" }
-                    return (
-                      <TableRow key={p.id}>
-                        <TableCell className="font-semibold text-foreground">{p.nombre}</TableCell>
-                        <TableCell>{p.cliente.nombre}</TableCell>
-                        <TableCell>{p._count.registros} consumos</TableCell>
-                        <TableCell>{p.creado_en ? new Date(p.creado_en).toLocaleDateString("es-ES") : '-'}</TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline" className={cn("font-medium", status.className)}>
-                            {status.label}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
+                  proyectos.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-semibold text-foreground">{p.nombre}</TableCell>
+                      <TableCell>{p.cliente.nombre}</TableCell>
+                      <TableCell>{p._count.registros} consumos</TableCell>
+                      <TableCell>{p.creado_en ? new Date(p.creado_en).toLocaleDateString("es-ES") : '-'}</TableCell>
+                      <TableCell className="text-center">
+                        <ProjectStatusSelect
+                          projectId={p.id}
+                          currentStatus={p.estado || "in_progress"}
+                          canEdit={canEditStatus}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>

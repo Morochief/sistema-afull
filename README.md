@@ -11,6 +11,9 @@ Aplicación monolítica Full-Stack para el costeo de proyectos, registro de mano
 - ⚡ **Velocidad Extrema:** Estados de carga optimizados con Skeleton screens (`shimmer effects`) y notificaciones dinámicas via `sonner`.
 - 🔐 **Sesiones Protegidas:** Autenticación fluida con tokens JWT (cookie HTTP-only via `jose`) y protección integral por middleware.
 - 🗃️ **CRUDs Integrados:** Registro interactivo de proyectos, clientes, insumos y colaboradores mediante slide-overs (`Sheets`).
+- 👥 **Sistema de Roles:** 3 niveles de acceso (`admin`, `jefe_proyecto`, `usuario`) almacenados en la tabla de colaboradores y embebidos en el JWT.
+- 🔄 **Gestión de Estado de Proyectos:** Admin y Jefes de Proyecto pueden cambiar el estado (`En Progreso`, `Completado`, `En Pausa`) directamente desde la tabla.
+- 🎨 **Login Elite Minimalist:** Pantalla de login rediseñada con estilo Swiss Design + Glassmorphism (backdrop-blur, micro-animaciones, paleta Indigo/Slate).
 
 ## 🛠️ Stack Tecnológico
 

@@ -22,11 +22,11 @@ export async function login(nombre: string) {
       return { error: "Colaborador no encontrado o inactivo" }
     }
 
-    // Crear token con colaborador_id
+    // Crear token con colaborador_id y rol real de la DB
     const token = await signToken({
       colaborador_id: colaborador.id,
       nombre: colaborador.nombre,
-      rol: 'usuario'
+      rol: (colaborador.rol as 'admin' | 'jefe_proyecto' | 'usuario') || 'usuario'
     })
 
     // Guardar en cookie HTTP-Only

@@ -4,6 +4,20 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## [1.3.0] - 2026-06-15
+
+### [Added]
+- **Sistema de Roles:** Añadida columna `rol` (`VARCHAR(20)`) a la tabla `colaboradores` con valores posibles: `admin`, `jefe_proyecto`, `usuario`. El login ahora lee el rol de la base de datos en lugar de hardcodear `'usuario'` para todos.
+- **Cambio de Estado de Proyectos:** Nuevo componente interactivo `ProjectStatusSelect` que permite a usuarios con rol `admin` o `jefe_proyecto` cambiar el estado de un proyecto (`En Progreso`, `Completado`, `En Pausa`) directamente desde la tabla de `/proyectos`. Usuarios con rol `usuario` ven un badge de solo lectura.
+- **Funciones de Autorización por Rol:** `requireRole()` y `withRole()` en `auth.ts` para proteger Server Actions según el rol del usuario.
+- **Migración SQL:** Script `db/add-rol.sql` para agregar la columna de roles sin afectar datos existentes.
+
+### [Changed]
+- **Login Rediseñado (Elite Minimalist):** Pantalla de login completamente rediseñada con estilo Swiss Minimalist + Glassmorphism suave. Incluye: tarjeta translúcida con `backdrop-blur-md`, input profesional con `focus:ring-2 focus:ring-indigo-500`, botón con micro-animación `active:scale-[0.98]`, spinner de carga animado (`Loader2Icon`), mensajes de error inline con transición de altura, y orbes decorativos de fondo con gradientes difuminados.
+- **Auth Layout:** Rediseñado con `grid place-items-center`, fondo `bg-slate-50` y dos orbes decorativos con `blur-3xl` para profundidad ambiental.
+
+---
+
 ## [1.2.0] - 2026-06-15
 
 ### [Added]

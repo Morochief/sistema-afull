@@ -1,7 +1,7 @@
 # Documentación Técnica: Sistema aFull (app-unificada)
 
 > **Última actualización:** 2026-06-15  
-> **Versión:** 0.1.0  
+> **Versión:** 1.3.0  
 > **Stack:** Next.js 16 · React 19 · Prisma 6 · PostgreSQL (Supabase) · JWT (jose)
 
 ---
@@ -115,6 +115,7 @@
 | `id` | `UUID` (auto) | Clave primaria |
 | `nombre` | `VARCHAR(100)` | Nombre del colaborador. **También sirve como credencial de login.** |
 | `tarifa_minuto` | `DECIMAL(10,2)` | Tarifa por minuto trabajado. Default: `350.00` |
+| `rol` | `VARCHAR(20)` | Rol del usuario: `'admin'`, `'jefe_proyecto'` o `'usuario'` (default). Determina permisos de gestión |
 | `activo` | `BOOLEAN` | Si está activo (`true`) puede loguearse y registrar horas |
 | `creado_en` | `TIMESTAMPTZ` | Fecha de creación automática |
 | **Relación** | `registros[]` | Registros de MO asociados |
@@ -234,7 +235,8 @@ Se ejecuta **ANTES** de cada INSERT o UPDATE, garantizando que `total_calculado`
 Usuario ingresa nombre → Server Action "login(nombre)"
   → Busca en DB: colaboradores.findFirst({ nombre, mode: insensitive, activo: true })
   → Si no existe: devuelve error "Colaborador no encontrado o inactivo"
-  → Si existe: firma JWT con { colaborador_id, nombre }
+  → Si existe: lee el campo 'rol' del registro del colaborador
+  → Firma JWT con { colaborador_id, nombre, rol }
   → Guarda token en cookie HTTP-Only (maxAge: 24h, secure en prod, sameSite: lax)
   → Redirige a "/"
 ```
@@ -245,14 +247,21 @@ Usuario ingresa nombre → Server Action "login(nombre)"
 
 | Función | Descripción |
 |---------|-------------|
-| `signToken(payload)` | Firma un JWT HS256 con el payload `{ colaborador_id, nombre }`, expiración 24h |
+| `signToken(payload)` | Firma un JWT HS256 con el payload `{ colaborador_id, nombre, rol }`, expiración 24h |
 | `verifyToken(token)` | Verifica la firma JWT. Retorna el payload o `null` si es inválido/expirado |
 | `getSession()` | Lee la cookie `auth_token`, la verifica y retorna el payload de sesión |
-| `withAuth(action)` | **HOF (Higher-Order Function).** Envuelve una Server Action para inyectar la sesión como segundo parámetro. Si no hay sesión, lanza `Error("No autenticado")` |
+| `withAuth(action)` | **HOF.** Envuelve una Server Action para inyectar la sesión. Si no hay sesión, lanza `AuthError` |
+| `requireRole(roles)` | Verifica que el usuario autenticado tenga uno de los roles requeridos. Si no, lanza `PermissionError` |
+| `withRole(roles, action)` | **HOF.** Como `withAuth` pero además exige que el usuario tenga uno de los roles especificados |
+
+**Tipo `UserRole`:**
+```typescript
+type UserRole = 'admin' | 'jefe_proyecto' | 'usuario'
+```
 
 **Tipo `UserPayload`:**
 ```typescript
-{ colaborador_id: string; nombre: string }
+{ colaborador_id: string; nombre: string; rol: UserRole }
 ```
 
 ### 5.3 Middleware (`src/middleware.ts`)
@@ -473,6 +482,7 @@ El `AppProvider` centraliza los catálogos (insumos, colaboradores, proyectos) q
 | `CreateColaboradorSheet` | `create-colaborador-sheet.tsx` | — | Slide-over para registrar colaboradores con tarifa |
 | `ToggleInsumoButton` | `toggle-insumo-button.tsx` | `id, initialActivo` | Switch badge para activar/desactivar insumos |
 | `ToggleColaboradorButton` | `toggle-colaborador-button.tsx` | `id, initialActivo` | Switch badge para activar/desactivar colaboradores |
+| `ProjectStatusSelect` | `project-status-select.tsx` | `projectId, currentStatus, canEdit` | Selector de estado de proyecto (En Progreso / Completado / En Pausa). Si `canEdit=true` (admin/jefe_proyecto) muestra dropdown; si no, badge de solo lectura |
 | `Skeleton` | `ui/skeleton.tsx` | — | Shimmer loading animation placeholder |
 
 ### 9.5 Componentes UI (ShadCN)
@@ -553,12 +563,14 @@ Script que crea toda la estructura desde cero:
 ### Frontend
 - **Moneda:** Formato unificado `es-PY / PYG` (Guaraníes Paraguayos) en todo el sistema. La función `formatCurrency()` centralizada en `projects-data.ts` es importada por `MetricsCards` y `ProjectsTable`. Las páginas de catálogos definen su propia copia local con el mismo formato.
 - **Estado de carga:** Se usa `useTransition` (React 19) para operaciones asíncronas, no `useState` + `loading`
-- **Feedback al usuario:** Actualmente usa `alert()` para confirmaciones. **TODO:** Migrar a toast/notification system
+- **Feedback al usuario:** Se usa `sonner` (Toasts) para confirmaciones y errores no bloqueantes
+- **Login UI:** Estilo Swiss Minimalist + Glassmorphism suave (backdrop-blur, tarjeta translúcida, micro-animaciones)
 
 ### Seguridad
-- **JWT:** Algoritmo HS256, expiración 24h, almacenado en cookie HTTP-Only
-- **Identificación del usuario:** El `colaborador_id` se extrae del JWT, **nunca** del formulario. Esto previene que un colaborador registre horas en nombre de otro
-- **Rutas no protegidas:** `/proyectos`, `/clientes`, `/insumos`, `/colaboradores` no están en el matcher del middleware. **Riesgo potencial si se despliega públicamente.**
+- **JWT:** Algoritmo HS256, expiración 24h, almacenado en cookie HTTP-Only. Payload incluye `{ colaborador_id, nombre, rol }`
+- **Roles:** Sistema de 3 niveles: `admin` (gestión total), `jefe_proyecto` (gestión de proyectos), `usuario` (solo registro de horas/insumos). Almacenado en tabla `colaboradores.rol`
+- **Identificación del usuario:** El `colaborador_id` y `rol` se extraen del JWT, **nunca** del formulario
+- **Rutas protegidas:** Todas las rutas de la app (`/`, `/registro`, `/proyectos`, `/clientes`, `/insumos`, `/colaboradores`) están protegidas por middleware
 
 ---
 

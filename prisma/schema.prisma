@@ -38,6 +38,7 @@ model Colaboradores {
   id            String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   nombre        String      @db.VarChar(100)
   tarifa_minuto Decimal     @default(350.00) @db.Decimal(10, 2)
+  rol           String      @default("usuario") @db.VarChar(20)
   activo        Boolean?    @default(true)
   creado_en     DateTime?   @default(now()) @db.Timestamptz(6)
   deleted_at    DateTime?
