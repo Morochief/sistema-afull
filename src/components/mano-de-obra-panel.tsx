@@ -8,13 +8,17 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { formatCurrency } from "@/lib/projects-data"
 
 export function ManoDeObraPanel({
   colaboradores,
   onComplete,
 }: {
   colaboradores: { id: string, nombre: string, tarifa_minuto: any }[]
-  onComplete: (entry: { colaboradorId: string; inicio: string; fin: string; description: string }) => void
+  onComplete: (
+    entry: { colaboradorId: string; inicio: string; fin: string; description: string },
+    clearForm?: () => void
+  ) => void
 }) {
   const [colaboradorId, setColaboradorId] = useState<string>("")
   const [inicio, setInicio] = useState("")
@@ -22,6 +26,19 @@ export function ManoDeObraPanel({
   const [description, setDescription] = useState("")
 
   const canSubmit = colaboradorId !== "" && inicio !== "" && fin !== ""
+  
+  // Calcular costo estimado en tiempo real
+  const colaborador = colaboradores.find(c => c.id === colaboradorId)
+  const tarifaMin = colaborador ? Number(colaborador.tarifa_minuto) : 0
+  let minutos = 0
+  if (inicio && fin) {
+    const [hIni, mIni] = inicio.split(":").map(Number)
+    const [hFin, mFin] = fin.split(":").map(Number)
+    let diff = (hFin * 60 + mFin) - (hIni * 60 + mIni)
+    if (diff < 0) diff += 1440 // cruce de medianoche
+    minutos = diff
+  }
+  const costoEstimado = minutos * tarifaMin
 
   function handleToggle() {
     if (canSubmit) {
@@ -30,10 +47,11 @@ export function ManoDeObraPanel({
         inicio,
         fin,
         description: description.trim() || "Tarea sin descripción",
+      }, () => {
+        setInicio("")
+        setFin("")
+        setDescription("")
       })
-      setInicio("")
-      setFin("")
-      setDescription("")
     }
   }
 
@@ -110,6 +128,13 @@ export function ManoDeObraPanel({
         </Field>
       </div>
 
+      {minutos > 0 && colaboradorId && (
+        <div className="bg-primary/5 border border-primary/10 rounded-xl p-3 text-sm flex justify-between items-center text-primary-foreground/90">
+          <span className="text-muted-foreground font-medium">Cálculo estimado ({minutos} min):</span>
+          <span className="font-bold text-primary">{formatCurrency(costoEstimado)}</span>
+        </div>
+      )}
+
       <Field>
         <FieldLabel htmlFor="actividad">Descripción de la actividad</FieldLabel>
         <Textarea
@@ -127,7 +152,7 @@ export function ManoDeObraPanel({
         disabled={!canSubmit}
         className="h-14 w-full rounded-2xl text-base font-semibold bg-primary hover:bg-primary/90"
       >
-        <HardHatIcon data-icon="inline-start" className="mr-2" />
+        <HardHatIcon className="mr-2" />
         Registrar Horas
       </Button>
     </FieldGroup>

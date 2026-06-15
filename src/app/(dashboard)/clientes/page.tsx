@@ -18,36 +18,34 @@ export default async function ClientesPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Clientes</h1>
-        <p className="text-muted-foreground">Listado de clientes corporativos y particulares.</p>
+        <p className="text-muted-foreground">Listado de clientes registrados en el sistema.</p>
       </div>
 
       <Card className="border-border/70 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-lg">Clientes Registrados</CardTitle>
-          <CardDescription>Clientes del sistema y número de proyectos asignados.</CardDescription>
+          <CardTitle className="text-lg">Todos los Clientes</CardTitle>
+          <CardDescription>Visualiza las empresas y la cantidad de proyectos activos.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead>ID del Cliente</TableHead>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Proyectos Asignados</TableHead>
+                  <TableHead>Nombre de la Empresa</TableHead>
+                  <TableHead>Proyectos Relacionados</TableHead>
                   <TableHead>Fecha de Registro</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {clientes.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
+                    <TableCell colSpan={3} className="h-32 text-center text-muted-foreground">
                       No hay clientes registrados.
                     </TableCell>
                   </TableRow>
                 ) : (
                   clientes.map((c) => (
                     <TableRow key={c.id}>
-                      <TableCell className="text-xs font-mono text-muted-foreground">{c.id}</TableCell>
                       <TableCell className="font-semibold text-foreground">{c.nombre}</TableCell>
                       <TableCell>{c._count.proyectos} proyectos</TableCell>
                       <TableCell>{c.creado_en ? new Date(c.creado_en).toLocaleDateString("es-ES") : '-'}</TableCell>

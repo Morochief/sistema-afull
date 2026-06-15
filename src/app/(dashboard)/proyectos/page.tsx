@@ -20,9 +20,11 @@ export default async function ProyectosPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Proyectos</h1>
-        <p className="text-muted-foreground">Listado completo de proyectos registrados en el sistema.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Proyectos</h1>
+          <p className="text-muted-foreground">Listado completo de proyectos registrados en el sistema.</p>
+        </div>
       </div>
 
       <Card className="border-border/70 shadow-sm">

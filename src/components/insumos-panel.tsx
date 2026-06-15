@@ -7,13 +7,17 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { formatCurrency } from "@/lib/projects-data"
 
 export function InsumosPanel({
   insumosCatalogo,
   onAdd,
 }: {
   insumosCatalogo: { id: string, nombre: string, precio_unitario: any }[]
-  onAdd: (entry: { insumoId: string; cantidad: number }) => void
+  onAdd: (
+    entry: { insumoId: string; cantidad: number },
+    clearForm?: () => void
+  ) => void
 }) {
   const [insumoId, setInsumoId] = useState("")
   const [quantity, setQuantity] = useState("1")
@@ -21,11 +25,16 @@ export function InsumosPanel({
   const qty = Number.parseFloat(quantity)
   const canSubmit = insumoId !== "" && Number.isFinite(qty) && qty > 0
 
+  const insumo = insumosCatalogo.find(i => i.id === insumoId)
+  const precioUnit = insumo ? Number(insumo.precio_unitario) : 0
+  const subtotal = canSubmit ? qty * precioUnit : 0
+
   function handleAdd() {
     if (!canSubmit) return
-    onAdd({ insumoId, cantidad: qty })
-    setInsumoId("")
-    setQuantity("1")
+    onAdd({ insumoId, cantidad: qty }, () => {
+      setInsumoId("")
+      setQuantity("1")
+    })
   }
 
   return (
@@ -60,13 +69,20 @@ export function InsumosPanel({
         />
       </Field>
 
+      {subtotal > 0 && insumoId && (
+        <div className="bg-primary/5 border border-primary/10 rounded-xl p-3 text-sm flex justify-between items-center text-primary-foreground/90">
+          <span className="text-muted-foreground font-medium">Subtotal estimado:</span>
+          <span className="font-bold text-primary">{formatCurrency(subtotal)}</span>
+        </div>
+      )}
+
       <Button
         size="lg"
         onClick={handleAdd}
         disabled={!canSubmit}
         className="h-14 w-full rounded-2xl text-base font-semibold"
       >
-        <PlusIcon data-icon="inline-start" className="mr-2" />
+        <PlusIcon className="mr-2" />
         Agregar Insumo
       </Button>
     </FieldGroup>

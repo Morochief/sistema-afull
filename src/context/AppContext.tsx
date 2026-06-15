@@ -2,8 +2,52 @@
 
 import React, { createContext, useTransition } from 'react';
 import { createRegistroMO, createRegistroInsumo } from '@/app/actions/registros';
+import { toast } from 'sonner';
 
-export const AppContext = createContext<any>(null);
+interface Insumo {
+  id: string;
+  nombre: string;
+  precio_unitario: any;
+  activo: boolean;
+}
+
+interface Colaborador {
+  id: string;
+  nombre: string;
+  tarifa_minuto: any;
+  activo: boolean;
+}
+
+interface Proyecto {
+  id: string;
+  nombre: string;
+  estado: string;
+  cliente_id: string;
+}
+
+interface RegistroMOData {
+  proyectoId: string;
+  inicio: string;
+  fin: string;
+  description: string;
+}
+
+interface RegistroInsumoData {
+  proyectoId: string;
+  insumoId: string;
+  cantidad: number;
+}
+
+interface AppContextType {
+  isPending: boolean;
+  handleAgregarMO: (data: RegistroMOData, callback?: () => void) => void;
+  handleAgregarInsumo: (data: RegistroInsumoData, callback?: () => void) => void;
+  INSUMOS_CATALOGO: Insumo[];
+  COLABORADORES: Colaborador[];
+  PROYECTOS: Proyecto[];
+}
+
+export const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider = ({ 
   children,
@@ -12,13 +56,13 @@ export const AppProvider = ({
   proyectosCatalogo = []
 }: { 
   children: React.ReactNode
-  insumosCatalogo?: any[]
-  colaboradoresCatalogo?: any[]
-  proyectosCatalogo?: any[]
+  insumosCatalogo?: Insumo[]
+  colaboradoresCatalogo?: Colaborador[]
+  proyectosCatalogo?: Proyecto[]
 }) => {
   const [isPending, startTransition] = useTransition();
 
-  const handleAgregarMO = (data: any) => {
+  const handleAgregarMO = (data: RegistroMOData, callback?: () => void) => {
     startTransition(async () => {
       const res = await createRegistroMO({
         proyectoId: data.proyectoId,
@@ -27,14 +71,15 @@ export const AppProvider = ({
         description: data.description
       });
       if (res.error) {
-        alert(res.error);
+        toast.error(`Error al registrar horas: ${res.error}`);
       } else {
-        alert("Registro de horas guardado exitosamente");
+        toast.success("Registro de horas guardado exitosamente");
+        if (callback) callback();
       }
     });
   };
 
-  const handleAgregarInsumo = (data: any) => {
+  const handleAgregarInsumo = (data: RegistroInsumoData, callback?: () => void) => {
     startTransition(async () => {
       const res = await createRegistroInsumo({
         proyectoId: data.proyectoId,
@@ -42,9 +87,10 @@ export const AppProvider = ({
         cantidad: data.cantidad
       });
       if (res.error) {
-        alert(res.error);
+        toast.error(`Error al registrar insumo: ${res.error}`);
       } else {
-        alert("Consumo de insumo guardado exitosamente");
+        toast.success("Consumo de insumo guardado exitosamente");
+        if (callback) callback();
       }
     });
   };

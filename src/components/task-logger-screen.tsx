@@ -13,13 +13,17 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
-import { AppHeader } from "@/components/app-header"
 import { ManoDeObraPanel } from "@/components/mano-de-obra-panel"
 import { InsumosPanel } from "@/components/insumos-panel"
-import { RecentLogs } from "@/components/recent-logs"
 import { AppContext } from "@/context/AppContext"
+import { toast } from "sonner"
 
 export function TaskLoggerScreen() {
+  const context = useContext(AppContext);
+  if (!context) {
+    return <p className="p-4 text-center text-sm text-destructive">Error de contexto</p>;
+  }
+
   const { 
     handleAgregarMO, 
     handleAgregarInsumo, 
@@ -27,23 +31,34 @@ export function TaskLoggerScreen() {
     COLABORADORES,
     PROYECTOS,
     isPending
-  } = useContext(AppContext);
+  } = context;
   
   const [proyectoId, setProyectoId] = useState<string>("")
+  const [selectedTab, setSelectedTab] = useState<string>("mano-de-obra")
 
-  function onAddManoDeObra(entry: { colaboradorId: string; inicio: string; fin: string; description: string }) {
-    if (!proyectoId) return alert("Selecciona un proyecto primero")
+  function onAddManoDeObra(entry: { colaboradorId: string; inicio: string; fin: string; description: string }, clearForm?: () => void) {
+    if (!proyectoId) {
+      toast.warning("Selecciona un proyecto primero");
+      return;
+    }
     handleAgregarMO({
       proyectoId,
       ...entry
+    }, () => {
+      if (clearForm) clearForm();
     });
   }
 
-  function onAddInsumo(entry: { insumoId: string; cantidad: number }) {
-    if (!proyectoId) return alert("Selecciona un proyecto primero")
+  function onAddInsumo(entry: { insumoId: string; cantidad: number }, clearForm?: () => void) {
+    if (!proyectoId) {
+      toast.warning("Selecciona un proyecto primero");
+      return;
+    }
     handleAgregarInsumo({
       proyectoId,
       ...entry
+    }, () => {
+      if (clearForm) clearForm();
     });
   }
 
@@ -61,12 +76,12 @@ export function TaskLoggerScreen() {
             >
               <FolderIcon className="size-5 shrink-0 text-primary" />
               <SelectValue placeholder="Selecciona un proyecto">
-                {proyectoId ? PROYECTOS?.find((p: any) => p.id === proyectoId)?.nombre : undefined}
+                {proyectoId ? PROYECTOS?.find((p) => p.id === proyectoId)?.nombre : undefined}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                {PROYECTOS?.map((p: any) => (
+                {PROYECTOS?.map((p) => (
                   <SelectItem key={p.id} value={p.id} className="py-2.5 text-base">
                     {p.nombre}
                   </SelectItem>
@@ -76,11 +91,11 @@ export function TaskLoggerScreen() {
           </Select>
         </div>
 
-        <Tabs defaultValue="mano-de-obra" className="gap-5">
+        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="gap-5">
           <TabsList className="h-12 w-full rounded-xl p-1">
             <TabsTrigger
               value="mano-de-obra"
-              className="h-full rounded-lg text-sm font-medium"
+              className="h-full rounded-lg text-sm font-medium flex-1"
               disabled={isPending}
             >
               <HardHatIcon className="mr-2 h-4 w-4" />
@@ -88,7 +103,7 @@ export function TaskLoggerScreen() {
             </TabsTrigger>
             <TabsTrigger
               value="insumos"
-              className="h-full rounded-lg text-sm font-medium"
+              className="h-full rounded-lg text-sm font-medium flex-1"
               disabled={isPending}
             >
               <PackageIcon className="mr-2 h-4 w-4" />
@@ -96,11 +111,11 @@ export function TaskLoggerScreen() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="mano-de-obra">
+          <TabsContent value="mano-de-obra" className="mt-4">
             <ManoDeObraPanel colaboradores={COLABORADORES} onComplete={onAddManoDeObra} />
           </TabsContent>
 
-          <TabsContent value="insumos">
+          <TabsContent value="insumos" className="mt-4">
             <InsumosPanel insumosCatalogo={INSUMOS_CATALOGO} onAdd={onAddInsumo} />
           </TabsContent>
         </Tabs>

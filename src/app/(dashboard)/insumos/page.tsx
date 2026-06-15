@@ -2,16 +2,9 @@ import { prisma } from "@/lib/prisma"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { formatCurrency } from "@/lib/projects-data"
 
 export const dynamic = "force-dynamic"
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("es-PY", {
-    style: "currency",
-    currency: "PYG",
-    maximumFractionDigits: 0,
-  }).format(value)
-}
 
 export default async function InsumosPage() {
   const insumos = await prisma.insumos.findMany({
@@ -22,13 +15,13 @@ export default async function InsumosPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Catálogo de Insumos</h1>
-        <p className="text-muted-foreground">Insumos y materiales disponibles para consumo en proyectos.</p>
+        <p className="text-muted-foreground">Materiales y consumibles disponibles con sus costos.</p>
       </div>
 
       <Card className="border-border/70 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-lg">Insumos</CardTitle>
-          <CardDescription>Visualiza los insumos activos y sus respectivos precios unitarios.</CardDescription>
+          <CardTitle className="text-lg">Insumos Registrados</CardTitle>
+          <CardDescription>Lista de materiales y precios de costo vigentes.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -36,7 +29,7 @@ export default async function InsumosPage() {
               <TableHeader>
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
                   <TableHead>Nombre</TableHead>
-                  <TableHead className="text-right">Precio Unitario</TableHead>
+                  <TableHead>Precio Unitario</TableHead>
                   <TableHead className="text-center">Estado</TableHead>
                 </TableRow>
               </TableHeader>
@@ -51,11 +44,11 @@ export default async function InsumosPage() {
                   insumos.map((i) => (
                     <TableRow key={i.id}>
                       <TableCell className="font-semibold text-foreground">{i.nombre}</TableCell>
-                      <TableCell className="text-right font-mono text-emerald-600 dark:text-emerald-400 font-medium">
+                      <TableCell className="font-medium text-emerald-600 dark:text-emerald-400">
                         {formatCurrency(Number(i.precio_unitario))}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="outline" className={i.activo ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-red-500/10 text-red-600 border-red-500/20"}>
+                        <Badge variant={i.activo ? "default" : "secondary"} className="font-medium">
                           {i.activo ? "Activo" : "Inactivo"}
                         </Badge>
                       </TableCell>
