@@ -1,4 +1,6 @@
 import type React from "react"
+import { ThemeProvider } from "@/components/theme-provider"
+import "@/app/globals.css"
 
 export default function RootLayout({
   children,
@@ -6,13 +8,15 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
       <head>
         <title>Sistema aFull</title>
         <meta name="description" content="Gestión interna de proyectos, horas e insumos" />
       </head>
       <body>
-        {children}
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   )

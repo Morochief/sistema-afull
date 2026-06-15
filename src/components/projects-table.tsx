@@ -185,28 +185,64 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
 
       <CardContent className="p-0">
         <div className="overflow-x-auto">
-          <Table>
+          <Table role="table">
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
-                <TableHead className="min-w-44">Cliente</TableHead>
-                <TableHead className="min-w-56 cursor-pointer select-none hover:bg-muted/30 transition-colors" onClick={() => handleSort("proyecto")}>
+                <TableHead scope="col" className="min-w-44">Cliente</TableHead>
+                <TableHead
+                  scope="col"
+                  className="min-w-56 cursor-pointer select-none hover:bg-muted/30 transition-colors"
+                  onClick={() => handleSort("proyecto")}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      handleSort("proyecto")
+                    }
+                  }}
+                  aria-sort={sortField === "proyecto" ? (sortOrder === "asc" ? "ascending" : "descending") : "none"}
+                >
                   <span className="inline-flex items-center gap-1">
-                    Proyecto {sortField === "proyecto" && <ArrowUpDown className="size-3.5 opacity-70" />}
+                    Proyecto {sortField === "proyecto" && <ArrowUpDown className="size-3.5 opacity-70" aria-hidden="true" />}
                   </span>
                 </TableHead>
-                <TableHead className="text-right cursor-pointer select-none hover:bg-muted/30 transition-colors" onClick={() => handleSort("totalHoras")}>
+                <TableHead
+                  scope="col"
+                  className="text-right cursor-pointer select-none hover:bg-muted/30 transition-colors"
+                  onClick={() => handleSort("totalHoras")}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      handleSort("totalHoras")
+                    }
+                  }}
+                  aria-sort={sortField === "totalHoras" ? (sortOrder === "asc" ? "ascending" : "descending") : "none"}
+                >
                   <span className="inline-flex items-center gap-1">
-                    Total Horas {sortField === "totalHoras" && <ArrowUpDown className="size-3.5 opacity-70" />}
+                    Total Horas {sortField === "totalHoras" && <ArrowUpDown className="size-3.5 opacity-70" aria-hidden="true" />}
                   </span>
                 </TableHead>
-                <TableHead className="text-right">Costo MO</TableHead>
-                <TableHead className="text-right">Costo Insumos</TableHead>
-                <TableHead className="text-right cursor-pointer select-none hover:bg-muted/30 transition-colors" onClick={() => handleSort("costoTotal")}>
+                <TableHead scope="col" className="text-right">Costo MO</TableHead>
+                <TableHead scope="col" className="text-right">Costo Insumos</TableHead>
+                <TableHead
+                  scope="col"
+                  className="text-right cursor-pointer select-none hover:bg-muted/30 transition-colors"
+                  onClick={() => handleSort("costoTotal")}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      handleSort("costoTotal")
+                    }
+                  }}
+                  aria-sort={sortField === "costoTotal" ? (sortOrder === "asc" ? "ascending" : "descending") : "none"}
+                >
                   <span className="inline-flex items-center gap-1">
-                    Costo Total {sortField === "costoTotal" && <ArrowUpDown className="size-3.5 opacity-70" />}
+                    Costo Total {sortField === "costoTotal" && <ArrowUpDown className="size-3.5 opacity-70" aria-hidden="true" />}
                   </span>
                 </TableHead>
-                <TableHead className="text-center">Estado</TableHead>
+                <TableHead scope="col" className="text-center">Estado</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -258,7 +294,12 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
         </div>
 
         {/* Paginación */}
-        <div className="flex items-center justify-between border-t border-border/60 px-5 py-4 text-sm text-muted-foreground flex-col gap-3 sm:flex-row">
+        <div
+          className="flex items-center justify-between border-t border-border/60 px-5 py-4 text-sm text-muted-foreground flex-col gap-3 sm:flex-row"
+          role="status"
+          aria-live="polite"
+          aria-label="Información de paginación"
+        >
           <span>
             Mostrando{" "}
             <span className="font-medium text-foreground">
@@ -271,27 +312,29 @@ export function ProjectsTable({ projects }: { projects: Project[] }) {
             de {sorted.length} proyectos
           </span>
           {totalPages > 1 && (
-            <div className="flex items-center gap-1.5">
+            <nav className="flex items-center gap-1.5" aria-label="Paginación">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setPage(p => Math.max(p - 1, 1))}
                 disabled={page === 1}
                 className="h-8 rounded-lg"
+                aria-label="Página anterior"
               >
                 Anterior
               </Button>
-              <span className="px-2 text-xs">Pág. {page} de {totalPages}</span>
+              <span className="px-2 text-xs" aria-current="page">Pág. {page} de {totalPages}</span>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setPage(p => Math.min(p + 1, totalPages))}
                 disabled={page === totalPages}
                 className="h-8 rounded-lg"
+                aria-label="Página siguiente"
               >
                 Siguiente
               </Button>
-            </div>
+            </nav>
           )}
         </div>
       </CardContent>
