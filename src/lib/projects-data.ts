@@ -129,9 +129,9 @@ export const statusConfig: Record<
 }
 
 export function formatCurrency(value: number) {
-  return new Intl.NumberFormat("es-CL", {
+  return new Intl.NumberFormat("es-PY", {
     style: "currency",
-    currency: "USD",
+    currency: "PYG",
     maximumFractionDigits: 0,
   }).format(value)
 }

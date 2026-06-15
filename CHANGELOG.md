@@ -4,6 +4,24 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
+## [1.1.0] - 2026-06-15
+
+### [Added]
+- **Páginas de Catálogos:** Nuevas vistas Server Component para `/proyectos`, `/clientes`, `/insumos` y `/colaboradores` con tablas de datos, badges de estado y formateo de moneda.
+- **Importación Completa de Datos:** Script `prisma/import-excel-full.ts` para migración total desde `Kevin.xlsx` incluyendo 4 clientes, 3 proyectos, 9 colaboradores, 29 insumos y 63 registros históricos de consumos (MO e Insumos).
+- **Navegación Funcional del Sidebar:** `DashboardSidebar.tsx` actualizado con rutas reales usando `<Link>` y `usePathname()` para tracking de página activa.
+
+### [Changed]
+- **Formato de Moneda Unificado:** `formatCurrency()` en `projects-data.ts` cambiado de `es-CL / USD` a `es-PY / PYG` (Guaraníes Paraguayos). Ahora Dashboard, métricas y tablas usan el mismo formato que las páginas de catálogos.
+
+### [Fixed]
+- **Sidebar no navegaba:** Los enlaces del menú lateral tenían `href="#"` como placeholder. Ahora apuntan a las rutas correspondientes.
+
+### [Security]
+- **Rutas de catálogos protegidas:** Se agregaron `/proyectos`, `/clientes`, `/insumos` y `/colaboradores` al `matcher` y `protectedRoutes` del middleware. Antes eran accesibles sin autenticación.
+
+---
+
 ## [1.0.0] - 2026-06-14
 
 ### [Added]
