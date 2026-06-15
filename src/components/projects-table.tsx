@@ -111,11 +111,11 @@ export function ProjectsTable({ projects, canEditStatus = false }: { projects: P
 
   return (
     <Card className="border border-slate-200/60 bg-white/50 backdrop-blur-md shadow-sm dark:border-slate-800/40 dark:bg-slate-900/50 rounded-2xl overflow-hidden animate-fade-in">
-      <CardHeader className="gap-4 border-b border-slate-200/60 dark:border-slate-800/40">
+      <CardHeader className="gap-4 border-b border-slate-200/60 dark:border-slate-800/40 p-6 bg-white/40 dark:bg-slate-900/40 backdrop-blur-md">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <CardTitle className="text-lg">Proyectos Activos</CardTitle>
-            <CardDescription>
+            <CardTitle className="font-semibold text-2xl tracking-tight text-slate-900 dark:text-white">Proyectos Activos</CardTitle>
+            <CardDescription className="text-sm text-slate-500 dark:text-slate-400">
               Detalle de horas, mano de obra e insumos por proyecto.
             </CardDescription>
           </div>
@@ -123,8 +123,9 @@ export function ProjectsTable({ projects, canEditStatus = false }: { projects: P
 
         {/* Filters */}
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <div className="relative flex-1 group">
+            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-violet-500/10 rounded-xl blur opacity-0 group-focus-within:opacity-100 transition-opacity duration-300" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground z-10" />
             <Input
               value={query}
               onChange={(e) => {
@@ -132,16 +133,16 @@ export function ProjectsTable({ projects, canEditStatus = false }: { projects: P
                 setPage(1)
               }}
               placeholder="Buscar por proyecto o cliente..."
-              className="pl-9"
+              className="relative pl-9 h-10 w-full min-w-0 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-950/50 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 z-10"
               aria-label="Buscar proyectos"
             />
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             <Select value={cliente} onValueChange={(val) => {
               setCliente(val || "")
               setPage(1)
             }}>
-              <SelectTrigger className="w-full sm:w-48" aria-label="Filtrar por cliente">
+              <SelectTrigger className="w-full sm:w-48 rounded-xl border border-slate-200 bg-white/50 backdrop-blur-sm hover:bg-white hover:shadow-sm dark:border-slate-700 dark:bg-slate-950/50 dark:hover:bg-slate-900 transition-all duration-300" aria-label="Filtrar por cliente">
                 <SelectValue placeholder="Cliente">
                   {cliente === "all" ? "Todos los clientes" : cliente}
                 </SelectValue>
@@ -159,7 +160,7 @@ export function ProjectsTable({ projects, canEditStatus = false }: { projects: P
               setEstado(val || "")
               setPage(1)
             }}>
-              <SelectTrigger className="w-full sm:w-44" aria-label="Filtrar por estado">
+              <SelectTrigger className="w-full sm:w-44 rounded-xl border border-slate-200 bg-white/50 backdrop-blur-sm hover:bg-white hover:shadow-sm dark:border-slate-700 dark:bg-slate-950/50 dark:hover:bg-slate-900 transition-all duration-300" aria-label="Filtrar por estado">
                 <SelectValue placeholder="Estado">
                   {estado === "all"
                     ? "Todos los estados"
