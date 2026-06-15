@@ -1,15 +1,8 @@
 'use client'
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog'
 import { Trash2 } from 'lucide-react'
 import { ReactNode } from 'react'
 
@@ -28,13 +21,16 @@ export function DeleteConfirmDialog({
   children?: ReactNode
   variant?: 'icon' | 'button'
 }) {
+  const [open, setOpen] = useState(false)
+
   const handleConfirm = async () => {
     await onConfirm()
+    setOpen(false)
   }
 
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger>
         {variant === 'icon' ? (
           <Button
             variant="ghost"
@@ -49,23 +45,27 @@ export function DeleteConfirmDialog({
             {isLoading ? 'Eliminando...' : 'Eliminar'}
           </Button>
         )}
-      </AlertDialogTrigger>
+      </DialogTrigger>
 
-      <AlertDialogContent>
-        <AlertDialogTitle>{title}</AlertDialogTitle>
-        <AlertDialogDescription>{description}</AlertDialogDescription>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
 
-        <div className="flex justify-end gap-3">
-          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-          <AlertDialogAction
+        <div className="flex justify-end gap-3 pt-4">
+          <DialogClose>
+            <Button variant="outline">Cancelar</Button>
+          </DialogClose>
+          <Button
             onClick={handleConfirm}
             disabled={isLoading}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
             {isLoading ? 'Eliminando...' : 'Eliminar'}
-          </AlertDialogAction>
+          </Button>
         </div>
-      </AlertDialogContent>
-    </AlertDialog>
+      </DialogContent>
+    </Dialog>
   )
 }

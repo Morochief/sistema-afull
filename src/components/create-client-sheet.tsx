@@ -23,7 +23,7 @@ export function CreateClientSheet() {
   const onSubmit = (data: { nombre: string }) => {
     startTransition(async () => {
       const res = await createCliente({ nombre: data.nombre })
-      if (res.error) {
+      if ('error' in res) {
         toast.error(res.error)
       } else {
         toast.success("Cliente creado con éxito")

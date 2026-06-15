@@ -280,6 +280,38 @@ export const createColaborador = withAuth(async (data: CreateColaboradorData, se
   }
 })
 
+export const toggleColaboradorActivo = withAuth(async (id: string, session) => {
+  try {
+    const current = await prisma.colaboradores.findUnique({ where: { id } })
+    if (!current) {
+      throw new NotFoundError("Colaborador", "COLABORADOR_NOT_FOUND")
+    }
+
+    const colaborador = await prisma.colaboradores.update({
+      where: { id },
+      data: { activo: !current.activo }
+    })
+
+    // Auditoría
+    await logAuditAction({
+      colaborador_id: session.colaborador_id,
+      accion: 'UPDATE_COLABORADOR',
+      tabla_afectada: 'colaboradores',
+      registro_id: id,
+      cambios: {
+        activo_anterior: current.activo,
+        activo_nuevo: colaborador.activo
+      }
+    })
+
+    revalidatePath("/colaboradores")
+
+    return { success: true, colaborador }
+  } catch (error) {
+    return formatError(error)
+  }
+})
+
 export const deleteCliente = withAuth(async (id: string, session) => {
   try {
     const cliente = await prisma.clientes.findUnique({ where: { id } })

@@ -40,7 +40,7 @@ export function CreateProjectSheet({ clientes }: { clientes: ClientSelectorOptio
         estado: "in_progress"
       })
 
-      if (res.error) {
+      if ('error' in res) {
         toast.error(res.error)
       } else {
         toast.success("Proyecto creado con éxito")

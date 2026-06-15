@@ -11,7 +11,7 @@ export function ToggleInsumoButton({ id, initialActivo }: { id: string; initialA
   const handleToggle = () => {
     startTransition(async () => {
       const res = await toggleInsumoActivo(id)
-      if (res.error) {
+      if ('error' in res) {
         toast.error(res.error)
       } else {
         toast.success("Estado del insumo actualizado")

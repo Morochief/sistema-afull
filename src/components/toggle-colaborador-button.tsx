@@ -11,7 +11,7 @@ export function ToggleColaboradorButton({ id, initialActivo }: { id: string; ini
   const handleToggle = () => {
     startTransition(async () => {
       const res = await toggleColaboradorActivo(id)
-      if (res.error) {
+      if ('error' in res) {
         toast.error(res.error)
       } else {
         toast.success("Estado del colaborador actualizado")

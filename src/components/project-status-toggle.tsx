@@ -29,7 +29,7 @@ export function ProjectStatusToggle({
     if (newStatus === currentStatus) return
     startTransition(async () => {
       const res = await updateProyectoEstado({ id, estado: newStatus })
-      if (res.error) {
+      if ('error' in res) {
         toast.error(res.error)
       } else {
         toast.success(`Estado actualizado a: ${statusConfig[newStatus as keyof typeof statusConfig]?.label || newStatus}`)

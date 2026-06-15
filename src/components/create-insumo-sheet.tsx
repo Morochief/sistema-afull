@@ -33,7 +33,7 @@ export function CreateInsumoSheet() {
         nombre: data.nombre,
         precioUnitario: price
       })
-      if (res.error) {
+      if ('error' in res) {
         toast.error(res.error)
       } else {
         toast.success("Insumo creado con éxito")

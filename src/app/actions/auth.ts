@@ -25,7 +25,8 @@ export async function login(nombre: string) {
     // Crear token con colaborador_id
     const token = await signToken({
       colaborador_id: colaborador.id,
-      nombre: colaborador.nombre
+      nombre: colaborador.nombre,
+      rol: 'usuario'
     })
 
     // Guardar en cookie HTTP-Only

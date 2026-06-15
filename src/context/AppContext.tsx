@@ -70,7 +70,7 @@ export const AppProvider = ({
         fin: data.fin,
         description: data.description
       });
-      if (res.error) {
+      if ('error' in res) {
         toast.error(`Error al registrar horas: ${res.error}`);
       } else {
         toast.success("Registro de horas guardado exitosamente");
@@ -86,7 +86,7 @@ export const AppProvider = ({
         insumoId: data.insumoId,
         cantidad: data.cantidad
       });
-      if (res.error) {
+      if ('error' in res) {
         toast.error(`Error al registrar insumo: ${res.error}`);
       } else {
         toast.success("Consumo de insumo guardado exitosamente");

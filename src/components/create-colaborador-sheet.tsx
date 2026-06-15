@@ -33,7 +33,7 @@ export function CreateColaboradorSheet() {
         nombre: data.nombre,
         tarifaMinuto: rate
       })
-      if (res.error) {
+      if ('error' in res) {
         toast.error(res.error)
       } else {
         toast.success("Colaborador registrado con éxito")
