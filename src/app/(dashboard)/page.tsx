@@ -55,7 +55,7 @@ export default async function DashboardPage() {
   const rentabilidad = (costoMO + costoInsumos) * MARKUP_RATE
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 animate-fade-in-up">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Panel de Costos</h1>
         <p className="text-muted-foreground">Resumen general de proyectos y costos reales en tiempo real.</p>
