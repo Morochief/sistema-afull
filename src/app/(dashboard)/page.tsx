@@ -63,7 +63,11 @@ export default async function DashboardPage() {
   const rentabilidad = (costoMO + costoInsumos) * MARKUP_RATE
 
   return (
-    <div className="flex flex-col gap-6 animate-fade-in-up">
+    <div className="relative flex flex-col gap-6 animate-fade-in-up">
+      {/* Background ambient light orbs */}
+      <div className="pointer-events-none absolute -top-40 right-0 -z-10 h-[350px] w-[350px] rounded-full bg-indigo-500/10 blur-[100px] dark:bg-indigo-500/5" />
+      <div className="pointer-events-none absolute -top-20 left-1/3 -z-10 h-[250px] w-[250px] rounded-full bg-emerald-500/5 blur-[80px] dark:bg-emerald-500/2" />
+
       {/* Header con saludo y acciones rápidas */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

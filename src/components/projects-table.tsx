@@ -110,8 +110,8 @@ export function ProjectsTable({ projects, canEditStatus = false }: { projects: P
   const totalPages = Math.ceil(sorted.length / itemsPerPage)
 
   return (
-    <Card className="border-border/70 shadow-sm animate-fade-in">
-      <CardHeader className="gap-4 border-b border-border/60">
+    <Card className="border border-slate-200/60 bg-white/50 backdrop-blur-md shadow-sm dark:border-slate-800/40 dark:bg-slate-900/50 rounded-2xl overflow-hidden animate-fade-in">
+      <CardHeader className="gap-4 border-b border-slate-200/60 dark:border-slate-800/40">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <CardTitle className="text-lg">Proyectos Activos</CardTitle>
@@ -186,7 +186,7 @@ export function ProjectsTable({ projects, canEditStatus = false }: { projects: P
         <div className="overflow-x-auto">
           <Table role="table">
             <TableHeader>
-              <TableRow className="bg-muted/40 hover:bg-muted/40">
+              <TableRow className="bg-slate-100/50 hover:bg-slate-100/50 dark:bg-slate-900/50 dark:hover:bg-slate-900/50">
                 <TableHead scope="col" className="min-w-44">Cliente</TableHead>
                 <TableHead
                   scope="col"
@@ -257,7 +257,7 @@ export function ProjectsTable({ projects, canEditStatus = false }: { projects: P
               ) : (
                 paginated.map((p) => {
                   return (
-                    <TableRow key={p.id} className="group">
+                    <TableRow key={p.id} className="group hover:bg-slate-500/5 dark:hover:bg-slate-400/5 transition-colors">
                       <TableCell>
                         <div className="font-medium text-foreground">
                           {p.cliente}
@@ -295,7 +295,7 @@ export function ProjectsTable({ projects, canEditStatus = false }: { projects: P
 
         {/* Paginación */}
         <div
-          className="flex items-center justify-between border-t border-border/60 px-5 py-4 text-sm text-muted-foreground flex-col gap-3 sm:flex-row"
+          className="flex items-center justify-between border-t border-slate-200/60 dark:border-slate-800/40 px-5 py-4 text-sm text-muted-foreground flex-col gap-3 sm:flex-row"
           role="status"
           aria-live="polite"
           aria-label="Información de paginación"
