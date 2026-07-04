@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { Clock, MapPin, AlertTriangle, Users, Search, Filter, ShieldAlert } from 'lucide-react';
 import { authFetchJSON } from '../authFetch.ts';
@@ -21,8 +21,11 @@ export default function TimelineMarcaciones() {
   const [filtroUsuario, setFiltroUsuario] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   useEffect(() => { fetchTimeline(); }, []);
+  useEffect(() => { setCurrentPage(1); }, [itemsPerPage]);
 
   async function fetchTimeline() {
     setLoading(true);
@@ -41,6 +44,13 @@ export default function TimelineMarcaciones() {
   function formatDateTime(ts: string) {
     try { return new Date(ts).toLocaleString('es', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch { return ts; }
   }
+
+  const totalPages = Math.max(1, Math.ceil(data.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedData = useMemo(() => {
+    const start = (safePage - 1) * itemsPerPage;
+    return data.slice(start, start + itemsPerPage);
+  }, [data, safePage, itemsPerPage]);
 
   const usuariosUnicos = [...new Set(data.map(m => m.usuario))];
   const usuariosConAlertas = [...new Set(data.filter(m => m.alertas.length > 0).map(m => m.usuario))];
@@ -97,7 +107,7 @@ export default function TimelineMarcaciones() {
         <div className="text-center py-12 text-slate-500 text-xs">No hay marcaciones registradas</div>
       ) : (
         <div className="space-y-1">
-          {data.map((m, i) => {
+          {paginatedData.map((m, i) => {
             const tieneAlertas = m.alertas.length > 0;
             return (
               <div key={m.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs transition-colors ${
@@ -146,6 +156,34 @@ export default function TimelineMarcaciones() {
               </div>
             );
           })}
+        </div>
+      )}
+      {data.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+          <div className="flex items-center gap-2">
+            <select value={itemsPerPage} onChange={e => setItemsPerPage(Number(e.target.value))} className="glass-select rounded-lg px-3 py-1.5 text-xs">
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span className="text-xs text-slate-500 font-mono">{data.length} marcaciones</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage <= 1}
+              className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10">‹</button>
+            {(() => {
+              const pages = [];
+              const start = Math.max(1, safePage - 5);
+              const end = Math.min(totalPages, start + 9);
+              for (let p = start; p <= end; p++) pages.push(p);
+              return pages;
+            })().map(page => (
+              <button key={page} onClick={() => setCurrentPage(page)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold ${page === safePage ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10'}`}>{page}</button>
+            ))}
+            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}
+              className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10">›</button>
+          </div>
         </div>
       )}
     </motion.div>
