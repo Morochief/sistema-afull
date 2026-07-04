@@ -125,7 +125,7 @@ function DataCard({ title, subtitle, badge, icon, children }: DataCardProps) {
           {children}
         </div>
         {badge && (
-          <span className={`text-[9px] leading-tight font-mono tracking-wider px-2 py-1.5 rounded-lg border ${colorClasses[badge.color]} shrink-0 max-w-[140px] sm:max-w-[200px] text-right truncate`}>
+          <span className={`text-[9px] leading-tight font-mono tracking-wider px-2 py-1.5 rounded-lg border ${colorClasses[badge.color]} max-w-[130px] sm:max-w-[180px] text-right truncate overflow-hidden`}>
             {badge.label}
           </span>
         )}
