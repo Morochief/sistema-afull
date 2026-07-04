@@ -57,6 +57,7 @@ npx prisma db push --accept-data-loss
 - Traducción de enums DB a UI con `mapDbRolToUi / mapUiRolToDb` (Lesson B)
 
 ### Paso 5: Frontend
+- ✅ Verificar imports de React: `import { useState, useEffect, useMemo, useCallback } from 'react'` — incluir TODOS los hooks usados
 - Mutaciones visibles en múltiples tabs: pasar `onRefresh` desde App.tsx (Lesson 34)
 - `NotifProvider` para toasts — nunca `alert()` / `confirm()` (Lesson A)
 - Cache Buster `?t=timestamp` para URLs de Supabase Storage
@@ -86,6 +87,7 @@ Si encontraste un problema nuevo, agregar lección en `.agents/AGENTS.md` siguie
 | 8 | Estado local corrupto para km inicial | Obtener del servidor al momento de la acción (Lesson 41) |
 | 9 | Formulario de edición desincronizado | En cascada: Zod → Handler → Hook → Form → Submit (Lesson 36) |
 | 10 | Métricas muestran L en vez de Gs | Actualizar TODOS los componentes que referencian el campo (Lesson 37) |
+| 11 | **`useEffect`/`useMemo`/`useCallback` no importados** | Al agregar hooks de React (`useState` solo no alcanza), verificar que el import de React incluya todos los hooks usados: `import React, { useState, useEffect, useMemo, useCallback } from 'react'`. Este error no se detecta en build, solo en runtime (ReferenceError). |
 
 ## 5. Rollback
 
