@@ -985,6 +985,28 @@ function ColaboradoresTab({
   const [editRolAcceso, setEditRolAcceso] = useState<'Admin' | 'Operario' | 'Visor'>('Operario');
   const [editEmail, setEditEmail] = useState('');
   const [editActivoAcceso, setEditActivoAcceso] = useState(true);
+  const [searchText, setSearchText] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  useEffect(() => { setCurrentPage(1); }, [searchText, itemsPerPage]);
+
+  const filteredColaboradores = useMemo(() => {
+    if (!searchText) return data.colaboradores;
+    const q = searchText.toLowerCase();
+    return data.colaboradores.filter(c =>
+      c.nombre.toLowerCase().includes(q) ||
+      (c.rol || '').toLowerCase().includes(q) ||
+      (c.usuario?.username || '').toLowerCase().includes(q)
+    );
+  }, [data.colaboradores, searchText]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredColaboradores.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedColaboradores = useMemo(() => {
+    const start = (safePage - 1) * itemsPerPage;
+    return filteredColaboradores.slice(start, start + itemsPerPage);
+  }, [filteredColaboradores, safePage, itemsPerPage]);
 
   const startEdit = (c: Colaborador) => { 
     setEditingId(c.id); 
@@ -1194,11 +1216,21 @@ function ColaboradoresTab({
 
       {/* List */}
       <AdminSection
-        title={`Listado de Contratistas (${data.colaboradores.length})`}
+        title={`Listado de Contratistas (${filteredColaboradores.length})`}
         icon={<Users className="w-5 h-5 text-pink-400" />}
       >
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <input
+            type="text"
+            placeholder="Buscar colaborador por nombre, rol o usuario..."
+            value={searchText}
+            onChange={e => setSearchText(e.target.value)}
+            className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50"
+          />
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fadeIn">
-          {data.colaboradores.map(c => (
+          {paginatedColaboradores.map(c => (
             <div key={c.id}>
               {editingId === c.id ? (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 rounded-2xl bg-white/5 border border-pink-500/30 space-y-3">
@@ -1302,6 +1334,28 @@ function ColaboradoresTab({
               )}
             </div>
           ))}
+        </div>
+        {/* Pagination */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 font-mono">Items por página:</span>
+            <select value={itemsPerPage} onChange={e => setItemsPerPage(Number(e.target.value))} className="glass-select rounded-lg px-3 py-1.5 text-xs">
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+            <span className="text-xs text-slate-500 font-mono ml-2">{filteredColaboradores.length} contratistas</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage <= 1}
+              className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10">‹</button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button key={page} onClick={() => setCurrentPage(page)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold ${page === safePage ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10'}`}>{page}</button>
+            ))}
+            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}
+              className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10">›</button>
+          </div>
         </div>
       </AdminSection>
 
