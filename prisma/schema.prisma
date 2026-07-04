@@ -65,7 +65,7 @@ model Registro {
   hsInicio          String?     @map("hs_inicio") @db.VarChar(5)
   hsFin             String?     @map("hs_fin") @db.VarChar(5)
   hsTotal           Decimal?    @map("hs_total") @db.Decimal(5, 2)
-  cantidad          Decimal     @db.Decimal(10, 2)
+  cantidad          Decimal     @db.Decimal(10, 4)
   precioUnitario    Decimal     @map("precio_unitario") @db.Decimal(15, 2)
   total             Decimal     @db.Decimal(15, 2)
   origen            Origen      @default(MANUAL)
