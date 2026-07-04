@@ -218,6 +218,8 @@ export default function VehiculosAdminView({ data, onRefresh, initialEditId }: P
   const [viewMode, setViewMode] = useState<'list' | 'dashboard'>('list');
   const [filtroAlerta, setFiltroAlerta] = useState<'todos' | 'alertas' | 'ok'>('todos');
   const [fotoModal, setFotoModal] = useState<{ url: string; tipo: string } | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const hasAutoOpenedRef = React.useRef(false); // Use ref instead of state to persist across re-renders
   
   const {
@@ -270,6 +272,14 @@ export default function VehiculosAdminView({ data, onRefresh, initialEditId }: P
     if (filtroAlerta === 'ok') return !r.alertaDiscrepancia;
     return true;
   });
+
+  React.useEffect(() => { setCurrentPage(1); }, [filtroAlerta, itemsPerPage]);
+  const totalPages = Math.max(1, Math.ceil(registrosFiltrados.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const registrosPaginated = React.useMemo(() => {
+    const start = (safePage - 1) * itemsPerPage;
+    return registrosFiltrados.slice(start, start + itemsPerPage);
+  }, [registrosFiltrados, safePage, itemsPerPage]);
 
   const totales = {
     viajes: registrosVehiculo.length,
@@ -394,7 +404,7 @@ export default function VehiculosAdminView({ data, onRefresh, initialEditId }: P
               <p className="text-slate-400">No hay registros de viajes</p>
             </div>
           ) : (
-            registrosFiltrados.map((registro) => (
+            registrosPaginated.map((registro) => (
               <ViajeCard
                 key={registro.id}
                 registro={registro}
@@ -403,6 +413,28 @@ export default function VehiculosAdminView({ data, onRefresh, initialEditId }: P
                 onDelete={startDelete}
               />
             ))
+          )}
+          {registrosFiltrados.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
+              <div className="flex items-center gap-2">
+                <select value={itemsPerPage} onChange={e => setItemsPerPage(Number(e.target.value))} className="glass-select rounded-lg px-3 py-1.5 text-xs">
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+                <span className="text-xs text-slate-500 font-mono">{registrosFiltrados.length} viajes</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage <= 1}
+                  className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10">‹</button>
+                {(() => { const pages = []; const s = Math.max(1, safePage - 5); const e = Math.min(totalPages, s + 9); for (let p = s; p <= e; p++) pages.push(p); return pages; })().map(page => (
+                  <button key={page} onClick={() => setCurrentPage(page)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold ${page === safePage ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10'}`}>{page}</button>
+                ))}
+                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}
+                  className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10">›</button>
+              </div>
+            </div>
           )}
         </div>
       )}
