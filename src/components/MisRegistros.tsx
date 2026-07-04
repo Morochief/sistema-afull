@@ -41,6 +41,8 @@ import {
   Gauge,
   Fuel,
   AlertTriangle,
+  Filter,
+  RefreshCw,
 } from 'lucide-react';
 import { DatabaseState, RegistroItem, RegistroVehiculo } from '../types.ts';
 import { authFetchJSON } from '../authFetch.ts';
@@ -682,7 +684,17 @@ export default function MisRegistros({ data, currentUser, onRefresh }: MisRegist
   const [registrosVehiculo, setRegistrosVehiculo] = useState<RegistroVehiculo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [limite, setLimite] = useState(5);
+
+  // ─── FILTERS ───
+  const [filterFechaDesde, setFilterFechaDesde] = useState('');
+  const [filterFechaHasta, setFilterFechaHasta] = useState('');
+  const [filterConcepto, setFilterConcepto] = useState('');
+  const [filterCliente, setFilterCliente] = useState('');
+  const [filterProyecto, setFilterProyecto] = useState('');
+
+  // ─── PAGINATION ───
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const {
     isEditing,
@@ -777,32 +789,76 @@ export default function MisRegistros({ data, currentUser, onRefresh }: MisRegist
   const misRegistros = registros;
   const misRegistrosVehiculo = registrosVehiculo;
 
-  // Combinar ambos tipos de registros y agrupar por fecha (más recientes primero)
-  const registrosPorFecha = useMemo(() => {
-    const grupos = new Map<string, { regular: RegistroItem[]; vehiculo: RegistroVehiculo[] }>();
+  // Reset page on filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterFechaDesde, filterFechaHasta, filterConcepto, filterCliente, filterProyecto, itemsPerPage]);
 
-    // Agregar registros regulares
-    misRegistros.forEach(registro => {
+  // ─── FILTERED + GROUPED DATA ──────────────────────────────────────────────
+  const registrosPorFecha = useMemo(() => {
+    let filteredRegular = misRegistros;
+    let filteredVehiculo = misRegistrosVehiculo;
+
+    // Filtro por concepto
+    if (filterConcepto === 'Vehículo') {
+      filteredRegular = [];
+    } else if (filterConcepto) {
+      filteredRegular = filteredRegular.filter(r => r.concepto === filterConcepto);
+      filteredVehiculo = [];
+    }
+
+    // Filtro por cliente
+    if (filterCliente) {
+      filteredRegular = filteredRegular.filter(r => r.clienteId === filterCliente);
+      filteredVehiculo = filteredVehiculo.filter(r => r.clienteId === filterCliente);
+    }
+    // Filtro por proyecto
+    if (filterProyecto) {
+      filteredRegular = filteredRegular.filter(r => r.proyectoId === filterProyecto);
+      filteredVehiculo = filteredVehiculo.filter(r => r.proyectoId === filterProyecto);
+    }
+    // Filtro por rango de fechas
+    if (filterFechaDesde) {
+      filteredRegular = filteredRegular.filter(r => r.fecha >= filterFechaDesde);
+      filteredVehiculo = filteredVehiculo.filter(r => r.fecha >= filterFechaDesde);
+    }
+    if (filterFechaHasta) {
+      filteredRegular = filteredRegular.filter(r => r.fecha <= filterFechaHasta);
+      filteredVehiculo = filteredVehiculo.filter(r => r.fecha <= filterFechaHasta);
+    }
+
+    // Agrupar por fecha
+    const grupos = new Map<string, { regular: RegistroItem[]; vehiculo: RegistroVehiculo[] }>();
+    filteredRegular.forEach(registro => {
       const fecha = registro.fecha;
-      if (!grupos.has(fecha)) {
-        grupos.set(fecha, { regular: [], vehiculo: [] });
-      }
+      if (!grupos.has(fecha)) grupos.set(fecha, { regular: [], vehiculo: [] });
       grupos.get(fecha)!.regular.push(registro);
     });
-
-    // Agregar registros de vehículo
-    misRegistrosVehiculo.forEach(registro => {
+    filteredVehiculo.forEach(registro => {
       const fecha = registro.fecha;
-      if (!grupos.has(fecha)) {
-        grupos.set(fecha, { regular: [], vehiculo: [] });
-      }
+      if (!grupos.has(fecha)) grupos.set(fecha, { regular: [], vehiculo: [] });
       grupos.get(fecha)!.vehiculo.push(registro);
     });
 
-    // Ordenar fechas descendente
     return Array.from(grupos.entries())
       .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime());
-  }, [misRegistros, misRegistrosVehiculo]);
+  }, [misRegistros, misRegistrosVehiculo, filterFechaDesde, filterFechaHasta, filterConcepto, filterCliente, filterProyecto]);
+
+  // ─── PAGINATED DATA ───────────────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(registrosPorFecha.length / itemsPerPage));
+  const currentPageSafe = Math.min(currentPage, totalPages);
+  const registrosPaginated = useMemo(() => {
+    const start = (currentPageSafe - 1) * itemsPerPage;
+    return registrosPorFecha.slice(start, start + itemsPerPage);
+  }, [registrosPorFecha, currentPageSafe, itemsPerPage]);
+
+  const clearFilters = useCallback(() => {
+    setFilterFechaDesde('');
+    setFilterFechaHasta('');
+    setFilterConcepto('');
+    setFilterCliente('');
+    setFilterProyecto('');
+  }, []);
 
   // Total acumulado (incluye vehículos)
   const totalAcumulado = useMemo(() => {
@@ -917,6 +973,57 @@ export default function MisRegistros({ data, currentUser, onRefresh }: MisRegist
         </div>
       </div>
 
+      {/* ─── FILTER BAR ─── */}
+      <div className="glass-panel rounded-2xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xs font-semibold text-white flex items-center gap-2">
+            <Filter className="w-3.5 h-3.5 text-blue-400" /> Filtros
+          </h3>
+          <button
+            onClick={clearFilters}
+            className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <RefreshCw className="w-3 h-3" /> Limpiar filtros
+          </button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div>
+            <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1 block">Cliente</label>
+            <select value={filterCliente} onChange={e => { setFilterCliente(e.target.value); setFilterProyecto(''); }} className="glass-select w-full rounded-xl px-3 py-2.5 text-xs">
+              <option value="">Todos los Clientes</option>
+              {data.clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1 block">Proyecto</label>
+            <select value={filterProyecto} onChange={e => setFilterProyecto(e.target.value)} className="glass-select w-full rounded-xl px-3 py-2.5 text-xs">
+              <option value="">Todos los Proyectos</option>
+              {data.proyectos.filter(p => !filterCliente || p.clienteId === filterCliente).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1 block">Concepto</label>
+            <select value={filterConcepto} onChange={e => setFilterConcepto(e.target.value)} className="glass-select w-full rounded-xl px-3 py-2.5 text-xs">
+              <option value="">Todos</option>
+              <option value="MO">Mano de Obra</option>
+              <option value="Insumo">Insumo</option>
+              <option value="Vehículo">Vehículo</option>
+              <option value="Otros">Otros</option>
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1 block">Desde</label>
+              <input type="date" value={filterFechaDesde} onChange={e => setFilterFechaDesde(e.target.value)} className="glass-select w-full rounded-xl px-3 py-2.5 text-xs" />
+            </div>
+            <div>
+              <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1 block">Hasta</label>
+              <input type="date" value={filterFechaHasta} onChange={e => setFilterFechaHasta(e.target.value)} className="glass-select w-full rounded-xl px-3 py-2.5 text-xs" />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Registros agrupados por fecha */}
       {registrosPorFecha.length === 0 ? (
         <div className="glass-panel rounded-2xl p-12 text-center">
@@ -928,7 +1035,7 @@ export default function MisRegistros({ data, currentUser, onRefresh }: MisRegist
         </div>
       ) : (
         <div className="space-y-6">
-          {registrosPorFecha.slice(0, limite).map(([fecha, registros]) => {
+          {registrosPaginated.map(([fecha, registros]) => {
             const totalRegistros = registros.regular.length + registros.vehiculo.length;
             
             return (
@@ -971,16 +1078,53 @@ export default function MisRegistros({ data, currentUser, onRefresh }: MisRegist
               </div>
             );
           })}
-          {limite < registrosPorFecha.length && (
-            <div className="flex justify-center pt-4">
-              <button
-                onClick={() => setLimite(l => l + 10)}
-                className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white rounded-xl text-sm font-semibold transition-all cursor-pointer"
+          {/* ─── PAGINATION ─── */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 font-mono">Items por página:</span>
+              <select
+                value={itemsPerPage}
+                onChange={e => setItemsPerPage(Number(e.target.value))}
+                className="glass-select rounded-lg px-3 py-1.5 text-xs"
               >
-                Ver más registros ({registrosPorFecha.length - limite} fechas restantes)
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+              <span className="text-xs text-slate-500 font-mono ml-2">
+                {registrosPorFecha.length} fechas
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPageSafe <= 1}
+                className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10"
+              >
+                ‹
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                    page === currentPageSafe
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                      : 'bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPageSafe >= totalPages}
+                className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10"
+              >
+                ›
               </button>
             </div>
-          )}
+          </div>
         </div>
       )}
 
