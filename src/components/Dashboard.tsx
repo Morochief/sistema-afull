@@ -914,7 +914,7 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
               <select
                 value={filterCliente}
                 onChange={(e) => setFilterCliente(e.target.value)}
-                className="px-3 py-2 glass-input rounded-xl text-sm text-slate-200 focus:outline-none focus:border-blue-500/50 transition-colors cursor-pointer"
+                className="px-3 py-2 glass-select rounded-xl text-sm focus:outline-none transition-colors cursor-pointer"
               >
                 <option value="">Todos los clientes</option>
                 {data.clientes.map(c => (
@@ -929,7 +929,7 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
               <select
                 value={filterProyecto}
                 onChange={(e) => setFilterProyecto(e.target.value)}
-                className="px-3 py-2 glass-input rounded-xl text-sm text-slate-200 focus:outline-none focus:border-blue-500/50 transition-colors cursor-pointer"
+                className="px-3 py-2 glass-select rounded-xl text-sm focus:outline-none transition-colors cursor-pointer"
               >
                 <option value="">Todos los proyectos</option>
                 {data.proyectos
