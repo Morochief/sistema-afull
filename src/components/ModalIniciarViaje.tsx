@@ -159,6 +159,7 @@ export default function ModalIniciarViaje({ onClose, onStart, selectedClienteId,
               <button
                 type="button"
                 onClick={() => { reset(); inputFileRef.current?.click(); }}
+                aria-label="Cambiar foto"
                 className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full"
               >
                 <X className="w-4 h-4" />

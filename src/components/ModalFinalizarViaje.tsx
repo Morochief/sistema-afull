@@ -121,7 +121,7 @@ export default function ModalFinalizarViaje({ onClose, onFinish, kmInicio, durac
           ) : (
             <div className="relative">
               <img src={photo} alt="Odómetro final" className="w-full h-40 object-cover rounded-lg" />
-              <button type="button" onClick={() => { reset(); inputFileRef.current?.click(); }} className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full">
+              <button type="button" onClick={() => { reset(); inputFileRef.current?.click(); }} aria-label="Cambiar foto" className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full">
                 <X className="w-4 h-4" />
               </button>
             </div>

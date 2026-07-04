@@ -283,6 +283,7 @@ function EditModal({
                 <button
                   type="button"
                   onClick={onClose}
+                  aria-label="Cerrar"
                   className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-all"
                 >
                   <X className="w-5 h-5" />

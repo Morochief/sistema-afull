@@ -1496,6 +1496,7 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
                               <button
                                 type="button"
                                 onClick={() => removeInsumoLine(line.id)}
+                                aria-label="Eliminar línea"
                                 className="text-slate-600 hover:text-rose-400 transition-colors p-1 shrink-0 rounded hover:bg-rose-500/10"
                               >
                                 <X className="w-4 h-4" />
@@ -1526,6 +1527,7 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
                                   <button
                                     type="button"
                                     onClick={() => removeInsumoLine(line.id)}
+                                    aria-label="Eliminar línea"
                                     className="text-slate-600 hover:text-rose-400 transition-colors p-1 shrink-0 rounded hover:bg-rose-500/10"
                                   >
                                     <X className="w-4 h-4" />
