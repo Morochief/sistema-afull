@@ -1148,7 +1148,7 @@ function ColaboradoresTab({
                   subtitle={c.rol || 'Operario'}
                   badge={
                     c.usuario 
-                      ? { label: `@${c.usuario.username} (${c.usuario.rol})`, color: c.usuario.activo ? 'pink' : 'slate' } 
+                      ? { label: `@${c.usuario.username}`, color: c.usuario.activo ? 'pink' : 'slate' } 
                       : { label: 'Sin Login', color: 'slate' }
                   }
                   icon={c.usuario ? (c.usuario.rol === 'Admin' ? <Shield className="w-4 h-4 text-rose-400" /> : <Key className="w-4 h-4 text-blue-400" />) : <Users className="w-4 h-4 text-slate-400" />}
