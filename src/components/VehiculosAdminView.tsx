@@ -503,6 +503,25 @@ function compressImage(base64: string, maxWidth = 1200, quality = 0.75): Promise
   });
 }
 
+function ModalShell({ onClose, maxWidth = 'max-w-2xl', borderColor = 'border-white/10', children }: {
+  onClose: () => void; maxWidth?: string; borderColor?: string; children: React.ReactNode;
+}) {
+  return (
+    <AnimatePresence>
+      <motion.div key="backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
+      <motion.div key="modal" initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <div className={`glass-panel rounded-3xl p-6 ${maxWidth} w-full pointer-events-auto border-2 ${borderColor} shadow-2xl`}
+          onClick={e => e.stopPropagation()}>
+          {children}
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 interface EditModalProps {
   registro: RegistroVehiculo;
   formData: EditFormData;
@@ -523,27 +542,7 @@ function EditModal({
   onSubmit
 }: EditModalProps) {
   return (
-    <AnimatePresence>
-      <motion.div
-        key="backdrop"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
-        onClick={onClose}
-      />
-
-      <motion.div
-        key="modal"
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
-      >
-        <div 
-          className="glass-panel rounded-3xl p-6 max-w-2xl w-full pointer-events-auto border-2 border-white/10 shadow-2xl"
-          onClick={(e) => e.stopPropagation()}
-        >
+    <ModalShell onClose={onClose}>
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
@@ -750,9 +749,7 @@ function EditModal({
               </button>
             </div>
           </div>
-        </div>
-      </motion.div>
-    </AnimatePresence>
+        </ModalShell>
   );
 }
 
@@ -774,28 +771,7 @@ function DeleteConfirmModal({
   onConfirm
 }: DeleteConfirmModalProps) {
   return (
-    <AnimatePresence>
-      <motion.div
-        key="backdrop"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
-        onClick={onClose}
-      />
-
-      <motion.div
-        key="modal"
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
-      >
-        <div 
-          className="glass-panel rounded-3xl p-6 max-w-md w-full pointer-events-auto border-2 border-rose-500/30 shadow-2xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
+    <ModalShell onClose={onClose} maxWidth="max-w-md" borderColor="border-rose-500/30">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2.5 rounded-xl bg-rose-500/20 border border-rose-500/30">
               <AlertTriangle className="w-5 h-5 text-rose-300" />
@@ -869,9 +845,7 @@ function DeleteConfirmModal({
               Cancelar
             </button>
           </div>
-        </div>
-      </motion.div>
-    </AnimatePresence>
+        </ModalShell>
   );
 }
 
