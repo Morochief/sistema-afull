@@ -963,9 +963,9 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
                 value={selectedClienteId}
                 onChange={e => { setSelectedClienteId(e.target.value); setSelectedProyectoId(''); }}
                 onKeyDown={handleKeyDown}
-                disabled={timerRunning}
+                disabled={timerRunning || !!timerEnd}
                 className={`glass-select w-full rounded-xl pl-10 pr-4 py-3 text-sm ${
-                  timerRunning ? 'opacity-50 cursor-not-allowed' : ''
+                  timerRunning || timerEnd ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
                 <option value="">— Seleccionar Cliente —</option>
@@ -987,9 +987,9 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
               value={selectedProyectoId}
               onChange={e => setSelectedProyectoId(e.target.value)}
               onKeyDown={handleKeyDown}
-              disabled={!selectedClienteId || timerRunning}
+              disabled={!selectedClienteId || timerRunning || !!timerEnd}
               className={`glass-select w-full rounded-xl px-4 py-3 text-sm ${
-                !selectedClienteId || timerRunning ? 'opacity-50 cursor-not-allowed' : ''
+                !selectedClienteId || timerRunning || timerEnd ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
               <option value="">— Seleccionar Proyecto —</option>
@@ -1489,7 +1489,7 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
                               onChange={e => updateInsumoLine(line.id, 'cantidad', parseFloat(e.target.value) || 0)}
                               onKeyDown={handleKeyDown}
                               min="0"
-                              step="0.5"
+                              step="any"
                               className="glass-input w-full rounded-lg px-2.5 py-2.5 text-sm text-center border-0 focus:ring-2 focus:ring-cyan-500/30"
                             />
                             {currentUser?.rol === 'Operario' && insumoLines.length > 1 && (
