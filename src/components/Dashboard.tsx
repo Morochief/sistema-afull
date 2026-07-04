@@ -910,8 +910,9 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Filtro Cliente */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-mono uppercase tracking-wider text-slate-400">Cliente</label>
+              <label htmlFor="filtro-cliente" className="text-xs font-mono uppercase tracking-wider text-slate-400">Cliente</label>
               <select
+                id="filtro-cliente"
                 value={filterCliente}
                 onChange={(e) => setFilterCliente(e.target.value)}
                 className="px-3 py-2 glass-select rounded-xl text-sm focus:outline-none transition-colors cursor-pointer"
@@ -925,8 +926,9 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
 
             {/* Filtro Proyecto */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-mono uppercase tracking-wider text-slate-400">Proyecto</label>
+              <label htmlFor="filtro-proyecto" className="text-xs font-mono uppercase tracking-wider text-slate-400">Proyecto</label>
               <select
+                id="filtro-proyecto"
                 value={filterProyecto}
                 onChange={(e) => setFilterProyecto(e.target.value)}
                 className="px-3 py-2 glass-select rounded-xl text-sm focus:outline-none transition-colors cursor-pointer"
@@ -942,8 +944,9 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
 
             {/* Filtro Fecha Desde */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-mono uppercase tracking-wider text-slate-400">Fecha Desde</label>
+              <label htmlFor="filtro-fecha-desde" className="text-xs font-mono uppercase tracking-wider text-slate-400">Fecha Desde</label>
               <input
+                id="filtro-fecha-desde"
                 type="date"
                 value={filterFechaDesde}
                 onChange={(e) => setFilterFechaDesde(e.target.value)}
@@ -953,8 +956,9 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
 
             {/* Filtro Fecha Hasta */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-mono uppercase tracking-wider text-slate-400">Fecha Hasta</label>
+              <label htmlFor="filtro-fecha-hasta" className="text-xs font-mono uppercase tracking-wider text-slate-400">Fecha Hasta</label>
               <input
+                id="filtro-fecha-hasta"
                 type="date"
                 value={filterFechaHasta}
                 onChange={(e) => setFilterFechaHasta(e.target.value)}
