@@ -11,11 +11,8 @@ import {
   Building2, 
   FolderGit2, 
   Users, 
-  Database, 
   PenTool, 
-  BadgeAlert,
   AlertOctagon,
-  RefreshCw,
   FolderPlus,
   CheckCircle2,
   Clock,
@@ -1624,32 +1621,7 @@ export default function AdminPanel({
 
         </nav>
 
-        {/* Global actions - Reset dataset */}
-        <div className="pt-8 border-t border-white/5">
-          <div className="p-4 rounded-2xl bg-rose-500/5 border border-rose-500/10 space-y-3">
-            <div className="flex items-center gap-2 text-rose-400 text-xs font-mono font-medium">
-              <BadgeAlert className="w-4 h-4" />
-              <span>Zona de Peligro</span>
-            </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              ¿Deseas vaciar la base de datos temporal e importar datos de prueba iniciales del sistema?
-            </p>
-            <button
-              onClick={() => {
-                requestConfirm(
-                  '¿Restaurar Base de Datos?',
-                  '¿Seguro que deseas reiniciar los datos al estado de fábrica de la plataforma? Se perderán las planillas cargadas.',
-                  'danger',
-                  onResetDatabase
-                );
-              }}
-              className="w-full py-2 bg-rose-600/10 hover:bg-rose-500/20 border border-rose-500/35 text-rose-300 text-xs font-semibold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
-            >
-              <Database className="w-3.5 h-3.5" />
-              <span>Restaurar Base</span>
-            </button>
-          </div>
-        </div>
+        {/* Global actions - Reset dataset (hidden for safety, accessible via API only) */}
       </div>
 
       {/* Main Form/Administration Body */}
