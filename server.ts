@@ -1047,13 +1047,14 @@ app.put('/api/proyectos/:id', requireAuth, requireAdmin, async (req, res) => {
       ip: getClientIp(req)
     });
 
+    const estadoUI = updated.estado === 'EN_PROCESO' ? 'En Proceso' : updated.estado === 'COMPLETADO' ? 'Completado' : 'Pendiente';
     res.json({
       success: true,
       data: {
         id: updated.id,
         nombre: updated.nombre,
         activo: updated.activo,
-        estado: updated.estado
+        estado: estadoUI
       }
     });
   } catch (error: any) {
@@ -3689,26 +3690,6 @@ app.post('/api/proyectos', requireAuth, requireAdmin, requireWriteAccess, async 
   } catch (error: any) {
     logger.error('Error creating proyecto:', error);
     res.status(500).json({ success: false, error: { code: 'CREATE_ERROR', message: 'Error al crear proyecto' } } as ApiResponse);
-  }
-});
-
-app.put('/api/proyectos/:id', requireAuth, requireAdmin, requireWriteAccess, async (req, res) => {
-  const { id } = req.params;
-  const { nombre, estado, clienteId } = req.body;
-  if (!nombre?.trim()) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Nombre requerido' } } as ApiResponse);
-  try {
-    const existing = await prisma.proyecto.findUnique({ where: { id } });
-    if (!existing) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Proyecto no encontrado' } } as ApiResponse);
-    const estadoEnum = estado === 'En Proceso' ? 'EN_PROCESO' as const : estado === 'Completado' ? 'COMPLETADO' as const : 'PENDIENTE' as const;
-    const updated = await prisma.proyecto.update({
-      where: { id },
-      data: { nombre: nombre.trim(), estado: estadoEnum, clienteId: clienteId || existing.clienteId }
-    });
-    auditLog({ usuario: req.user!.usuario, accion: 'update_proyecto', recurso: `/api/proyectos/${id}`, resultado: 'success', ip: getClientIp(req) });
-    res.json({ success: true, data: { ...updated, estado: updated.estado === 'EN_PROCESO' ? 'En Proceso' : updated.estado === 'COMPLETADO' ? 'Completado' : 'Pendiente', fechaInicio: updated.fechaInicio.toISOString().substring(0, 10) }, message: 'Proyecto actualizado' } as ApiResponse);
-  } catch (error: any) {
-    logger.error('Error updating proyecto:', error);
-    res.status(500).json({ success: false, error: { code: 'UPDATE_ERROR', message: 'Error al actualizar proyecto' } } as ApiResponse);
   }
 });
 
