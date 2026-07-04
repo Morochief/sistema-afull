@@ -682,6 +682,7 @@ export default function MisRegistros({ data, currentUser, onRefresh }: MisRegist
   const [registrosVehiculo, setRegistrosVehiculo] = useState<RegistroVehiculo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [limite, setLimite] = useState(5);
 
   const {
     isEditing,
@@ -927,7 +928,7 @@ export default function MisRegistros({ data, currentUser, onRefresh }: MisRegist
         </div>
       ) : (
         <div className="space-y-6">
-          {registrosPorFecha.map(([fecha, registros]) => {
+          {registrosPorFecha.slice(0, limite).map(([fecha, registros]) => {
             const totalRegistros = registros.regular.length + registros.vehiculo.length;
             
             return (
@@ -970,6 +971,16 @@ export default function MisRegistros({ data, currentUser, onRefresh }: MisRegist
               </div>
             );
           })}
+          {limite < registrosPorFecha.length && (
+            <div className="flex justify-center pt-4">
+              <button
+                onClick={() => setLimite(l => l + 10)}
+                className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white rounded-xl text-sm font-semibold transition-all cursor-pointer"
+              >
+                Ver más registros ({registrosPorFecha.length - limite} fechas restantes)
+              </button>
+            </div>
+          )}
         </div>
       )}
 
