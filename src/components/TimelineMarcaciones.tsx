@@ -30,7 +30,6 @@ export default function TimelineMarcaciones() {
     try {
       const params = new URLSearchParams();
       if (filtroUsuario) params.set('usuario', filtroUsuario);
-      params.set('limite', '100');
       const res = await authFetchJSON(`/api/marcacion/admin/timeline?${params}`);
       if (res.success) setData(res.data || []);
       else setError('Error al obtener timeline');

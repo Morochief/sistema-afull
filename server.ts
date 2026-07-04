@@ -507,7 +507,7 @@ app.get('/api/marcacion/admin/timeline', requireAuth, requireAdmin, async (req, 
   const { usuario, desde, hasta, limite } = req.query;
   try {
     const w: any = {};
-    if (usuario) w.usuario = usuario;
+    if (usuario) w.usuario = { contains: usuario, mode: 'insensitive' };
     if (desde || hasta) { w.timestamp = {}; if(desde) w.timestamp.gte = new Date(desde as string); if(hasta) w.timestamp.lte = new Date(hasta as string); }
     const ms = await prisma.marcacion.findMany({ where: w, orderBy: { timestamp: 'desc' }, take: limite ? parseInt(limite as string) : 200 });
     const ips = {}; const ds = {};
