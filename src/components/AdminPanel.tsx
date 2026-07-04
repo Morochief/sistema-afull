@@ -748,6 +748,36 @@ function ProyectosTab({
   const [editNombre, setEditNombre] = useState('');
   const [editEstado, setEditEstado] = useState<'Pendiente' | 'En Proceso' | 'Completado'>('En Proceso');
   const [editActivo, setEditActivo] = useState(true);
+  const [searchText, setSearchText] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  useEffect(() => { setCurrentPage(1); }, [searchText, filterStatus, itemsPerPage]);
+
+  const filteredProyectos = useMemo(() => {
+    let items = data.proyectos;
+    if (searchText) {
+      const q = searchText.toLowerCase();
+      const clientes = data.clientes;
+      items = items.filter(p =>
+        p.nombre.toLowerCase().includes(q) ||
+        p.id.toLowerCase().includes(q) ||
+        clientes.find(c => c.id === p.clienteId)?.nombre.toLowerCase().includes(q)
+      );
+    }
+    if (filterStatus) {
+      items = items.filter(p => p.estado === filterStatus);
+    }
+    return items;
+  }, [data.proyectos, data.clientes, searchText, filterStatus]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProyectos.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedProyectos = useMemo(() => {
+    const start = (safePage - 1) * itemsPerPage;
+    return filteredProyectos.slice(start, start + itemsPerPage);
+  }, [filteredProyectos, safePage, itemsPerPage]);
 
   const startEdit = (p: Proyecto) => { 
     setEditingId(p.id); 
@@ -816,11 +846,31 @@ function ProyectosTab({
 
       {/* List */}
       <AdminSection
-        title={`Proyectos en Cartera (${data.proyectos.length})`}
+        title={`Proyectos en Cartera (${filteredProyectos.length})`}
         icon={<FolderGit2 className="w-5 h-5 text-cyan-400" />}
       >
+        {/* Search + Filter */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Buscar proyecto por nombre, cliente o ID..."
+              value={searchText}
+              onChange={e => setSearchText(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50"
+            />
+          </div>
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+            className="glass-select rounded-xl px-3 py-2.5 text-sm w-full sm:w-44">
+            <option value="">Todos los estados</option>
+            <option value="Pendiente">Pendiente</option>
+            <option value="En Proceso">En Proceso</option>
+            <option value="Completado">Completado</option>
+          </select>
+        </div>
         <div className="space-y-3">
-          {data.proyectos.map(p => {
+          {paginatedProyectos.map(p => {
             const client = data.clientes.find(c => c.id === p.clienteId);
             return (
               <div key={p.id}>
@@ -866,6 +916,28 @@ function ProyectosTab({
               </div>
             );
           })}
+        </div>
+        {/* Pagination */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 font-mono">Items por página:</span>
+            <select value={itemsPerPage} onChange={e => setItemsPerPage(Number(e.target.value))} className="glass-select rounded-lg px-3 py-1.5 text-xs">
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+            <span className="text-xs text-slate-500 font-mono ml-2">{filteredProyectos.length} proyectos</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage <= 1}
+              className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10">‹</button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button key={page} onClick={() => setCurrentPage(page)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold ${page === safePage ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10'}`}>{page}</button>
+            ))}
+            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}
+              className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10">›</button>
+          </div>
         </div>
       </AdminSection>
     </motion.div>
