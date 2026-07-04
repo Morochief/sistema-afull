@@ -100,8 +100,6 @@ function useVehiculoCRUD(onRefresh: () => Promise<void>) {
   }, []);
 
   const submitEdit = useCallback(async () => {
-    console.log('submitEdit called', { editingId, formData });
-    
     if (!editingId || !formData) {
       console.log('submitEdit aborted: missing data', { editingId, formData });
       return;
@@ -114,7 +112,6 @@ function useVehiculoCRUD(onRefresh: () => Promise<void>) {
       const distancia = formData.kmFinal - formData.kmInicial;
       const total = distancia > 0 ? Math.round(distancia * formData.costoPorKm) : formData.total;
 
-      console.log('Sending PATCH request...');
       await authFetchJSON(`/api/vehiculo/registro/${editingId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -130,20 +127,13 @@ function useVehiculoCRUD(onRefresh: () => Promise<void>) {
         })
       });
 
-      console.log('PATCH successful');
-      
       // Close modal BEFORE refresh to avoid re-render issues
       setEditingId(null);
       setFormData(null);
       setFeedback(null);
       
-      console.log('Modal closed, now refreshing...');
-      
       // Refresh data after closing
       await onRefresh();
-      
-      console.log('Refresh complete');
-
     } catch (error: any) {
       console.error('Error updating registro:', error);
       setFeedback({ 
@@ -237,25 +227,11 @@ export default function VehiculosAdminView({ data, onRefresh, initialEditId }: P
     confirmDelete
   } = useVehiculoCRUD(onRefresh);
   
-  // Debug: Log editingId changes
-  React.useEffect(() => {
-    console.log('editingId changed:', editingId);
-  }, [editingId]);
-  
   // Auto-abrir edición si se pasa initialEditId (solo una vez al montar)
   React.useEffect(() => {
-    console.log('Auto-open effect triggered', { 
-      initialEditId, 
-      hasRegistros: !!data.registrosVehiculo, 
-      hasAutoOpened: hasAutoOpenedRef.current,
-      registrosLength: data.registrosVehiculo?.length 
-    });
-    
     if (initialEditId && data.registrosVehiculo && !hasAutoOpenedRef.current) {
       const registro = data.registrosVehiculo.find(r => r.id === initialEditId);
-      console.log('Found registro:', !!registro);
       if (registro) {
-        console.log('AUTO-OPENING MODAL for ID:', initialEditId);
         startEdit(registro);
         setViewMode('list');
         hasAutoOpenedRef.current = true; // Set ref to true
@@ -263,15 +239,17 @@ export default function VehiculosAdminView({ data, onRefresh, initialEditId }: P
     }
   }, [initialEditId, data.registrosVehiculo, startEdit]);
   
-  const registrosVehiculo = (data.registrosVehiculo || []).sort((a, b) => 
-    new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+  const registrosVehiculo = React.useMemo(() => 
+    [...(data.registrosVehiculo || [])].sort((a, b) => 
+      new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+    ), [data.registrosVehiculo]
   );
 
-  const registrosFiltrados = registrosVehiculo.filter(r => {
+  const registrosFiltrados = React.useMemo(() => registrosVehiculo.filter(r => {
     if (filtroAlerta === 'alertas') return r.alertaDiscrepancia;
     if (filtroAlerta === 'ok') return !r.alertaDiscrepancia;
     return true;
-  });
+  }), [registrosVehiculo, filtroAlerta]);
 
   React.useEffect(() => { setCurrentPage(1); }, [filtroAlerta, itemsPerPage]);
   const totalPages = Math.max(1, Math.ceil(registrosFiltrados.length / itemsPerPage));
@@ -281,14 +259,21 @@ export default function VehiculosAdminView({ data, onRefresh, initialEditId }: P
     return registrosFiltrados.slice(start, start + itemsPerPage);
   }, [registrosFiltrados, safePage, itemsPerPage]);
 
-  const totales = {
-    viajes: registrosVehiculo.length,
-    kmTotal: registrosVehiculo.reduce((acc, r) => acc + r.distanciaOdometro, 0),
-    costoTotal: registrosVehiculo.reduce((acc, r) => acc + r.total, 0),
-    costoPorKmPromedio: registrosVehiculo.reduce((acc, r) => acc + r.total, 0) /
-      (registrosVehiculo.reduce((acc, r) => acc + r.distanciaOdometro, 0) || 1),
-    alertas: registrosVehiculo.filter(r => r.alertaDiscrepancia).length
-  };
+  const totales = React.useMemo(() => {
+    let kmTotal = 0, costoTotal = 0, alertas = 0;
+    for (const r of registrosVehiculo) {
+      kmTotal += r.distanciaOdometro;
+      costoTotal += r.total;
+      if (r.alertaDiscrepancia) alertas++;
+    }
+    return {
+      viajes: registrosVehiculo.length,
+      kmTotal,
+      costoTotal,
+      costoPorKmPromedio: costoTotal / (kmTotal || 1),
+      alertas
+    };
+  }, [registrosVehiculo]);
 
   return (
     <div className="space-y-6">
@@ -732,7 +717,6 @@ function EditModal({
               <button
                 type="button"
                 onClick={() => {
-                  console.log('Guardar clicked'); // Debug log
                   onSubmit().catch(err => console.error('Submit error:', err));
                 }}
                 disabled={isSubmitting}
