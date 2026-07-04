@@ -15,8 +15,6 @@ import {
   Camera,
   AlertTriangle,
   CheckCircle,
-  Calendar,
-  Clock,
   DollarSign,
   TrendingUp,
   Filter,
@@ -196,13 +194,15 @@ function useVehiculoCRUD(onRefresh: () => Promise<void>) {
   };
 }
 
-const addCacheBuster = (url: string | undefined): string => {
-  if (!url) return '';
-  if (url.startsWith('data:')) return url;
-  const separator = url.includes('?') ? '&' : '?';
-  // Use a query parameter cache buster
-  return `${url}${separator}t=${Date.now()}`;
-};
+const addCacheBuster = (() => {
+  const version = Date.now(); // generado una vez al cargar la pagina
+  return (url: string | undefined): string => {
+    if (!url) return '';
+    if (url.startsWith('data:')) return url;
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}t=${version}`;
+  };
+})();
 
 export default function VehiculosAdminView({ data, onRefresh, initialEditId }: Props) {
   const [viewMode, setViewMode] = useState<'list' | 'dashboard'>('list');
@@ -319,37 +319,24 @@ export default function VehiculosAdminView({ data, onRefresh, initialEditId }: P
 
         {/* Tarjetas de resumen */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-            <div className="flex items-center gap-2 text-blue-400 text-xs mb-2">
-              <Car className="w-4 h-4" />
-              <span className="uppercase font-mono">Total Viajes</span>
-            </div>
-            <div className="text-2xl font-bold text-white">{totales.viajes}</div>
-          </div>
-
-          <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-            <div className="flex items-center gap-2 text-emerald-400 text-xs mb-2">
-              <Gauge className="w-4 h-4" />
-              <span className="uppercase font-mono">Km Totales</span>
-            </div>
-            <div className="text-2xl font-bold text-white">{totales.kmTotal.toFixed(1)}</div>
-          </div>
-
-          <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-            <div className="flex items-center gap-2 text-amber-400 text-xs mb-2">
-              <Fuel className="w-4 h-4" />
-              <span className="uppercase font-mono">Costo/km Promedio</span>
-            </div>
-            <div className="text-2xl font-bold text-white">{formatGuaranies(totales.costoPorKmPromedio)}<span className="text-lg text-slate-400">/km</span></div>
-          </div>
-
-          <div className="p-4 bg-violet-500/10 border border-violet-500/20 rounded-xl">
-            <div className="flex items-center gap-2 text-violet-400 text-xs mb-2">
-              <DollarSign className="w-4 h-4" />
-              <span className="uppercase font-mono">Costo Total</span>
-            </div>
-            <div className="text-xl font-bold text-white">{formatGuaranies(totales.costoTotal)}</div>
-          </div>
+          {[
+            { icon: Car, label: 'Total Viajes', value: totales.viajes, color: 'blue' },
+            { icon: Gauge, label: 'Km Totales', value: totales.kmTotal.toFixed(1), color: 'emerald' },
+            { icon: Fuel, label: 'Costo/km Promedio', value: <>{formatGuaranies(totales.costoPorKmPromedio)}<span className="text-lg text-slate-400">/km</span></>, color: 'amber' },
+            { icon: DollarSign, label: 'Costo Total', value: formatGuaranies(totales.costoTotal), color: 'violet' },
+          ].map(metric => {
+            const Icon = metric.icon;
+            const colorClasses = { blue: 'bg-blue-500/10 border-blue-500/20 text-blue-400', emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400', amber: 'bg-amber-500/10 border-amber-500/20 text-amber-400', violet: 'bg-violet-500/10 border-violet-500/20 text-violet-400' };
+            return (
+              <div key={metric.label} className={`p-4 ${colorClasses[metric.color as keyof typeof colorClasses]} rounded-xl`}>
+                <div className="flex items-center gap-2 text-xs mb-2">
+                  <Icon className={`w-4 h-4 ${colorClasses[metric.color as keyof typeof colorClasses].split(' ')[2]}`} />
+                  <span className="uppercase font-mono">{metric.label}</span>
+                </div>
+                <div className="text-2xl font-bold text-white">{metric.value}</div>
+              </div>
+            );
+          })}
         </div>
 
         {/* Filtros */}
@@ -541,6 +528,9 @@ function EditModal({
   onUpdateField,
   onSubmit
 }: EditModalProps) {
+  const dist = formData.kmFinal - formData.kmInicial;
+  const totalPreview = dist > 0 ? Math.round(dist * formData.costoPorKm) : formData.total;
+  const showPreview = dist > 0;
   return (
     <ModalShell onClose={onClose}>
           {/* Header */}
@@ -621,16 +611,12 @@ function EditModal({
                 disabled={isSubmitting}
                 className="glass-input w-full rounded-xl px-4 py-3 text-sm"
               />
-              {(() => {
-                const dist = formData.kmFinal - formData.kmInicial;
-                const total = dist > 0 ? Math.round(dist * formData.costoPorKm) : formData.total;
-                return dist > 0 ? (
-                  <p className="text-xs text-emerald-400 mt-1">
-                    {dist.toFixed(1)} km × Gs. {formData.costoPorKm.toLocaleString()} ={' '}
-                    <strong>Gs. {total.toLocaleString()}</strong>
-                  </p>
-                ) : null;
-              })()}
+              {showPreview && (
+                <p className="text-xs text-emerald-400 mt-1">
+                  {dist.toFixed(1)} km × Gs. {formData.costoPorKm.toLocaleString()} ={' '}
+                  <strong>Gs. {totalPreview.toLocaleString()}</strong>
+                </p>
+              )}
             </div>
 
             {/* Descripción */}
@@ -849,6 +835,35 @@ function DeleteConfirmModal({
   );
 }
 
+function UbicacionCard({ label, ubicacion, hora, color }: { label: string; ubicacion: any; hora?: string; color: 'blue' | 'emerald' }) {
+  const colors = { blue: 'bg-blue-500/5 border-blue-500/20 text-blue-400', emerald: 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' };
+  return (
+    <div className={`p-4 ${colors[color]} rounded-xl`}>
+      <div className={`flex items-center gap-2 mb-2 ${colors[color].split(' ')[2]}`}>
+        <MapPin className="w-4 h-4" />
+        <span className="text-xs font-bold uppercase font-mono">{label}</span>
+      </div>
+      {ubicacion?.lat != null ? (
+        <><p className="text-xs text-slate-300 font-mono">{ubicacion.lat.toFixed(6)}, {ubicacion.lng.toFixed(6)}</p>
+          {ubicacion.nombre && <p className="text-[10px] text-slate-400 mt-1">{ubicacion.nombre}</p>}</>
+      ) : <p className="text-xs text-slate-500 italic">Sin coordenadas GPS</p>}
+      {hora && <p className="text-[10px] text-slate-500 mt-2">{hora}</p>}
+    </div>
+  );
+}
+
+function FotoButton({ src, label, km, onClick }: { src?: string; label: string; km: number | string; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="group relative aspect-video rounded-lg overflow-hidden border border-white/10 hover:border-blue-500/50 transition">
+      <img src={addCacheBuster(src)} alt={`Odómetro ${label}`} className="w-full h-full object-cover" />
+      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center"><Eye className="w-6 h-6 text-white" /></div>
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+        <p className="text-xs text-white font-bold">{label}: {km} km</p>
+      </div>
+    </button>
+  );
+}
+
 // ─── VIAJE CARD ─────────────────────────────────────────────────────────────
 
 function ViajeCard({ registro, onVerFoto, onEdit, onDelete }: ViajeCardProps) {
@@ -960,45 +975,8 @@ function ViajeCard({ registro, onVerFoto, onEdit, onDelete }: ViajeCardProps) {
             <div className="pt-4 mt-4 border-t border-white/10 space-y-4">
               {/* Ubicaciones GPS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl">
-                  <div className="flex items-center gap-2 text-blue-400 mb-2">
-                    <MapPin className="w-4 h-4" />
-                    <span className="text-xs font-bold uppercase font-mono">Ubicación Inicio</span>
-                  </div>
-                  {registro.ubicacionInicio?.lat != null ? (
-                    <>
-                      <p className="text-xs text-slate-300 font-mono">
-                        {registro.ubicacionInicio.lat.toFixed(6)}, {registro.ubicacionInicio.lng.toFixed(6)}
-                      </p>
-                      {registro.ubicacionInicio.nombre && (
-                        <p className="text-[10px] text-slate-400 mt-1">{registro.ubicacionInicio.nombre}</p>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-xs text-slate-500 italic">Sin coordenadas GPS</p>
-                  )}
-                  <p className="text-[10px] text-slate-500 mt-2">{registro.horaInicio}</p>
-                </div>
-
-                <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
-                  <div className="flex items-center gap-2 text-emerald-400 mb-2">
-                    <MapPin className="w-4 h-4" />
-                    <span className="text-xs font-bold uppercase font-mono">Ubicación Fin</span>
-                  </div>
-                  {registro.ubicacionFin?.lat != null ? (
-                    <>
-                      <p className="text-xs text-slate-300 font-mono">
-                        {registro.ubicacionFin.lat.toFixed(6)}, {registro.ubicacionFin.lng.toFixed(6)}
-                      </p>
-                      {registro.ubicacionFin.nombre && (
-                        <p className="text-[10px] text-slate-400 mt-1">{registro.ubicacionFin.nombre}</p>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-xs text-slate-500 italic">Sin coordenadas GPS</p>
-                  )}
-                  <p className="text-[10px] text-slate-500 mt-2">{registro.horaFin}</p>
-                </div>
+                <UbicacionCard label="Ubicación Inicio" ubicacion={registro.ubicacionInicio} hora={registro.horaInicio} color="blue" />
+                <UbicacionCard label="Ubicación Fin" ubicacion={registro.ubicacionFin} hora={registro.horaFin} color="emerald" />
               </div>
 
               {/* Distancias y Combustible */}
@@ -1060,39 +1038,8 @@ function ViajeCard({ registro, onVerFoto, onEdit, onDelete }: ViajeCardProps) {
                   <span className="text-sm font-bold">Fotos del Odómetro</span>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <button
-                    onClick={() => onVerFoto(registro.fotoOdometroInicio, 'Inicio')}
-                    className="group relative aspect-video rounded-lg overflow-hidden border border-white/10 hover:border-blue-500/50 transition"
-                  >
-                    <img
-                      src={addCacheBuster(registro.fotoOdometroInicio)}
-                      alt="Odómetro Inicio"
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                      <Eye className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-                      <p className="text-xs text-white font-bold">Inicio: {registro.kmInicial} km</p>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => onVerFoto(registro.fotoOdometroFin, 'Fin')}
-                    className="group relative aspect-video rounded-lg overflow-hidden border border-white/10 hover:border-emerald-500/50 transition"
-                  >
-                    <img
-                      src={addCacheBuster(registro.fotoOdometroFin)}
-                      alt="Odómetro Fin"
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                      <Eye className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-                      <p className="text-xs text-white font-bold">Fin: {registro.kmFinal} km</p>
-                    </div>
-                  </button>
+                  <FotoButton src={registro.fotoOdometroInicio} label="Inicio" km={registro.kmInicial} onClick={() => onVerFoto(registro.fotoOdometroInicio, 'Inicio')} />
+                  <FotoButton src={registro.fotoOdometroFin} label="Fin" km={registro.kmFinal} onClick={() => onVerFoto(registro.fotoOdometroFin, 'Fin')} />
                 </div>
               </div>
 
