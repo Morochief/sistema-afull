@@ -1214,7 +1214,7 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
                       </div>
                     </td>
                     <td className="py-4 text-xs font-mono text-slate-300">
-                      {reg.fecha}
+                      {reg.fecha ? reg.fecha.split('-').reverse().join('/') : '-'}
                     </td>
                     <td className="py-4">
                       <p className="text-slate-300 font-sans break-all max-w-[280px]" title={reg.descripcion}>
