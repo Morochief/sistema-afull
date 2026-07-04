@@ -1290,6 +1290,7 @@ app.get('/api/data', requireAuth, async (req, res) => {
       registrosVehiculo,
       timersActivos,
       viajesActivos,
+      usuarios,
     });
 
     res.json({
