@@ -76,6 +76,19 @@ const COLORS = ['#3b82f6', '#06b6d4', '#6366f1', '#10b981', '#14b8a6', '#f43f5e'
 type SortField = 'fecha' | 'clienteNombre' | 'proyectoNombre' | 'concepto' | 'total' | 'precioUnitario' | 'cantidad';
 type SortOrder = 'asc' | 'desc';
 
+const SortIcon = ({ field, currentField, currentOrder }: { field: SortField; currentField: SortField; currentOrder: SortOrder }) => {
+  if (currentField !== field) return <ArrowUpDown className="w-3.5 h-3.5 text-slate-500 group-hover:text-blue-400 transition-colors" />;
+  return currentOrder === 'asc'
+    ? <ArrowUp className="w-3.5 h-3.5 text-blue-400" />
+    : <ArrowDown className="w-3.5 h-3.5 text-blue-400" />;
+};
+
+const FilterBadge = () => (
+  <div className="absolute top-2 right-2">
+    <span className="text-[9px] font-mono bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 rounded">Filtrado</span>
+  </div>
+);
+
 export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, onEditRegistro, onNavigateToVehicleEdit }: DashboardProps) {
   
   // Estado para el modal de edición
@@ -324,20 +337,10 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
     });
   }, [filteredRegistros, searchQuery]);
 
-  // FASE 3: Resetear página cuando cambian filtros
+  // FASE 3/4/5: Resetear página cuando cambian filtros, búsqueda u ordenamiento
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterCliente, filterProyecto, filterConcepto, filterFechaDesde, filterFechaHasta]);
-
-  // FASE 5: Resetear página cuando cambia la búsqueda
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery]);
-
-  // FASE 4: Resetear página cuando cambia el ordenamiento
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [sortField, sortOrder]);
+  }, [filterCliente, filterProyecto, filterConcepto, filterFechaDesde, filterFechaHasta, searchQuery, sortField, sortOrder]);
 
   // FASE 4: Handler de ordenamiento
   const handleSort = (field: SortField) => {
@@ -569,13 +572,7 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
           transition={{ delay: 0.05 }}
           className="glass-panel glass-panel-hover p-6 rounded-2xl flex items-center justify-between relative"
         >
-          {hasActiveFilters && (
-            <div className="absolute top-2 right-2">
-              <span className="text-[9px] font-mono bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 rounded">
-                Filtrado
-              </span>
-            </div>
-          )}
+          {hasActiveFilters && <FilterBadge />}
           <div className="space-y-1">
             <span className="text-xs uppercase font-mono tracking-wider text-blue-400">Total Mano de Obra</span>
             <div className="text-3xl font-bold tracking-tight text-white">
@@ -1083,15 +1080,7 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
                 >
                   <div className="flex items-center gap-1.5">
                     <span>Cliente / Proyecto</span>
-                    {sortField === 'clienteNombre' ? (
-                      sortOrder === 'asc' ? (
-                        <ArrowUp className="w-3.5 h-3.5 text-blue-400" />
-                      ) : (
-                        <ArrowDown className="w-3.5 h-3.5 text-blue-400" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-500 group-hover:text-blue-400 transition-colors" />
-                    )}
+                    <SortIcon field="clienteNombre" currentField={sortField} currentOrder={sortOrder} />
                   </div>
                 </th>
 
@@ -1103,15 +1092,7 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
                 >
                   <div className="flex items-center gap-1.5">
                     <span>Fecha</span>
-                    {sortField === 'fecha' ? (
-                      sortOrder === 'asc' ? (
-                        <ArrowUp className="w-3.5 h-3.5 text-blue-400" />
-                      ) : (
-                        <ArrowDown className="w-3.5 h-3.5 text-blue-400" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-500 group-hover:text-blue-400 transition-colors" />
-                    )}
+                    <SortIcon field="fecha" currentField={sortField} currentOrder={sortOrder} />
                   </div>
                 </th>
 
@@ -1126,15 +1107,7 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
                 >
                   <div className="flex items-center justify-end gap-1.5">
                     <span>Cant / Horas</span>
-                    {sortField === 'cantidad' ? (
-                      sortOrder === 'asc' ? (
-                        <ArrowUp className="w-3.5 h-3.5 text-blue-400" />
-                      ) : (
-                        <ArrowDown className="w-3.5 h-3.5 text-blue-400" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-500 group-hover:text-blue-400 transition-colors" />
-                    )}
+                    <SortIcon field="cantidad" currentField={sortField} currentOrder={sortOrder} />
                   </div>
                 </th>
 
@@ -1146,15 +1119,7 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
                 >
                   <div className="flex items-center justify-end gap-1.5">
                     <span>P. Unitario</span>
-                    {sortField === 'precioUnitario' ? (
-                      sortOrder === 'asc' ? (
-                        <ArrowUp className="w-3.5 h-3.5 text-blue-400" />
-                      ) : (
-                        <ArrowDown className="w-3.5 h-3.5 text-blue-400" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-500 group-hover:text-blue-400 transition-colors" />
-                    )}
+                    <SortIcon field="precioUnitario" currentField={sortField} currentOrder={sortOrder} />
                   </div>
                 </th>
 
@@ -1166,15 +1131,7 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
                 >
                   <div className="flex items-center justify-end gap-1.5">
                     <span>Total</span>
-                    {sortField === 'total' ? (
-                      sortOrder === 'asc' ? (
-                        <ArrowUp className="w-3.5 h-3.5 text-blue-400" />
-                      ) : (
-                        <ArrowDown className="w-3.5 h-3.5 text-blue-400" />
-                      )
-                    ) : (
-                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-500 group-hover:text-blue-400 transition-colors" />
-                    )}
+                    <SortIcon field="total" currentField={sortField} currentOrder={sortOrder} />
                   </div>
                 </th>
 
