@@ -119,7 +119,17 @@ Si encontraste un problema nuevo:
 | 10 | Métricas muestran L en vez de Gs | Actualizar TODOS los componentes que referencian el campo (Lesson 37) |
 | 11 | **`useEffect`/`useMemo`/`useCallback` no importados** | Al agregar hooks de React (`useState` solo no alcanza), verificar que el import de React incluya todos los hooks usados: `import React, { useState, useEffect, useMemo, useCallback } from 'react'`. Este error no se detecta en build, solo en runtime (ReferenceError). |
 
-## 5. Rollback
+## 5. Post-Deploy: Cache del Service Worker
+
+Después de cada deploy, el Service Worker (sw.js) puede servir HTML/JS/CSS viejos de la caché del navegador. Esto causa errores como:
+- `Refused to apply style from '.../assets/index-XXXX.css' because its MIME type ('text/html') is not a supported stylesheet MIME type`
+- Bundle JS del deploy anterior solicitando assets que ya no existen
+
+**Solución para el usuario:** Abrir DevTools → Application → Storage → Clear site data, o abrir en una pestaña incógnita.
+
+**Solución para el desarrollador:** Verificar que el sw.js implemente Network-First para navegación y Cache-First solo para `/assets/` con hashes (Lección 30 de AGENTS.md). Si el error persiste, incrementar `CACHE_NAME` (ej: `afull-cache-v2`) para forzar la invalidación de todo el cache.
+
+## 6. Rollback
 
 **DB falló:** Restaurar backup de Supabase → `git checkout <commit-estable> prisma/` → `npx prisma db push`
 
