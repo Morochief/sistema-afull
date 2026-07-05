@@ -11,15 +11,11 @@ import {
   Receipt,
   TrendingUp,
   Calculator,
-  ChevronDown,
-  X,
   Printer,
   RefreshCw,
   CheckCircle2,
   DollarSign,
   Percent,
-  Building2,
-  FolderGit2,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { DatabaseState, RegistroItem } from '../types.ts';
@@ -65,7 +61,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
       proyectoId: v.proyectoId,
       proyectoNombre: v.proyectoNombre,
       fecha: v.fecha,
-      concepto: 'Vehículo' as any,
+      concepto: 'Vehículo',
       descripcion: `Viaje: ${v.proyectoNombre} - ${v.distanciaOdometro}km`,
       cantidad: v.distanciaOdometro,
       precioUnitario: v.distanciaOdometro > 0 ? Math.round(v.total / v.distanciaOdometro) : 0,
@@ -139,7 +135,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
 
   // --- PRE-FACTURA LOGIC ---
   const proyectoFactura = data.proyectos.find(p => p.id === selectedProyectoFactura);
-  const clienteFactura = proyectoFactura ? data.clientes.find(c => c.id === proyectoFactura.clienteId) : null;
+  const clienteFactura = proyectoFactura ? clientesMap.get(proyectoFactura.clienteId) || null : null;
 
   const registrosFactura = useMemo(() => {
     if (!selectedProyectoFactura) return [];
@@ -151,10 +147,20 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
   const montoMarkup = costoBaseFactura * markupDecimal;
   const precioVentaFactura = costoBaseFactura + montoMarkup;
 
-  const moFactura = registrosFactura.filter(r => r.concepto === 'MO').reduce((a, r) => a + r.total, 0);
-  const insumosFactura = registrosFactura.filter(r => r.concepto === 'Insumo').reduce((a, r) => a + r.total, 0);
-  const vehiculosFactura = registrosFactura.filter(r => r.concepto === 'Vehículo').reduce((a, r) => a + r.total, 0);
-  const otrosFactura = registrosFactura.filter(r => r.concepto === 'Otros').reduce((a, r) => a + r.total, 0);
+  const facturaBreakdown = useMemo(() => {
+    let mo = 0, ins = 0, veh = 0, otros = 0;
+    for (const r of registrosFactura) {
+      if (r.concepto === 'MO') mo += r.total;
+      else if (r.concepto === 'Insumo') ins += r.total;
+      else if (r.concepto === 'Vehículo') veh += r.total;
+      else otros += r.total;
+    }
+    return { moFactura: mo, insumosFactura: ins, vehiculosFactura: veh, otrosFactura: otros };
+  }, [registrosFactura]);
+
+  const { moFactura, insumosFactura, vehiculosFactura, otrosFactura } = facturaBreakdown;
+
+  const clientesMap = useMemo(() => new Map(data.clientes.map(c => [c.id, c])), [data.clientes]);
 
   return (
     <div className="space-y-6">
@@ -454,7 +460,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                   >
                     <option value="">-- Seleccionar Proyecto --</option>
                     {data.proyectos.map(p => {
-                      const cliente = data.clientes.find(c => c.id === p.clienteId);
+                      const cliente = clientesMap.get(p.clienteId);
                       return (
                         <option key={p.id} value={p.id}>
                           [{cliente?.nombre || '?'}] {p.nombre}

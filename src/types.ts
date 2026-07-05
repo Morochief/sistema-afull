@@ -42,7 +42,7 @@ export interface RegistroItem {
   proyectoId: string;
   proyectoNombre: string;
   fecha: string; // YYYY-MM-DD
-  concepto: 'MO' | 'Insumo' | 'Otros';
+  concepto: 'MO' | 'Insumo' | 'Otros' | 'Vehículo';
   descripcion: string; // Nombre del colaborador o detalle
   colaboradorId?: string; // Mapeado
   hsInicio?: string; // Formato hh:mm o fracción
