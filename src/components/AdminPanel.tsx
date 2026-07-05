@@ -27,12 +27,12 @@ import {
   UserX,
   Edit2,
   Search,
+  RefreshCw,
 } from 'lucide-react';
-import { DatabaseState, Cliente, Proyecto, Colaborador, RegistroItem } from '../types.ts';
+import { DatabaseState, Cliente, Proyecto, Colaborador } from '../types.ts';
 import VehiculosAdminView from './VehiculosAdminView.tsx';
-import ConfirmModal from './ConfirmModal.tsx';
 import { useNotif } from '../context/NotifContext.tsx';
-import UsuariosTab from './UsuariosTab.tsx';
+import TimelineMarcaciones from './TimelineMarcaciones.tsx';
 import TimelineMarcaciones from './TimelineMarcaciones.tsx';
 import AuditLogTab from './AuditLogTab.tsx';
 
@@ -101,7 +101,8 @@ function DataCard({ title, subtitle, badge, icon, children }: DataCardProps) {
     cyan: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20',
     pink: 'bg-pink-500/10 text-pink-300 border-pink-500/20',
     blue: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
-    rose: 'bg-rose-500/10 text-rose-300 border-rose-500/20'
+    rose: 'bg-rose-500/10 text-rose-300 border-rose-500/20',
+    slate: 'bg-slate-500/10 text-slate-300 border-slate-500/20'
   };
 
   return (
