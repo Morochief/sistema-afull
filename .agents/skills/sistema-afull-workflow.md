@@ -2,6 +2,27 @@
 
 Protocolo oficial de cambios para Sistema aFull. Todo cambio debe seguir este flujo secuencial.
 
+## Skills Obligatorias por Capa
+
+| Capa | Skill | Cuándo |
+|------|-------|--------|
+| **Backend** | `backend-patterns` | Todo cambio en server.ts, server-validation.ts, API endpoints |
+| **Frontend** | `frontend-patterns` | Todo cambio en componentes React, hooks, estados |
+| **Testing** | `tdd-workflow` | Nuevas features, bugs, refactors con tests |
+| **Auditoría** | `ponytail-review` + `code-reviewer` | Después de escribir/modificar código, antes de commit |
+| **Seguridad** | `security-reviewer` | Endpoints de autenticación, manejo de datos sensibles |
+
+## Regla Obligatoria: Actualizar Framework
+
+Si el cambio introduce un patrón nuevo, corrige un error recurrente, o modifica la arquitectura, se debe actualizar TANTO:
+1. **`.agents/AGENTS.md`** — agregar lección aprendida (sección 6 o I)
+2. **Framework skills** — actualizar el skill correspondiente:
+   - `sistema-afull-workflow.md` → errores comunes o pasos
+   - `admin-list-pattern.md` → nuevos componentes o patrones reutilizables
+   - `ponytail.md` → nuevos anti-patrones detectados
+
+No registrar solo en AGENTS.md. Si el cambio es un patrón que se repetirá, debe vivir en un skill.
+
 ## 1. Pre-Flight Checklist
 
 - [ ] Leer `prisma/schema.prisma` si el cambio toca DB
@@ -70,8 +91,12 @@ npm run build
 ```
 Build script: `prisma generate && vite build && esbuild server.ts ...`
 
-### Paso 7: Lecciones Aprendidas
-Si encontraste un problema nuevo, agregar lección en `.agents/AGENTS.md` siguiendo el formato: **Problema/Regla/Solución/Síntoma**.
+### Paso 7: Lecciones Aprendidas + Framework Update
+Si encontraste un problema nuevo:
+1. Agregar lección en `.agents/AGENTS.md` siguiendo el formato: **Problema/Regla/Solución/Síntoma**
+2. Si el cambio introduce un patrón reutilizable, actualizar el skill correspondiente (ver Skills Obligatorias arriba)
+3. Si el cambio es un nuevo error común, agregarlo a la tabla de Errores Comunes abajo
+4. Si el cambio es un nuevo patrón de lista/admin, actualizar `admin-list-pattern.md`
 
 ## 4. Errores Comunes
 

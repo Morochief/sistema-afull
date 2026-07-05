@@ -107,6 +107,58 @@ const paginatedItems = useMemo(() => {
 </div>
 ```
 
+## Cómo Alimentar Este Skill (Auditoría)
+
+Cuando `ponytail-review` o `code-reviewer` detecten patrones repetitivos en listas/admin que puedan ser reutilizables:
+1. Extraer el patrón a un componente
+2. Agregar el componente a la sección "Componentes Reutilizables Extra" de este skill
+3. Documentar en AGENTS.md como lección
+
+## Componentes Reutilizables Extra (Tablas con Ordenamiento)
+
+### SortIcon
+```tsx
+const SortIcon = ({ field, currentField, currentOrder }: { field: string; currentField: string; currentOrder: 'asc' | 'desc' }) => {
+  if (currentField !== field) return <ArrowUpDown className="w-3.5 h-3.5 text-slate-500 group-hover:text-blue-400 transition-colors" />;
+  return currentOrder === 'asc'
+    ? <ArrowUp className="w-3.5 h-3.5 text-blue-400" />
+    : <ArrowDown className="w-3.5 h-3.5 text-blue-400" />;
+};
+```
+Requiere importar: `ArrowUp, ArrowDown, ArrowUpDown` de `lucide-react`.
+
+### FilterBadge
+```tsx
+const FilterBadge = () => (
+  <div className="absolute top-2 right-2">
+    <span className="text-[9px] font-mono bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 rounded">Filtrado</span>
+  </div>
+);
+```
+
+### ModalShell (backdrop + container)
+```tsx
+function ModalShell({ onClose, maxWidth = 'max-w-2xl', borderColor = 'border-white/10', children }: {
+  onClose: () => void; maxWidth?: string; borderColor?: string; children: React.ReactNode;
+}) {
+  return (
+    <AnimatePresence>
+      <motion.div key="backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
+      <motion.div key="modal" initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <div className={`glass-panel rounded-3xl p-6 ${maxWidth} w-full pointer-events-auto border-2 ${borderColor} shadow-2xl`}
+          onClick={e => e.stopPropagation()}>
+          {children}
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+```
+Requiere importar: `motion, AnimatePresence` de `motion/react`.
+
 ## Módulos Pendientes de Implementar
 
 | Módulo | Prioridad | Filtros necesarios | Items estimados |
