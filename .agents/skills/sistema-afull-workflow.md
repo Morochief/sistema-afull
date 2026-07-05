@@ -2,7 +2,7 @@
 
 Protocolo oficial de cambios para Sistema aFull. Todo cambio debe seguir este flujo secuencial.
 
-## Skills Obligatorias por Capa
+## Skills Obligatorias por Capa (NINGUNA SE OMITE)
 
 | Capa | Skill | Cuándo |
 |------|-------|--------|
@@ -10,7 +10,12 @@ Protocolo oficial de cambios para Sistema aFull. Todo cambio debe seguir este fl
 | **Frontend** | `frontend-patterns` | Todo cambio en componentes React, hooks, estados |
 | **Testing** | `tdd-workflow` | Nuevas features, bugs, refactors con tests |
 | **Auditoría** | `ponytail-review` + `code-reviewer` | Después de escribir/modificar código, antes de commit |
-| **Seguridad** | `security-reviewer` | Endpoints de autenticación, manejo de datos sensibles |
+| **Seguridad** | `security-reviewer` | Endpoints de autenticación, manejo de datos sensibles, exports |
+
+**REGLAS ESTRICTAS:**
+- **No se omite ninguna skill.** Si el cambio toca frontend → `frontend-patterns`. Si toca backend → `backend-patterns`. Siempre → `ponytail-review` + `code-reviewer`. Siempre → `security-reviewer` (al menos para revisar vectors de inyección).
+- Si el cambio no es de una capa específica, documentar por qué no aplica en el commit message.
+- Skills se ejecutan en orden: backend/frontend según corresponda → ponytail-review + code-reviewer → security-reviewer → tdd-workflow si aplica.
 
 ## Regla Obligatoria: Actualizar Framework
 
