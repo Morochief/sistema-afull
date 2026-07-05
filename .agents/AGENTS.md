@@ -403,3 +403,157 @@ await prisma.usuario.update({ where: { username: 'rodrigo' }, data: { colaborado
 **Problema:** Al cachear de forma permanente la página de entrada (`index.html`) en el Service Worker, los nuevos despliegues de producción rompen la aplicación. El navegador sirve el HTML viejo desde la caché del cliente, el cual solicita bundles JS/CSS obsoletos que ya no existen en el servidor. El servidor responde a estos recursos con el fallback `index.html` (MIME Type `text/html`), provocando que la carga del script del módulo falle por error de tipo de medio estricto en el navegador.
 **Regla:** El Service Worker (`sw.js`) debe implementar una estrategia **Network-First** para los archivos de carga y navegación (`/` y `index.html`), asegurando obtener el HTML con los nombres de bundle compilados más recientes si hay conexión. La estrategia **Cache-First** se debe restringir a los assets locales en `/assets/` que contienen hashes únicos en sus nombres.
 
+### 31. Viajes Particulares: Handler debe Saltar Verificación de Cliente/Proyecto
+**Problema:** El schema Zod (`ViajeStartSchema`) permite viajes particulares mediante el .refine() con `clienteId === 'viaje_particular'`, pero el handler del endpoint `POST /api/viaje/start` ejecutaba `prisma.cliente.findUnique({ where: { id: clienteId } })` sin saltar para viajes particulares. Como `'viaje_particular'` no es un ID real en la tabla `clientes`, `findUnique` devolvía `null` y el servidor respondía 400 `CLIENTE_NOT_FOUND`.
+**Regla:** Cada vez que se agregue una excepción en Zod (como `.refine()`), verificar que el handler del endpoint tenga el mismo condicional. Si el schema permite un valor mágico (`viaje_particular`), el handler debe detectar ese valor antes de hacer consultas a la DB para evitar falsos 400.
+
+### 32. Cálculo de Costo de Combustible: Adaptar UI a Lógica de Negocio del Cliente
+**Problema:** El formulario original de finalizar viaje pedía "Combustible (L)" y "Costo (Gs)" como campos separados, asumiendo que el cliente cargaba litros reales y el costo del ticket de la estación. El negocio real del cliente calcula el costo multiplicando la distancia recorrida (diferencia de km) por un costo fijo por kilómetro (ej: 1.400 Gs/km). Esto generaba confusión: el cliente ponía la diferencia de km en "Litros" y el costo por km en "Costo", causando datos inconsistentes.
+**Regla:** Antes de diseñar formularios de entradas de datos, entender la lógica de negocio real del cliente. Si el costo se calcula como `distancia × costoPorKm`, la UI debe reflejar eso: un solo campo "Costo por Km" con el cálculo total mostrado dinámicamente, y el backend recibe `combustibleLitros: undefined` (null) y `combustibleCosto: distanciaOdometro * costoPorKm`. No asumir la mecánica de "litros cargados en el tanque" si el cliente no la usa.
+
+### 33. FK Constraints en RegistroVehiculo vs IDs Mágicos (Viaje Particular)
+**Problema:** El modelo `ViajeActivo` no tenía FK constraints en `clienteId`/`proyectoId`, por lo que el valor mágico `'viaje_particular'` se guardaba sin problema. Pero `RegistroVehiculo` SÍ tenía `@relation` a `Cliente`/`Proyecto`, causando `Foreign key constraint violated` (error P2003) al intentar crear un registro vehicular con esos IDs inventados.
+**Regla:** Si un modelo usa IDs mágicos que no existen en tablas referenciadas, no debe tener FK constraints reales. En este caso, `RegistroVehiculo` almacena los nombres en `clienteNombre`/`proyectoNombre`, así que las relaciones FK no eran necesarias. Al removerlas, los viajes particulares funcionan correctamente. Siempre verificar que modelos relacionados tengan el mismo nivel de constraints — si uno permite valores mágicos, el otro también debe permitirlos.
+
+### 34. Refrescar Estado Global (dbState) Después de Mutaciones Asíncronas
+**Problema:** Al finalizar un viaje desde `VehiculoTab.tsx` (tab Vehículo en RegistroOperativo), el servidor creaba correctamente el `registroVehiculo` en la DB, pero el estado global `dbState` en `App.tsx` nunca se refrescaba. Al cambiar al panel Admin > Vehículos, `VehiculosAdminView` leía `data.registrosVehiculo` del estado stale y el nuevo registro no aparecía. El problema era que `RegistroOperativo` no recibía un `onRefresh`, a diferencia de `AdminPanel` y `VehiculosAdminView` que sí lo tenían.
+**Regla:** Toda mutación que cree o modifique datos visibles en múltiples tabs/paneles debe gatillar un refresh del estado global. La cadena de props debe incluir `onRefresh` desde `App.tsx` hasta el componente que realiza la mutación. Si un componente nuevo (como `RegistroOperativo` o `VehiculoTab`) realiza operaciones que afectan datos compartidos, debe tener `onRefresh` igual que los demás — no asumir que el estado se actualiza solo.
+
+### 35. Dashboard Unificado: Routing de Delete para IDs de Vehículos vs Registros de Horas
+**Problema:** El Dashboard unifica registros de horas (`/api/registros/`) y registros de vehículos (`/api/vehiculo/registro/`) en una misma lista. Al eliminar desde el Dashboard, `handleDeleteRegistro` en `App.tsx` siempre llamaba a `/api/registros/:id` sin importar el tipo de registro. Los IDs de vehículos empiezan con `regveh_`, así que la petición caía en el endpoint de registros de horas, que devolvía 404.
+**Regla:** Cuando dos tipos de entidades con endpoints distintos se muestran en una misma lista unificada, el handler de eliminación debe detectar el tipo por convención de ID (ej: prefijo `regveh_`) y rutear al endpoint correcto. Alternativa: incluir un campo `tipo` en los datos unificados. En este caso, se optó por detectar `id.startsWith('regveh_')` para rutear a `/api/vehiculo/registro/:id`.
+
+### 36. Formulario de Edición Desincronizado con la Lógica de Negocio Actualizada
+**Problema:** Se actualizó el modal de creación (`ModalFinalizarViaje.tsx`) para calcular el costo como `distancia × costoPorKm`, pero el formulario de edición en `VehiculosAdminView.tsx` seguía mostrando "Litros" y "Costo Total" como antes. Además, el handler PATCH del backend seguía esperando `combustibleLitros` y `precioLitro`, y el schema Zod los requería. Al abrir la edición de un registro creado con el nuevo flujo, `combustibleLitros` era `null` y el campo "Litros" aparecía vacío, confundiendo al usuario.
+**Regla:** Cada vez que se modifica la lógica de creación de un recurso (qué datos ingresa el usuario y cómo se calculan), hay que actualizar en cascada:
+1. Schema Zod del endpoint de update (PUT/PATCH) — remover campos obsoletos
+2. Handler del endpoint — remover cálculos basados en esos campos
+3. Hook de edición frontend (`startEdit`) — adaptar cómo se cargan los datos iniciales
+4. Formulario de edición — reflejar los mismos inputs que el de creación
+5. Submit del formulario — enviar la misma estructura de datos que el de creación
+No asumir que los formularios de creación y edición pueden divergir; siempre deben estar alineados.
+
+### 37. Métricas y Cards de Lista Desincronizadas tras Cambio de Lógica de Negocio
+**Problema:** Al cambiar la lógica de combustible de "litros cargados" a "costo por km × distancia", se actualizaron el modal de creación y el formulario de edición, pero las tarjetas de métricas (totales), las cards individuales de cada viaje en la lista, y el componente `Dashboard.tsx` seguían referenciando `combustibleLitros` y mostrando "L" (litros) y "L/km". El resultado era que números de costo se etiquetaban como litros (ej: 9800.0 L cuando era Gs. 9.800).
+**Regla:** Cada vez que se modifica la lógica de almacenamiento de un campo (qué representa y cómo se calcula), hay que auditar **todos** los componentes que referencian ese campo o su representación visual. La cadena completa incluye:
+1. Formulario de creación
+2. Formulario de edición
+3. Tarjetas de métricas/resumen (totales)
+4. Cards individuales en listas
+5. Componentes de Dashboard que usan ese tipo de registro
+6. Descripciones textuales que incluyan el campo
+Buscar TODAS las referencias a `combustibleLitros`, `consumoPorKm`, `precioLitro`, `L`, `L/km` en el codebase, no solo en los formularios.
+
+### 38. Módulo de Reportes Ignoraba Vehículos: Datos Parciales en Reportería
+**Problema:** `Reportes.tsx` solo filtraba `data.registros` (MO/Insumos) e ignoraba completamente `data.registrosVehiculo`. Los filtros de cliente, proyecto, fecha y concepto no incluían viajes vehiculares, por lo que el "Total Filtrado" en Reportes mostraba cifras más bajas que el Dashboard (que sí unifica ambas fuentes). La Pre-Factura también excluía costos de vehículos de los proyectos.
+**Regla:** Cuando existan múltiples fuentes de datos transaccionales (registros de horas, registros de vehículos, etc.) que representan costos para un mismo proyecto/cliente, cualquier módulo de reportería o facturación debe unificarlas antes de aplicar filtros y calcular métricas. La unificación debe hacerse al nivel del `useMemo` de datos filtrados, transformando las fuentes secundarias al mismo tipo/interfaz que la primaria (ej: mapear `RegistroVehiculo` a `RegistroItem` con concepto `'Vehículo'`). El mismo patrón que usa Dashboard debe replicarse en Reportes.
+
+### 39. Prop `showPrices` No Pasada a Subcomponentes Causa ReferenceError en Runtime
+**Problema:** Se agregó la lógica `{showPrices && (...)}` dentro de `RegistroCard` y `RegistroVehiculoCard` para ocultar montos al Operario, pero `showPrices` no estaba definida en las props de esos componentes. `RegistroCardProps` y `RegistroVehiculoCardProps` no incluían el campo `showPrices`, así que al renderizar tiraba `ReferenceError: showPrices is not defined`.
+**Regla:** Cada vez que se introduce una variable condicional en un subcomponente, hay que asegurarse de que esté declarada en su interfaz de props y que se pase desde el padre. Si el componente es `React.memo`, verificar tanto la interfaz como los usos de renderizado. No asumir que una variable del closure del padre está disponible en el hijo.
+
+### 40. `onRefresh` Debe Pasarse al Hook, No Solo al Componente Padre
+**Problema:** `VehiculoTab.tsx` recibía `onRefresh` como prop y lo pasaba al modal, pero el hook `useViaje` (definido dentro del mismo archivo) usaba `onRefresh` en `finalizarViaje` sin recibirlo como parámetro. El error `onRefresh is not defined` aparecía recién en runtime al finalizar el viaje, después de que la API respondía exitosamente, porque `finalizarViaje` intentaba llamar `onRefresh()` que era `undefined` dentro del closure del hook.
+**Regla:** Cuando un hook interno necesita un callback que viene del exterior (como `onRefresh`), debe recibirlo explícitamente en sus parámetros. No asumir que el hook tiene acceso al closure del componente padre, incluso si están en el mismo archivo.
+
+### 41. Obtener kmInicial del Servidor en Lugar del Estado Local para Finalizar Viaje
+**Problema:** `ModalFinalizarViaje` usaba `kmInicio` del estado local (`useViaje`) que se sincronizaba con localStorage. Si el estado local se corrompía (ej: viaje iniciado pero API rechazó la creación), `kmInicio` quedaba `null` y se calculaban distancias absurdas (kmFinal - 0). Se intentaron múltiples parches de validación que fracasaron porque la raíz era confiar en estado local no verificado.
+**Solución:** Al presionar "Finalizar Viaje", el frontend ahora pide los datos reales del viaje activo a `GET /api/viaje/active/:usuario` y usa el `kmInicial` que devuelve el servidor. Como el servidor guarda el km inicial en la tabla `ViajeActivo` al crear el viaje, siempre tiene el valor correcto. El estado local solo se usa como fallback (`serverKmInicio || kmInicio || 0`).
+**Regla:** Para operaciones críticas que dependen de datos precisos (como km inicial), obtener los datos del servidor en el momento de la acción en lugar de confiar en estado local que puede estar corrupto. El estado local es útil para UI instantánea, pero las operaciones transaccionales deben verificar contra el servidor.
+
+### 42. `step="0.5"` Impide Decimales Arbitrarios en Cantidad de Insumos
+**Problema:** El input de cantidad de insumos tenía `step="0.5"`, que solo permitía incrementos de 0.5 (0.5, 1.0, 1.5...). El cliente necesita cargar medidas como 0.7592 m² (1.46 × 0.52), imposible con step="0.5". Además, `parseFloat(e.target.value) || 0` resetaba a 0 si el parse fallaba en vez de permitir decimales con punto.
+**Solución:** Cambiar `step="0.5"` a `step="any"` para permitir cualquier valor decimal. El servidor y la DB ya soportan decimales (`Decimal(10, 2)` en Prisma, `z.number().positive()` en Zod).
+**Regla:** Usar `step="any"` en inputs de cantidad cuando el dominio de negocio requiere decimales arbitrarios (medidas, pesos, áreas). No asumir que las cantidades son siempre enteras. Verificar que todas las capas (frontend → Zod → Prisma) soporten el mismo nivel de precisión.
+
+### 43. Bloquear Contexto (Cliente/Proyecto) También Cuando el Timer Finalizó, No Solo Mientras Corre
+**Problema:** Los selects de Cliente y Proyecto se bloqueaban con `disabled={timerRunning}`, pero se desbloqueaban en cuanto el timer finalizaba (`timerEnd`). El operario podía cambiar de proyecto entre que finalizaba el timer y registraba las horas de MO, causando que el registro apareciera en un proyecto diferente al que se hizo el trabajo.
+**Solución:** Cambiar la condición a `disabled={timerRunning || !!timerEnd}` para mantener el contexto bloqueado desde que arranca el timer hasta que se registra la MO. El operario no puede cambiar cliente/proyecto mientras haya un timer pendiente de registrar.
+**Regla:** Toda operación de dos fases (timer → registro) debe bloquear los inputs de contexto (cliente, proyecto, colaborador) desde que se inicia la primera fase hasta que se completa la segunda. No desbloquear entre fases.
+
+### 44. Accesibilidad: Botones Icon-Only Necesitan `aria-label`
+**Problema:** 6 botones en la UI solo tenían un ícono `<X>` sin texto visible, `aria-label` ni `title`. Herramientas de auditoría (aXe) reportaban "Buttons must have discernible text". Adicionalmente, los `<select>` y `<input>` de los filtros del Dashboard no tenían `id`, por lo que los `<label>` no estaban asociados programáticamente.
+**Solución:** Agregar `aria-label="Cerrar"`, `aria-label="Eliminar línea"`, `aria-label="Cambiar foto"` a cada botón icon-only. Agregar `id` a selects/inputs y `htmlFor` a sus labels correspondientes.
+**Regla:** Todo botón que solo contenga un ícono debe tener `aria-label` descriptivo. Todo `<label>` debe estar asociado a su campo mediante `htmlFor` + `id`. No confiar solo en el wrapping visual del label.
+
+### 45. Endpoint PUT `/api/proyectos/:id` Duplicado y Estado Mal Mapeado
+**Problema:** Existían dos handlers para `PUT /api/proyectos/:id` (líneas 1018 y 3695). El primero ganaba por orden de registro, pero devolvía `updated.estado` (Prisma enum crudo: `'EN_PROCESO'`) en vez del valor UI (`'En Proceso'`). El segundo endpoint nunca se ejecutaba (dead code). Al editar un proyecto, el badge mostraba `'EN_PROCESO'` hasta recargar la página.
+**Solución:** Mapear `updated.estado` a UI en el endpoint activo y eliminar el endpoint duplicado. El bundle se redujo de 149.6kb a 148.3kb.
+**Regla:** Siempre mapear enums de Prisma a valores UI antes de devolverlos en respuestas API. No devolver `updated.estado` directamente. No dejar handlers duplicados — Express ejecuta el primero registrado y el resto es dead code que solo confunde.
+
+### 46. Filtro de Marcaciones Usaba Match Exacto en Lugar de `contains`
+**Problema:** El endpoint `/api/marcacion/admin/timeline` usaba `{ usuario }` como filtro exacto. Si el admin escribía parte de un nombre en el buscador, no encontraba nada. Además, el frontend enviaba `limite=100` que ocultaba registros antiguos.
+**Solución:** Cambiar a `{ usuario: { contains, mode: 'insensitive' } }` en el servidor y eliminar el `limite=100` del frontend para usar el default de 200 del servidor.
+**Regla:** Los filtros de búsqueda en paneles de administración deben usar `contains` (no match exacto) para permitir búsqueda parcial. No hardcodear límites en el frontend sin coordinación con el servidor.
+
+### 47. Patrón Estándar de Listas para Módulos de Administración
+**Problema:** Cada submódulo del AdminPanel implementaba listas de forma diferente: Clientes sin búsqueda ni paginación, Proyectos igual, Colaboradores igual. Solo Marcaciones y AuditLog tenían filtros básicos. No había un estándar.
+**Solución:** Crear la skill `admin-list-pattern` en `.agents/skills/admin-list-pattern.md` que define: estados obligatorios (searchText, currentPage, itemsPerPage), cálculos (filteredItems, paginatedItems, totalPages), componentes UI reutilizables (search input, pagination footer), y reset de página al cambiar filtros.
+**Regla:** Todos los módulos de administración que muestren listas de datos deben implementar el mismo patrón: búsqueda por texto, paginación con selector de items por página, y reset de página al cambiar filtros. Usar la skill `admin-list-pattern` como referencia.
+
+### 48. ClientesTab: Primer Módulo en Implementar el Patrón `admin-list-pattern`
+**Problema:** La lista de Clientes en AdminPanel mostraba todos los clientes sin filtro ni paginación. Con ~100+ clientes, la UI se volvía pesada y difícil de navegar.
+**Solución:** Aplicar la skill `admin-list-pattern` en ClientesTab: agregar `searchText` state con búsqueda por nombre/código/ID, `currentPage`/`itemsPerPage` con paginación, y componentes UI de búsqueda + paginador. El contador de la sección ahora refleja resultados filtrados.
+**Regla:** Al implementar el patrón en un nuevo módulo, seguir la skill en orden: (1) agregar estados, (2) agregar useEffect reset, (3) agregar useMemo filtrado, (4) agregar useMemo paginado, (5) agregar search input en JSX, (6) reemplazar `.map()` con items paginados, (7) agregar paginador al final.
+
+### 49. ProyectosTab: Segundo Módulo en Implementar el Patrón `admin-list-pattern`
+**Problema:** La lista de Proyectos en AdminPanel no tenía búsqueda, filtro por estado ni paginación. Con ~100+ proyectos, los administradores tenían que scrollear toda la lista para encontrar uno.
+**Solución:** Aplicar el patrón de `admin-list-pattern` con: búsqueda por nombre/cliente/ID, filtro por estado (Pendiente/En Proceso/Completado), paginación completa con selector de items. El contador ahora refleja resultados filtrados.
+**Regla:** Misma secuencia que ClientesTab. Además, usar `filterStatus` con un `<select>` para filtrar por estado enum cuando el modelo lo tenga. Filtrar también por nombre del cliente relacionado usando `data.clientes.find()`.
+
+### 50. ColaboradoresTab: Tercer Módulo en Implementar el Patrón `admin-list-pattern`
+**Problema:** El listado de colaboradores en AdminPanel no tenía búsqueda ni paginación. Con ~50+ contratistas, encontrar uno requería scrollear.
+**Solución:** Aplicar el patrón `admin-list-pattern` con búsqueda por nombre/rol/usuario y paginación. El contador de la sección refleja resultados filtrados.
+**Regla:** Al implementar en módulos con DataCard + inline editing, el search/pagination se agrega alrededor del `.map()` existente sin tocar la lógica de edición.
+
+### 51. AuditLogTab: Paginación Cliente-Side con Selector de Items
+**Problema:** AuditLogTab tenía un límite hardcodeado de 100 registros y mostraba todos en una lista sin paginación. Con miles de eventos de login, la UI se volvía inmanejable.
+**Solución:** Agregar `currentPage`, `itemsPerPage` (default 25), `useMemo` paginado sobre `data.slice()`, y paginador con páginas numeradas acotadas a 10 botones. Se aumentó el límite del servidor de 100 a 200. El filtro por usuario resetea la página a 1.
+**Regla:** Para listas largas con datos ya cargados en memoria, usar paginación client-side con `slice()`. Mantener un límite de fetch razonable (200) y paginar en cliente para evitar saturar la UI. Mostrar máximo 10 botones de página con scroll centered en la página activa.
+
+### 52. TimelineMarcaciones: Paginación con Patrón `admin-list-pattern`
+**Problema:** El timeline de marcaciones mostraba todos los registros del servidor en una lista vertical sin paginación. Con cientos de marcaciones, el listado era imposible de navegar.
+**Solución:** Agregar `currentPage`, `itemsPerPage` (default 25), `useMemo` paginado y paginador con selector 25/50/100 items. Mismo patrón que AuditLogTab.
+**Regla:** Misma implementación que AuditLog: paginación client-side con `slice()`, máximo 10 botones de página, selector de items.
+
+### 53. VehiculosAdminView: Último Módulo en Implementar `admin-list-pattern`
+**Problema:** La lista de viajes en el panel de vehículos no tenía paginación. Con cientos de viajes, la lista se volvía inmanejable.
+**Solución:** Agregar paginación con 10/25/50 items sobre `registrosFiltrados` (que ya tenía filtro por alertas). Usar `React.useMemo` y `React.useEffect` ya que el componente importa `React` como default.
+**Regla:** Todos los módulos de administración ahora tienen el mismo patrón: filtros + paginación + items-per-page selector. La skill `admin-list-pattern` documenta el estándar completo.
+
+```
+┌───────────────┬──────────────────────────────────────────┐
+│ Módulo        │ Estado                                   │
+├───────────────┼──────────────────────────────────────────┤
+│ Clientes      │ ✅ Búsqueda + paginación                 │
+├───────────────┼──────────────────────────────────────────┤
+│ Proyectos     │ ✅ Búsqueda + filtro estado + paginación │
+├───────────────┼──────────────────────────────────────────┤
+│ Colaboradores │ ✅ Búsqueda + paginación                 │
+├───────────────┼──────────────────────────────────────────┤
+│ AuditLog      │ ✅ Filtro usuario + paginación           │
+├───────────────┼──────────────────────────────────────────┤
+│ Marcaciones   │ ✅ Filtro usuario + paginación           │
+├───────────────┼──────────────────────────────────────────┤
+│ Vehículos     │ ✅ Filtro alertas + paginación           │
+└───────────────┴──────────────────────────────────────────┘
+
+### 54. VehiculosAdminView: Refactor de Redundancia (Ponytail Audit)
+**Problema:** `VehiculosAdminView.tsx` tenía 1.133 líneas con múltiples problemas de redundancia detectados por auditoría Ponytail: 14 `console.log` de debug, 2 modales con backdrop+container duplicado (40 líneas), tarjetas GPS Inicio/Fin duplicadas, botones foto Inicio/Fin duplicados, cache buster con `Date.now()` en cada render, 4 tarjetas de métricas con estructura repetida, imports no usados (`Calendar`, `Clock`), IIFE en JSX, y cálculos de `totales` sin `useMemo` iterando el arreglo 5 veces.
+**Solución:** Extraer componentes `ModalShell`, `UbicacionCard`, `FotoButton`. Cache buster con IIFE (una vez al cargar). Tarjetas de métricas como array + `.map()`. `useMemo` en `totales`, `registrosVehiculo` y `registrosFiltrados`. Variables fuera del return en EditModal. Eliminar todos los `console.log` e imports muertos.
+**Regla:** Después de cambios grandes en un componente, ejecutar auditoría Ponytail para identificar: (1) imports sin uso, (2) console.logs, (3) JSX duplicado, (4) cálculos sin memo, (5) patrones repetitivos convertibles a array+map. Bundle redujo ~11 kB (1.907 → 1.896 kB) y ~53 líneas netas eliminadas.
+
+### 55. Dashboard: `Math.round()` Truncaba Decimales en Columna Cant/Horas
+**Problema:** En el Dashboard, la columna "CANT / HORAS" usaba `Math.round(reg.cantidad)` para insumos, redondeando valores como 0.7592 a 1. El cliente necesita ver los decimales exactos.
+**Solución:** Cambiar `Math.round(reg.cantidad).toLocaleString('es-PY')` por `Number(reg.cantidad).toLocaleString('es-PY', { minimumFractionDigits: 0, maximumFractionDigits: 4 })`.
+**Regla:** No usar `Math.round()` en valores que el usuario ingresó con decimales específicos. Usar `toLocaleString` con `maximumFractionDigits` para preservar la precisión original del dato.
+
+### 56. Dashboard: Refactor de SortIcon, FilterBadge y Consolidación de Effects
+**Problema:** Dashboard.tsx (1603 líneas) tenía 6 bloques duplicados de iconos de ordenamiento en headers de tabla, 4 bloques duplicados de badge "Filtrado" en charts, y 3 `useEffect` separados para resetear página al cambiar filtros/búsqueda/orden.
+**Solución:** Extraer componentes `SortIcon` y `FilterBadge`. Consolidar los 3 efectos en uno con dependencias unificadas. Los componentes se definen fuera del componente principal como funciones puras sin estado.
+**Regla:** Cuando un patrón JSX aparece 3+ veces en un mismo archivo, extraer a un componente. Cuando 2+ efectos tienen el mismo cuerpo, consolidarlos. Para iconos de ordenamiento en tablas, usar un componente `SortIcon` que recibe `field`, `currentField` y `currentOrder` como props.
+
+### 57. RegistroOperativo: Eliminar 12 Imports Muertos y 7 Console Logs
+**Problema:** `RegistroOperativo.tsx` tenía 2 imports muertos (`Clock`, `CheckCircle`), `ModalIniciarViaje.tsx` tenía 5 (`AnimatePresence`, `modalVariants`, `modalSpring`, `CheckCircle`, `Loader`), y `ModalFinalizarViaje.tsx` tenía 5 (`AnimatePresence`, `modalVariants`, `modalSpring`, `Square`, `AlertCircle`). También había 7 `console.error`/`console.warn` en producción que exponían datos internos del servidor.
+**Solución:** Eliminar todos los imports no utilizados y reemplazar los `console.error` con comentarios silenciosos. Agregar `useMemo` en `proyectosFiltrados` y `currentUserColaborador`. Extraer componente `FeedbackBanner` para eliminar duplicación de 2 bloques idénticos de feedback animado.
+**Regla:** Al auditar un componente verificar: (1) imports sin uso, (2) console.log/error/warn en producción, (3) cálculos derivados sin memo, (4) JSX duplicado extraíble a componente. Usar las skills `ponytail-review` y `code-reviewer` para detectar estos patrones automáticamente.
