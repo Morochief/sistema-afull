@@ -21,6 +21,7 @@ import {
   Play,
   Square,
   ShoppingCart,
+  CheckCircle,
   CheckCircle2,
   AlertCircle,
   User,
