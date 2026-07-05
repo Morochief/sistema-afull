@@ -7,17 +7,13 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Upload, 
-  FileSpreadsheet, 
-  HelpCircle, 
   CheckCircle2, 
   Sparkles, 
-  ChevronRight, 
   Building2, 
   FolderGit2, 
   UserPlus, 
   AlertTriangle,
-  RefreshCw,
-  Clock
+  RefreshCw
 } from 'lucide-react';
 import { DatabaseState, Cliente, Proyecto, Colaborador, RegistroItem } from '../types.ts';
 import { authFetch, authFetchJSON } from '../authFetch.ts'; // SECURITY Phase 2 Fix #5: No getSession
@@ -174,7 +170,6 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
         });
       }
     } catch (err: any) {
-      console.error(err);
       showToast('Enriquecimiento de IA falló: ' + err.message, 'error');
     } finally {
       setIsAiLoading(false);
