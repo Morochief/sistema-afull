@@ -85,6 +85,34 @@ interface TabsContextValue {
   setActiveTab: (tab: string) => void;
 }
 
+function FeedbackBanner({ feedback }: { feedback: { type: 'success' | 'error'; msg: string } | null }) {
+  if (!feedback) return null;
+  return (
+    <AnimatePresence mode="wait">
+      {feedback && (
+        <motion.div
+          key={feedback.msg}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.2 }}
+          className={`p-3 rounded-xl flex items-center gap-2 text-sm font-medium ${
+            feedback.type === 'success'
+              ? 'bg-emerald-500/10 border border-emerald-500/25 text-emerald-300'
+              : 'bg-rose-500/10 border border-rose-500/25 text-rose-300'
+          }`}
+        >
+          {feedback.type === 'success'
+            ? <CheckCircle2 className="w-4 h-4 shrink-0" />
+            : <AlertCircle className="w-4 h-4 shrink-0" />
+          }
+          <span>{feedback.msg}</span>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 const TabsContext = createContext<TabsContextValue | undefined>(undefined);
 
 function Tabs({ children, defaultTab }: { children: React.ReactNode; defaultTab: string }) {
@@ -296,7 +324,7 @@ function useTimer({ currentUser }: UseTimerOptions) {
           }
         }
       } catch (error) {
-        console.error('Failed to load active timer from server:', error);
+        // Failed to load timer - will retry on next mount
       }
     };
 
@@ -351,7 +379,7 @@ function useTimer({ currentUser }: UseTimerOptions) {
           }
         }
       } catch (error) {
-        console.error('Timer sync failed:', error);
+        // Timer sync failed silently
       }
     }, 30000);
 
@@ -387,7 +415,7 @@ function useTimer({ currentUser }: UseTimerOptions) {
           })
         });
       } catch (error) {
-        console.error('Failed to start timer on server:', error);
+        // Timer start failed - state was already updated locally
       }
     }
   }, [currentUser]);
@@ -408,7 +436,6 @@ function useTimer({ currentUser }: UseTimerOptions) {
           body: JSON.stringify({ usuario: currentUser.usuario })
         });
       } catch (err) {
-        console.error('Failed to pause timer on server:', err);
         // Continue with local pause even if server fails (hybrid fallback)
       }
     }
@@ -444,7 +471,6 @@ function useTimer({ currentUser }: UseTimerOptions) {
           }
         }
       } catch (err) {
-        console.error('Failed to resume timer on server:', err);
         // Fallback to local calculation if server fails
         const newPausedTime = pausedTime + pauseDuration;
         setPausedTime(newPausedTime);
@@ -513,7 +539,7 @@ function useTimer({ currentUser }: UseTimerOptions) {
           setTimerSeconds(serverDuration);
         }
       } catch (error) {
-        console.error('Failed to stop timer on server:', error);
+        // Failed to stop timer - local state already cleaned up
       }
     }
   }, [currentUser, isPaused, pauseStart, pausedTime, pauseHistory]);
@@ -667,7 +693,7 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
 
   const canChangeColaborador = currentUser?.rol === 'Admin';
   
-  const currentUserColaborador = currentUser 
+  const currentUserColaborador = useMemo(() => currentUser 
     ? data.colaboradores.find(
         col => {
           if (!col?.nombre || !currentUser?.nombre) return false;
@@ -676,7 +702,7 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
           return colName.includes(userName) || userName.includes(colName);
         }
       )
-    : null;
+    : null, [currentUser, data.colaboradores]);
 
   useEffect(() => {
     if (currentUser && data.colaboradores.length > 0) {
@@ -704,11 +730,7 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
           setMoPrecioUnitario(String(colaborador.tarifaSugerida));
         } else {
           // Ningún match por ID ni por nombre — el botón "Iniciar Tarea" quedará bloqueado
-          console.warn(
-            `[RegistroOperativo] No se encontró colaborador para el usuario "${currentUser.usuario}" ` +
-            `(nombre: "${currentUser.nombre}", colaboradorId: "${currentUser.colaboradorId}"). ` +
-            `IDs disponibles: ${data.colaboradores.map(c => `${c.id}="${c.nombre}"`).join(', ')}`
-          );
+          // Ningún match por ID ni por nombre — el botón "Iniciar Tarea" quedará bloqueado
         }
       } else if (!selectedColaboradorId) {
         const colaborador = data.colaboradores.find(
