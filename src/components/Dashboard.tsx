@@ -1230,7 +1230,7 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
                         ? formatMinutosToHHMM(reg.cantidad)
                         : reg.concepto === 'Vehículo'
                         ? `${Math.round(reg.cantidad)} km`
-                        : Math.round(reg.cantidad).toLocaleString('es-PY')
+                        : Number(reg.cantidad).toLocaleString('es-PY', { minimumFractionDigits: 0, maximumFractionDigits: 4 })
                       }
                     </td>
                     <td className="py-4 text-right font-mono text-slate-300">
