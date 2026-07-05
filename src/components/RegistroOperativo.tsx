@@ -14,13 +14,12 @@
  * HYBRID TIMER: Servidor (database.json) + localStorage (caché temporal)
  */
 
-import React, { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cardVariants, cardTransition } from '../lib/animations.ts';
 import {
   Play,
   Square,
-  Clock,
   ShoppingCart,
   CheckCircle2,
   AlertCircle,
@@ -34,7 +33,6 @@ import {
   Package,
   X,
   Lock,
-  CheckCircle,
   Coffee,
   Pause,
   Car,
@@ -621,9 +619,9 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
 
   const [fecha, setFecha] = useState(new Date().toISOString().substring(0, 10));
 
-  const proyectosFiltrados = data.proyectos.filter(
+  const proyectosFiltrados = useMemo(() => data.proyectos.filter(
     p => (!selectedClienteId || p.clienteId === selectedClienteId) && p.activo !== false
-  );
+  ), [data.proyectos, selectedClienteId]);
 
   const contextComplete = !!(selectedClienteId && selectedProyectoId);
 

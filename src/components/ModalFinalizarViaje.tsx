@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { modalVariants, modalSpring } from '../lib/animations.ts';
-import { Camera, X, CheckCircle, Square, AlertCircle } from 'lucide-react';
+import { motion } from 'motion/react';
+import { Camera, X, CheckCircle } from 'lucide-react';
 import { useNotif } from '../context/NotifContext';
 
 interface Props {
