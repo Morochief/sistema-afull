@@ -100,20 +100,25 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
   };
 
   // --- EXPORT TO EXCEL ---
+  const sanitizeCell = (value: any): any => {
+    if (typeof value === 'string' && /^[=+\-@]/.test(value)) return `'${value}`;
+    return value;
+  };
+
   const handleExportExcel = () => {
     const exportData = filteredRegistros.map(r => ({
-      'Cliente': r.clienteNombre,
-      'Proyecto': r.proyectoNombre,
-      'Fecha': r.fecha,
-      'Concepto': r.concepto,
-      'Descripción': r.descripcion,
-      'Hs Inicio': r.hsInicio || '',
-      'Hs Fin': r.hsFin || '',
-      'Hs Total': r.hsTotal || '',
+      'Cliente': sanitizeCell(r.clienteNombre),
+      'Proyecto': sanitizeCell(r.proyectoNombre),
+      'Fecha': sanitizeCell(r.fecha),
+      'Concepto': sanitizeCell(r.concepto),
+      'Descripci\u00f3n': sanitizeCell(r.descripcion),
+      'Hs Inicio': sanitizeCell(r.hsInicio || ''),
+      'Hs Fin': sanitizeCell(r.hsFin || ''),
+      'Hs Total': sanitizeCell(r.hsTotal || ''),
       'Cantidad': r.cantidad,
       'Precio Unitario': r.precioUnitario,
       'Total': r.total,
-      'Origen': r.origen,
+      'Origen': sanitizeCell(r.origen),
     }));
 
     const ws = XLSX.utils.json_to_sheet(exportData);
