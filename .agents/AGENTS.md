@@ -557,3 +557,21 @@ Buscar TODAS las referencias a `combustibleLitros`, `consumoPorKm`, `precioLitro
 **Problema:** `RegistroOperativo.tsx` tenía 2 imports muertos (`Clock`, `CheckCircle`), `ModalIniciarViaje.tsx` tenía 5 (`AnimatePresence`, `modalVariants`, `modalSpring`, `CheckCircle`, `Loader`), y `ModalFinalizarViaje.tsx` tenía 5 (`AnimatePresence`, `modalVariants`, `modalSpring`, `Square`, `AlertCircle`). También había 7 `console.error`/`console.warn` en producción que exponían datos internos del servidor.
 **Solución:** Eliminar todos los imports no utilizados y reemplazar los `console.error` con comentarios silenciosos. Agregar `useMemo` en `proyectosFiltrados` y `currentUserColaborador`. Extraer componente `FeedbackBanner` para eliminar duplicación de 2 bloques idénticos de feedback animado.
 **Regla:** Al auditar un componente verificar: (1) imports sin uso, (2) console.log/error/warn en producción, (3) cálculos derivados sin memo, (4) JSX duplicado extraíble a componente. Usar las skills `ponytail-review` y `code-reviewer` para detectar estos patrones automáticamente.
+
+### 58. Tabs Compound Component: Dejar Pendiente por Riesgo de Romper el Render Tree
+**Contexto:** `RegistroOperativo.tsx` tiene un sistema de Tabs implementado con Context API (~90 líneas entre `TabsContext`, `Tabs`, `TabList`, `Tab`, `TabPanel`). La auditoría Ponytail identificó que es over-engineering para solo 3 tabs de uso único. El refactor planeado era reemplazar con un simple `useState<string>` + botones inline.
+**Decisión:** Se intentó el refactor pero se descartó porque:
+1. Los 3 `TabPanel` están anidados en el render tree con motion animations
+2. Cada panel contiene cientos de líneas de JSX (MO ~200, insumos ~200, vehículo ~100)
+3. El compilador detectó el error de sintaxis (import pegado con function) y se revirtió el cambio
+**Regla:** No refactorizar sistemas de Tabs compuestos con Context API en componentes que tienen >1500 líneas y múltiples paneles con animaciones. El riesgo de romper el render tree supera el beneficio de eliminar ~90 líneas de código de contexto. Dejar como deuda técnica documentada para una refactorización mayor cuando el componente se divida en archivos separados.
+
+### 59. ExcelImporter: Eliminar 4 Imports Muertos y 1 Console.Error
+**Problema:** `ExcelImporter.tsx` importaba 4 iconos de lucide-react que nunca se usaban (`FileSpreadsheet`, `HelpCircle`, `ChevronRight`, `Clock`). Además tenía un `console.error(err)` en el catch de `handleGeminiEnrich` que exponía el error crudo en consola de producción.
+**Solución:** Eliminar los 4 imports no utilizados y reemplazar `console.error(err)` con solo el `showToast` que ya notifica al usuario.
+**Regla:** Ídem lección 57 — verificar imports sin uso y console.log/error/warn en cada componente auditado. El patrón se repite: imports muertos de lucide-react y console.error en catch blocks.
+
+### 60. AdminPanel: Bloqueantes por RefreshCw No Importado y Badge `slate` Inexistente
+**Problema:** Dos bugs bloqueantes en AdminPanel.tsx: (1) `<RefreshCw>` se renderizaba en el spinner de submit pero no estaba importado de lucide-react, causando ReferenceError al enviar formularios. (2) `DataCard` tenía un `colorClasses` con 5 colores pero los badges usaban `'slate'` para colaboradores sin login o suspendidos — al no existir la clave, el badge se renderizaba sin estilos (invisible).
+**Solución:** Agregar `RefreshCw` al import y agregar `slate: 'bg-slate-500/10 text-slate-300 border-slate-500/20'` al mapa de colores. También se eliminaron 4 imports muertos (`Lock`, `Unlock`, `UserCheck`, `UserX`) detectados por la auditoría.
+**Regla:** Usar siempre `security-reviewer` + `ponytail-review` para detectar: (1) componentes usados pero no importados, (2) claves faltantes en mapas de estilos, (3) imports sin uso.

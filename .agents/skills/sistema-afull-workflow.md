@@ -134,3 +134,62 @@ Después de cada deploy, el Service Worker (sw.js) puede servir HTML/JS/CSS viej
 **DB falló:** Restaurar backup de Supabase → `git checkout <commit-estable> prisma/` → `npx prisma db push`
 
 **Backend falló:** Render Dashboard > Deploys > Rollback al último deploy estable
+
+---
+
+## 7. SkillOpt — Definición de Cuándo Aplica
+
+### ¿Qué es SkillOpt?
+**SkillOpt** es un framework de Microsoft (repo: `microsoft/SkillOpt`) para entrenar skills de lenguaje natural para agentes LLM frozen. Trata el texto del skill como un tensor optimizable: rollouts → reflect → aggregate → select → update → evaluate, todo contra un benchmark con métrica cuantificable.
+
+**No es una skill de ECC.** Es un framework externo de investigación instalable vía `pip install skillopt`.
+
+### ¿Cuándo SkillOpt APLICA en este proyecto?
+SkillOpt solo puede usarse cuando se cumplen **las 3 condiciones simultáneamente**:
+
+| # | Condición | Pregunta Guía | Ejemplo que Sí Aplica |
+|---|-----------|---------------|----------------------|
+| 1 | **Benchmark/evaluador existe** | ¿Hay un conjunto de pruebas o un evaluador automático que mida calidad? | Una suite de tests de integración con supertest, o un script que compile y mida el bundle |
+| 2 | **Loop de iteración es viable** | ¿Hay múltiples enfoques posibles que comparar? | Varias formas de estructurar un import de Excel, diferentes abordajes de UI |
+| 3 | **Métrica cuantificable** | ¿Hay un número que mejore? | "% de filas importadas correctamente", "tamaño del bundle", "tests que pasan" |
+
+### ¿Cuándo NO aplica?
+SkillOpt **no aplica** cuando:
+
+- El cambio es **determinístico y binario** (cambiar una constante, renombrar una variable, corregir un typo)
+- **No hay iteración** — solo existe una forma correcta de hacerlo
+- **No hay métrica** — el éxito es binario (compila/no compila, funciona/no funciona)
+- Es un **cambio trivial de 1-2 líneas** sin efectos secundarios
+
+### Árbol de Decisión SkillOpt
+
+```
+¿Hay un evaluador/benchmark que mida calidad?
+├── NO  → ✅ Usar skills regulares del workflow. SkillOpt no aplica.
+└── SÍ  → ¿Hay múltiples candidatos/iteraciones posibles?
+         ├── NO  → ✅ Usar skills regulares. SkillOpt no aplica.
+         └── SÍ  → ¿Hay una métrica cuantificable de mejora?
+                    ├── NO  → ✅ Usar skills regulares. SkillOpt no aplica.
+                    └── SÍ  → 🚀 SkillOpt APLICA.
+                              Usar: pip install skillopt → crear benchmark en skillopt/envs/
+                              → entrenar → desplegar best_skill.md
+
+Ejemplos Reales en Sistema aFull:
+┌──────────────────────────────────┬──────┬──────┬──────┬────────────┐
+│ Cambio                          │ Eval │ Loop │ Metr │ ¿Aplica?  │
+├──────────────────────────────────┼──────┼──────┼──────┼────────────┤
+│ Timer 30s → 60s (valor fijo)    │  ❌  │  ❌  │  ❌  │ NO         │
+│ Importar Excel múltiples formatos│  ✅  │  ✅  │  ✅  │ SÍ         │
+│ Refactor UI a glass system       │  ✅  │  ✅  │  ✅  │ SÍ         │
+│ Bug fix (solución única)         │  ❌  │  ❌  │  ❌  │ NO         │
+│ Optimizar bundle size            │  ✅  │  ✅  │  ✅  │ SÍ         │
+│ Crear nuevo subsistema           │  ❌  │  ❌  │  ❌  │ NO (único) │
+└──────────────────────────────────┴──────┴──────┴──────┴────────────┘
+```
+
+### SkillOpt no Reemplaza las Skills del Workflow
+Cuando SkillOpt aplica, se añade **antes** de las skills regulares:
+```
+SkillOpt (entrenar skill) → frontend-patterns/backend-patterns → ponytail-review + code-reviewer → security-reviewer
+```
+El `best_skill.md` que produce SkillOpt es una mejora sobre el `initial.md`. Las skills del workflow se ejecutan igual después.

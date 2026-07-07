@@ -259,21 +259,11 @@ export default function VehiculosAdminView({ data, onRefresh, initialEditId }: P
     return registrosFiltrados.slice(start, start + itemsPerPage);
   }, [registrosFiltrados, safePage, itemsPerPage]);
 
-  const totales = React.useMemo(() => {
-    let kmTotal = 0, costoTotal = 0, alertas = 0;
-    for (const r of registrosVehiculo) {
-      kmTotal += r.distanciaOdometro;
-      costoTotal += r.total;
-      if (r.alertaDiscrepancia) alertas++;
-    }
-    return {
-      viajes: registrosVehiculo.length,
-      kmTotal,
-      costoTotal,
-      costoPorKmPromedio: costoTotal / (kmTotal || 1),
-      alertas
-    };
-  }, [registrosVehiculo]);
+  const totalViajes = registrosVehiculo.length;
+  const totalAlertas = React.useMemo(() =>
+    registrosVehiculo.filter(r => r.alertaDiscrepancia).length,
+    [registrosVehiculo]
+  );
 
   return (
     <div className="space-y-6">
@@ -317,30 +307,8 @@ export default function VehiculosAdminView({ data, onRefresh, initialEditId }: P
           </div>
         </div>
 
-        {/* Tarjetas de resumen */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { icon: Car, label: 'Total Viajes', value: totales.viajes, color: 'blue' },
-            { icon: Gauge, label: 'Km Totales', value: totales.kmTotal.toFixed(1), color: 'emerald' },
-            { icon: Fuel, label: 'Costo/km Promedio', value: <>{formatGuaranies(totales.costoPorKmPromedio)}<span className="text-lg text-slate-400">/km</span></>, color: 'amber' },
-            { icon: DollarSign, label: 'Costo Total', value: formatGuaranies(totales.costoTotal), color: 'violet' },
-          ].map(metric => {
-            const Icon = metric.icon;
-            const colorClasses = { blue: 'bg-blue-500/10 border-blue-500/20 text-blue-400', emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400', amber: 'bg-amber-500/10 border-amber-500/20 text-amber-400', violet: 'bg-violet-500/10 border-violet-500/20 text-violet-400' };
-            return (
-              <div key={metric.label} className={`p-4 ${colorClasses[metric.color as keyof typeof colorClasses]} rounded-xl`}>
-                <div className="flex items-center gap-2 text-xs mb-2">
-                  <Icon className={`w-4 h-4 ${colorClasses[metric.color as keyof typeof colorClasses].split(' ')[2]}`} />
-                  <span className="uppercase font-mono">{metric.label}</span>
-                </div>
-                <div className="text-2xl font-bold text-white">{metric.value}</div>
-              </div>
-            );
-          })}
-        </div>
-
         {/* Filtros */}
-        <div className="mt-6 flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <span className="text-sm text-slate-400 flex items-center gap-2">
             <Filter className="w-4 h-4" />
             Filtrar:
@@ -356,9 +324,9 @@ export default function VehiculosAdminView({ data, onRefresh, initialEditId }: P
                     : 'bg-white/5 text-slate-400 hover:bg-white/10'
                 }`}
               >
-                {filtro === 'todos' && `Todos (${totales.viajes})`}
-                {filtro === 'alertas' && `Con Alertas (${totales.alertas})`}
-                {filtro === 'ok' && `Sin Alertas (${totales.viajes - totales.alertas})`}
+                {filtro === 'todos' && `Todos (${totalViajes})`}
+                {filtro === 'alertas' && `Con Alertas (${totalAlertas})`}
+                {filtro === 'ok' && `Sin Alertas (${totalViajes - totalAlertas})`}
               </button>
             ))}
           </div>

@@ -789,8 +789,8 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
       setMoFeedback({ type: 'error', msg: 'Seleccioná Cliente y Proyecto antes de registrar.' });
       return;
     }
-    if (timerSeconds < 30) {
-      setMoFeedback({ type: 'error', msg: 'El timer debe registrar al menos 30 segundos.' });
+    if (timerSeconds < 60) {
+      setMoFeedback({ type: 'error', msg: 'El timer debe registrar al menos 1 minuto.' });
       return;
     }
     if (!selectedColaboradorId && !moDescripcion.trim()) {
