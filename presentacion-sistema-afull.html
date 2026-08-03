@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema aFull — Presentación</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-primary: #020617;
+      --bg-card: rgba(15, 23, 42, 0.55);
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --accent: #3b82f6;
+      --accent-2: #6366f1;
+      --accent-3: #06b6d4;
+      --accent-4: #10b981;
+      --border: rgba(255, 255, 255, 0.08);
+      --font-sans: "Inter", ui-sans-serif, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, monospace;
+      --title-size: clamp(1.6rem, 5vw, 3.8rem);
+      --h2-size: clamp(1.2rem, 3.5vw, 2.4rem);
+      --h3-size: clamp(1rem, 2.5vw, 1.6rem);
+      --body-size: clamp(0.75rem, 1.4vw, 1.05rem);
+      --small-size: clamp(0.62rem, 0.9vw, 0.82rem);
+      --slide-padding: clamp(1.5rem, 5vw, 5rem);
+      --content-gap: clamp(0.6rem, 2vw, 2rem);
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow-x: hidden; font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); }
+    html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+
+    .slide {
+      width: 100vw; height: 100vh; height: 100dvh;
+      overflow: hidden; scroll-snap-align: start;
+      display: flex; flex-direction: column; position: relative;
+      justify-content: center;
+    }
+    .slide-content {
+      flex: 1; display: flex; flex-direction: column;
+      justify-content: center; max-height: 100%; overflow: hidden;
+      padding: var(--slide-padding); position: relative; z-index: 2;
+      max-width: min(95vw, 1100px); margin: 0 auto; width: 100%;
+    }
+
+    .glass-panel {
+      background: var(--bg-card);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid var(--border);
+      border-radius: clamp(0.8rem, 1.5vw, 1.5rem);
+    }
+    .glow-orb {
+      position: absolute; border-radius: 50%; pointer-events: none; z-index: 0;
+      filter: blur(100px);
+    }
+    .glow-orb.blue { background: radial-gradient(circle, rgba(37,99,235,0.18) 0%, transparent 70%); width: clamp(300px,40vw,600px); height: clamp(300px,40vw,600px); }
+    .glow-orb.indigo { background: radial-gradient(circle, rgba(99,102,241,0.14) 0%, transparent 70%); width: clamp(250px,35vw,500px); height: clamp(250px,35vw,500px); }
+
+    .title-xl { font-size: var(--title-size); font-weight: 800; line-height: 1.1; letter-spacing: -0.02em; }
+    .title-lg { font-size: var(--h2-size); font-weight: 700; line-height: 1.2; }
+    .text-gradient {
+      background: linear-gradient(135deg, #fff 0%, #94a3b8 60%, #64748b 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .text-gradient-blue {
+      background: linear-gradient(135deg, #60a5fa, #818cf8, #a78bfa);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .body-text { font-size: var(--body-size); color: var(--text-secondary); line-height: 1.5; }
+    .small-text { font-size: var(--small-size); }
+    .mono { font-family: var(--font-mono); }
+
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: clamp(0.6rem, 1.5vw, 1.2rem); }
+    .card { padding: clamp(0.8rem, 1.5vw, 1.5rem); }
+    .card-icon { width: clamp(2rem, 3vw, 2.8rem); height: clamp(2rem, 3vw, 2.8rem); border-radius: 0.8rem; display: flex; align-items: center; justify-content: center; margin-bottom: 0.6rem; }
+    .card-icon.blue { background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.25); color: #60a5fa; }
+    .card-icon.cyan { background: rgba(6,182,212,0.15); border: 1px solid rgba(6,182,212,0.25); color: #22d3ee; }
+    .card-icon.emerald { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.25); color: #34d399; }
+    .card-icon.rose { background: rgba(244,63,94,0.15); border: 1px solid rgba(244,63,94,0.25); color: #fb7185; }
+    .card-icon.amber { background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.25); color: #fbbf24; }
+    .card-icon.indigo { background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.25); color: #a5b4fc; }
+
+    .badge {
+      display: inline-block; font-family: var(--font-mono); font-size: var(--small-size);
+      padding: 0.2em 0.7em; border-radius: 2em; border: 1px solid;
+    }
+    .badge-blue { background: rgba(59,130,246,0.12); color: #93c5fd; border-color: rgba(59,130,246,0.25); }
+    .badge-cyan { background: rgba(6,182,212,0.12); color: #67e8f9; border-color: rgba(6,182,212,0.25); }
+    .badge-emerald { background: rgba(16,185,129,0.12); color: #6ee7b7; border-color: rgba(16,185,129,0.25); }
+    .badge-rose { background: rgba(244,63,94,0.12); color: #fda4af; border-color: rgba(244,63,94,0.25); }
+    .badge-amber { background: rgba(245,158,11,0.12); color: #fcd34d; border-color: rgba(245,158,11,0.25); }
+    .badge-indigo { background: rgba(99,102,241,0.12); color: #c7d2fe; border-color: rgba(99,102,241,0.25); }
+
+    .flow-steps { display: flex; gap: clamp(0.4rem, 1vw, 1rem); align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+    .flow-step { flex: 1; min-width: min(40vw, 160px); max-width: 220px; text-align: center; }
+    .flow-num { width: clamp(2rem, 3vw, 2.8rem); height: clamp(2rem, 3vw, 2.8rem); border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: var(--body-size); margin: 0 auto 0.5rem; }
+
+    .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.65s var(--ease-out), transform 0.65s var(--ease-out); }
+    .slide.visible .reveal { opacity: 1; transform: translateY(0); }
+    .reveal:nth-child(1) { transition-delay: 0.05s; } .reveal:nth-child(2) { transition-delay: 0.12s; }
+    .reveal:nth-child(3) { transition-delay: 0.19s; } .reveal:nth-child(4) { transition-delay: 0.26s; }
+    .reveal:nth-child(5) { transition-delay: 0.33s; } .reveal:nth-child(6) { transition-delay: 0.40s; }
+
+    .nav-dots { position: fixed; right: clamp(0.6rem, 2vw, 1.5rem); top: 50%; transform: translateY(-50%); z-index: 100; display: flex; flex-direction: column; gap: 0.5rem; }
+    .nav-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.15); cursor: pointer; transition: all 0.3s; }
+    .nav-dot.active { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 8px rgba(59,130,246,0.4); }
+    .progress-bar { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); z-index: 200; transition: width 0.3s; }
+    .slide-counter { position: fixed; bottom: clamp(0.6rem, 2vw, 1.5rem); right: clamp(0.6rem, 2vw, 1.5rem); font-family: var(--font-mono); font-size: var(--small-size); color: rgba(255,255,255,0.3); z-index: 100; }
+
+    @media (max-height: 700px) {
+      :root { --slide-padding: clamp(0.8rem, 3vw, 2rem); --content-gap: clamp(0.4rem, 1.5vw, 1rem); --title-size: clamp(1.3rem, 4.5vw, 2.5rem); --h2-size: clamp(1rem, 3vw, 1.7rem); }
+      .nav-dots, .glow-orb { display: none; }
+    }
+    @media (max-height: 600px) {
+      :root { --slide-padding: clamp(0.5rem, 2.5vw, 1.5rem); --content-gap: clamp(0.3rem, 1vw, 0.7rem); --body-size: clamp(0.65rem, 1.2vw, 0.9rem); }
+      .card-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+    }
+    @media (max-width: 600px) {
+      :root { --title-size: clamp(1.3rem, 7vw, 2.4rem); }
+      .card-grid { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; }
+      html { scroll-behavior: auto; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="progress-bar" id="progressBar"></div>
+  <nav class="nav-dots" id="navDots"></nav>
+  <div class="slide-counter" id="slideCounter"></div>
+
+  <!-- SLIDE 1: PORTADA -->
+  <section class="slide" id="s1" data-slide="1">
+    <div class="glow-orb blue" style="top:-15%;left:-10%"></div>
+    <div class="glow-orb indigo" style="bottom:-15%;right:-10%"></div>
+    <div class="slide-content" style="align-items:center;text-align:center;gap:var(--content-gap)">
+      <div class="reveal" style="margin-bottom:0.3rem">
+        <div style="width:clamp(3rem,6vw,4.5rem);height:clamp(3rem,6vw,4.5rem);background:linear-gradient(135deg,var(--accent),var(--accent-2));border-radius:1.2rem;display:flex;align-items:center;justify-content:center;margin:0 auto;">
+          <svg width="50%" height="50%" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M2 20h20"/><path d="M5 20V8l7-5 7 5v12"/><path d="M9 20v-4h6v4"/></svg>
+        </div>
+      </div>
+      <h1 class="reveal title-xl text-gradient-blue">Sistema aFull</h1>
+      <p class="reveal body-text" style="max-width:32rem;font-size:var(--h3-size);color:var(--text-secondary)">Plataforma de Gestión Operativa Inteligente</p>
+      <p class="reveal small-text mono" style="color:rgba(255,255,255,0.3);margin-top:0.5rem">Módulo de Automatización Operativa · v2.0</p>
+    </div>
+  </section>
+
+  <!-- SLIDE 2: EL PROBLEMA -->
+  <section class="slide" id="s2" data-slide="2">
+    <div class="glow-orb blue" style="top:-10%;right:-10%;width:350px;height:350px"></div>
+    <div class="slide-content" style="gap:var(--content-gap)">
+      <span class="reveal badge badge-rose mono" style="align-self:flex-start">Problema</span>
+      <h2 class="reveal title-lg text-gradient">Los desafíos de la gestión operativa manual</h2>
+      <div class="card-grid reveal">
+        <div class="card glass-panel">
+          <div class="card-icon rose"><svg width="55%" height="55%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg></div>
+          <p style="color:#fff;font-weight:600;font-size:var(--body-size);margin-bottom:0.2rem">Planillas Excel sueltas</p>
+          <p class="small-text" style="color:var(--text-secondary)">Archivos en email y WhatsApp, sin consolidación ni control de versiones.</p>
+        </div>
+        <div class="card glass-panel">
+          <div class="card-icon amber"><svg width="55%" height="55%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+          <p style="color:#fff;font-weight:600;font-size:var(--body-size);margin-bottom:0.2rem">Sin control de viajes</p>
+          <p class="small-text" style="color:var(--text-secondary)">Kilómetros sin registrar, combustible sin tracking, sin verificación GPS.</p>
+        </div>
+        <div class="card glass-panel">
+          <div class="card-icon blue"><svg width="55%" height="55%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+          <p style="color:#fff;font-weight:600;font-size:var(--body-size);margin-bottom:0.2rem">Rentabilidad invisible</p>
+          <p class="small-text" style="color:var(--text-secondary)">Sin pre-facturación ni markup, imposible saber el margen real de cada proyecto.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 3: LA SOLUCIÓN -->
+  <section class="slide" id="s3" data-slide="3">
+    <div class="glow-orb indigo" style="bottom:-10%;left:-10%"></div>
+    <div class="slide-content" style="gap:var(--content-gap);align-items:center;text-align:center">
+      <span class="reveal badge badge-blue mono">Solución</span>
+      <h2 class="reveal title-lg text-gradient-blue">Una plataforma, control total</h2>
+      <p class="reveal body-text" style="max-width:38rem">Sistema aFull centraliza registro de horas, insumos, importación Excel, control de viajes con GPS y pre-facturación en un solo lugar.</p>
+      <div class="card-grid reveal" style="max-width:50rem;width:100%;margin-top:0.5rem">
+        <div class="card glass-panel" style="text-align:left"><span class="badge badge-emerald mono" style="margin-bottom:0.5rem">100% digital</span><p class="small-text" style="color:var(--text-secondary)">Accesible desde cualquier navegador. Sin instalar nada.</p></div>
+        <div class="card glass-panel" style="text-align:left"><span class="badge badge-blue mono" style="margin-bottom:0.5rem">Base de datos cloud</span><p class="small-text" style="color:var(--text-secondary)">PostgreSQL en Supabase con backups automáticos.</p></div>
+        <div class="card glass-panel" style="text-align:left"><span class="badge badge-cyan mono" style="margin-bottom:0.5rem">Multi-usuario + PWA</span><p class="small-text" style="color:var(--text-secondary)">Admin y operarios. Instalable como app nativa en PC y móvil.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 4: ARQUITECTURA -->
+  <section class="slide" id="s4" data-slide="4">
+    <div class="glow-orb blue" style="top:10%;right:0%;width:400px;height:400px"></div>
+    <div class="slide-content" style="gap:var(--content-gap)">
+      <span class="reveal badge badge-cyan mono" style="align-self:flex-start">Arquitectura</span>
+      <h2 class="reveal title-lg text-gradient">Cómo está construido</h2>
+      <div class="reveal" style="display:flex;flex-direction:column;gap:0.6rem">
+        <div class="glass-panel card" style="display:flex;align-items:center;gap:0.8rem;border-left:3px solid var(--accent)"><div class="card-icon blue" style="margin-bottom:0;flex-shrink:0"><span style="font-weight:700;font-size:var(--small-size)">1</span></div><div><p style="color:#fff;font-weight:600;font-size:var(--body-size)">Navegador Web</p><p class="small-text" style="color:var(--text-secondary)">React 19 + Tailwind CSS + Recharts — interfaz glassmorphism</p></div></div>
+        <div class="glass-panel card" style="display:flex;align-items:center;gap:0.8rem;border-left:3px solid var(--accent-2)"><div class="card-icon indigo" style="margin-bottom:0;flex-shrink:0"><span style="font-weight:700;font-size:var(--small-size)">2</span></div><div><p style="color:#fff;font-weight:600;font-size:var(--body-size)">Servidor Node.js + Express</p><p class="small-text" style="color:var(--text-secondary)">API REST con autenticación JWT, validación Zod, auditoría</p></div></div>
+        <div class="glass-panel card" style="display:flex;align-items:center;gap:0.8rem;border-left:3px solid var(--accent-3)"><div class="card-icon cyan" style="margin-bottom:0;flex-shrink:0"><span style="font-weight:700;font-size:var(--small-size)">3</span></div><div><p style="color:#fff;font-weight:600;font-size:var(--body-size)">PostgreSQL (Supabase Cloud)</p><p class="small-text" style="color:var(--text-secondary)">Base de datos profesional con backups y connection pooling</p></div></div>
+        <div class="glass-panel card" style="display:flex;align-items:center;gap:0.8rem;border-left:3px solid var(--accent-4)"><div class="card-icon emerald" style="margin-bottom:0;flex-shrink:0"><span style="font-weight:700;font-size:var(--small-size)">4</span></div><div><p style="color:#fff;font-weight:600;font-size:var(--body-size)">Supabase Storage</p><p class="small-text" style="color:var(--text-secondary)">Fotos de odómetro en la nube con URLs públicas</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 5: IMPORTACIÓN EXCEL -->
+  <section class="slide" id="s5" data-slide="5">
+    <div class="glow-orb blue" style="top:-5%;right:-5%;width:350px;height:350px"></div>
+    <div class="slide-content" style="gap:var(--content-gap);align-items:center;text-align:center">
+      <span class="reveal badge badge-emerald mono">Funcionalidad 1</span>
+      <h2 class="reveal title-lg text-gradient">Importación inteligente de Excel</h2>
+      <p class="reveal body-text" style="max-width:32rem">Arrastrá tu planilla mensual y el sistema mapea automáticamente clientes, proyectos, colaboradores y cantidades.</p>
+      <div class="flow-steps reveal" style="margin-top:0.3rem">
+        <div class="flow-step"><div class="flow-num">1</div><p style="color:#fff;font-weight:600;font-size:var(--body-size);margin-bottom:0.2rem">Subir</p><p class="small-text" style="color:var(--text-secondary)">Drag & drop del archivo .xlsx</p></div>
+        <div class="flow-step"><div class="flow-num">2</div><p style="color:#fff;font-weight:600;font-size:var(--body-size);margin-bottom:0.2rem">Parsear</p><p class="small-text" style="color:var(--text-secondary)">Detección automática de columnas</p></div>
+        <div class="flow-step"><div class="flow-num">3</div><p style="color:#fff;font-weight:600;font-size:var(--body-size);margin-bottom:0.2rem">Revisar</p><p class="small-text" style="color:var(--text-secondary)">Preview editable antes de guardar</p></div>
+        <div class="flow-step"><div class="flow-num">4</div><p style="color:#fff;font-weight:600;font-size:var(--body-size);margin-bottom:0.2rem">Confirmar</p><p class="small-text" style="color:var(--text-secondary)">Transacción atómica en BD</p></div>
+      </div>
+      <div class="card-grid reveal" style="max-width:40rem;margin-top:0.3rem">
+        <div class="card glass-panel" style="display:flex;align-items:center;gap:0.5rem;text-align:left"><span style="font-size:1.2rem">📅</span><p class="small-text" style="color:var(--text-secondary)">Convierte fechas y horas en formato Excel automáticamente</p></div>
+        <div class="card glass-panel" style="display:flex;align-items:center;gap:0.5rem;text-align:left"><span style="font-size:1.2rem">✨</span><p class="small-text" style="color:var(--text-secondary)">Crea clientes y proyectos "al vuelo" si no existen en la base</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 6: TIMER DE HORAS -->
+  <section class="slide" id="s6" data-slide="6">
+    <div class="glow-orb indigo" style="bottom:-5%;left:-5%;width:350px;height:350px"></div>
+    <div class="slide-content" style="gap:var(--content-gap)">
+      <span class="reveal badge badge-blue mono" style="align-self:flex-start">Funcionalidad 2</span>
+      <h2 class="reveal title-lg text-gradient">Timer de horas con pausa</h2>
+      <div style="display:flex;gap:var(--content-gap);flex-wrap:wrap">
+        <div style="flex:1;min-width:min(80vw,280px);display:flex;flex-direction:column;gap:0.6rem">
+          <div class="reveal glass-panel card" style="display:flex;align-items:center;gap:0.6rem"><div class="card-icon blue" style="margin-bottom:0;flex-shrink:0">▶</div><div><p style="color:#fff;font-weight:600;font-size:var(--body-size)">Inicio rápido</p><p class="small-text" style="color:var(--text-secondary)">Seleccioná cliente, proyecto y colaborador. Click en Iniciar.</p></div></div>
+          <div class="reveal glass-panel card" style="display:flex;align-items:center;gap:0.6rem"><div class="card-icon amber" style="margin-bottom:0;flex-shrink:0">⏸</div><div><p style="color:#fff;font-weight:600;font-size:var(--body-size)">Pausa y reanudación</p><p class="small-text" style="color:var(--text-secondary)">Pausá para descansos. El sistema descuenta el tiempo acumulado.</p></div></div>
+          <div class="reveal glass-panel card" style="display:flex;align-items:center;gap:0.6rem"><div class="card-icon emerald" style="margin-bottom:0;flex-shrink:0">✓</div><div><p style="color:#fff;font-weight:600;font-size:var(--body-size)">Registro automático</p><p class="small-text" style="color:var(--text-secondary)">Al finalizar, se crea el registro con cálculo de horas × tarifa.</p></div></div>
+        </div>
+        <div class="reveal glass-panel card" style="flex:1;min-width:min(80vw,240px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:0.5rem">
+          <span class="mono" style="font-size:clamp(1.5rem,3.5vw,2.5rem);color:#60a5fa;font-weight:700">03:27:15</span>
+          <p class="small-text" style="color:var(--text-secondary)">Contador en tiempo real HH:MM:SS</p>
+          <div style="display:flex;gap:0.4rem"><span class="badge badge-blue">Resiste refrescos</span><span class="badge badge-cyan">localStorage</span></div>
+          <p class="small-text" style="color:var(--text-secondary);margin-top:0.3rem">Híbrido: servidor + almacenamiento local para no perder el tiempo si se cierra el navegador.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 7: VIAJES CON GPS -->
+  <section class="slide" id="s7" data-slide="7">
+    <div class="glow-orb blue" style="top:0%;right:-5%;width:350px;height:350px"></div>
+    <div class="slide-content" style="gap:var(--content-gap);align-items:center;text-align:center">
+      <span class="reveal badge badge-cyan mono">Funcionalidad 3</span>
+      <h2 class="reveal title-lg text-gradient">Control de viajes con GPS</h2>
+      <p class="reveal body-text" style="max-width:34rem">Registro completo de cada viaje: foto del odómetro, GPS, combustible y verificación de discrepancias.</p>
+      <div class="card-grid reveal" style="max-width:48rem">
+        <div class="card glass-panel"><div class="card-icon blue">📸</div><p style="color:#fff;font-weight:600;font-size:var(--body-size);margin-bottom:0.2rem">Foto del odómetro</p><p class="small-text" style="color:var(--text-secondary)">OCR lee los kilómetros automáticamente.</p></div>
+        <div class="card glass-panel"><div class="card-icon indigo">📍</div><p style="color:#fff;font-weight:600;font-size:var(--body-size);margin-bottom:0.2rem">GPS inicio y fin</p><p class="small-text" style="color:var(--text-secondary)">Geolocalización + fórmula Haversine.</p></div>
+        <div class="card glass-panel"><div class="card-icon amber">⚠️</div><p style="color:#fff;font-weight:600;font-size:var(--body-size);margin-bottom:0.2rem">Alerta de discrepancia</p><p class="small-text" style="color:var(--text-secondary)">Diferencia GPS vs odómetro >20%: marcado.</p></div>
+        <div class="card glass-panel"><div class="card-icon emerald">⛽</div><p style="color:#fff;font-weight:600;font-size:var(--body-size);margin-bottom:0.2rem">Control de combustible</p><p class="small-text" style="color:var(--text-secondary)">Litros cargados, costo y consumo L/km.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 8: PRE-FACTURACIÓN -->
+  <section class="slide" id="s8" data-slide="8">
+    <div class="glow-orb indigo" style="bottom:-10%;right:-5%"></div>
+    <div class="slide-content" style="gap:var(--content-gap);align-items:center;text-align:center">
+      <span class="reveal badge badge-amber mono">Funcionalidad 4</span>
+      <h2 class="reveal title-lg text-gradient">Pre-facturación con markup</h2>
+      <p class="reveal body-text" style="max-width:32rem">Calculá el precio de venta de cada proyecto aplicando un margen de rentabilidad sobre los costos reales.</p>
+      <div class="reveal" style="display:flex;gap:var(--content-gap);flex-wrap:wrap;justify-content:center;max-width:44rem;width:100%">
+        <div class="glass-panel card" style="flex:1;min-width:180px;text-align:center"><p class="small-text" style="color:var(--text-secondary);margin-bottom:0.2rem">Costo Base</p><p class="mono" style="font-size:clamp(1rem,2vw,1.6rem);font-weight:700;color:#fbbf24">Gs. 2.450.000</p><p class="small-text" style="color:var(--text-secondary)">MO + Insumos + Otros</p></div>
+        <div style="display:flex;align-items:center;color:var(--accent);font-size:1.5rem">+</div>
+        <div class="glass-panel card" style="flex:1;min-width:180px;text-align:center"><p class="small-text" style="color:var(--text-secondary);margin-bottom:0.2rem">Markup 35%</p><p class="mono" style="font-size:clamp(1rem,2vw,1.6rem);font-weight:700;color:#60a5fa">+ Gs. 857.500</p><p class="small-text" style="color:var(--text-secondary)">Margen configurable</p></div>
+        <div style="display:flex;align-items:center;color:var(--accent-4);font-size:1.5rem">=</div>
+        <div class="glass-panel card" style="flex:1;min-width:180px;text-align:center;border:2px solid rgba(16,185,129,0.3)"><p class="small-text" style="color:var(--text-secondary);margin-bottom:0.2rem">Precio de Venta</p><p class="mono" style="font-size:clamp(1rem,2vw,1.6rem);font-weight:700;color:#34d399">Gs. 3.307.500</p><p class="small-text" style="color:var(--text-secondary)">Listo para facturar</p></div>
+      </div>
+      <div class="reveal" style="display:flex;gap:0.6rem;flex-wrap:wrap;justify-content:center;margin-top:0.3rem"><span class="badge badge-emerald">Exportar Excel</span><span class="badge badge-blue">Imprimir PDF</span><span class="badge badge-cyan">Markup guardable</span></div>
+    </div>
+  </section>
+
+  <!-- SLIDE 9: DASHBOARD -->
+  <section class="slide" id="s9" data-slide="9">
+    <div class="glow-orb blue" style="top:-5%;left:-5%"></div>
+    <div class="slide-content" style="gap:var(--content-gap);align-items:center;text-align:center">
+      <span class="reveal badge badge-blue mono">Dashboard</span>
+      <h2 class="reveal title-lg text-gradient">Panel de control y reportes</h2>
+      <div class="card-grid reveal" style="max-width:48rem">
+        <div class="card glass-panel"><div class="card-icon blue" style="margin:0 auto 0.5rem">📊</div><p style="color:#fff;font-weight:600;font-size:var(--body-size)">4 métricas en tiempo real</p><p class="small-text" style="color:var(--text-secondary)">Horas MO, costo acumulado, proyectos activos, clientes.</p></div>
+        <div class="card glass-panel"><div class="card-icon indigo" style="margin:0 auto 0.5rem">📈</div><p style="color:#fff;font-weight:600;font-size:var(--body-size)">3 tipos de gráficos</p><p class="small-text" style="color:var(--text-secondary)">Evolución financiera, costos por cliente, horas por proyecto.</p></div>
+        <div class="card glass-panel"><div class="card-icon cyan" style="margin:0 auto 0.5rem">🔍</div><p style="color:#fff;font-weight:600;font-size:var(--body-size)">Filtros y búsqueda</p><p class="small-text" style="color:var(--text-secondary)">Por cliente, proyecto, concepto, fechas y texto libre.</p></div>
+        <div class="card glass-panel"><div class="card-icon emerald" style="margin:0 auto 0.5rem">📋</div><p style="color:#fff;font-weight:600;font-size:var(--body-size)">Tabla unificada</p><p class="small-text" style="color:var(--text-secondary)">MO + Insumos + Vehículos en una sola vista con paginación.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 10: SEGURIDAD Y PWA -->
+  <section class="slide" id="s10" data-slide="10">
+    <div class="glow-orb indigo" style="bottom:0%;right:5%;width:300px;height:300px"></div>
+    <div class="slide-content" style="gap:var(--content-gap)">
+      <span class="reveal badge badge-rose mono" style="align-self:flex-start">Seguridad</span>
+      <h2 class="reveal title-lg text-gradient">Protección y acceso desde cualquier dispositivo</h2>
+      <div class="card-grid reveal">
+        <div class="card glass-panel"><p style="color:#fff;font-weight:600;font-size:var(--body-size);margin-bottom:0.3rem">🔐 JWT en cookies seguras</p><p class="small-text" style="color:var(--text-secondary)">Tokens httpOnly, no accesibles desde JavaScript. 12h expiración.</p></div>
+        <div class="card glass-panel"><p style="color:#fff;font-weight:600;font-size:var(--body-size);margin-bottom:0.3rem">🛡️ CSRF + Rate limiting</p><p class="small-text" style="color:var(--text-secondary)">Token por sesión en cada escritura. 5 intentos login/15min.</p></div>
+        <div class="card glass-panel"><p style="color:#fff;font-weight:600;font-size:var(--body-size);margin-bottom:0.3rem">🧹 Sanitización XSS</p><p class="small-text" style="color:var(--text-secondary)">DOMPurify en todos los inputs antes de guardar.</p></div>
+        <div class="card glass-panel"><p style="color:#fff;font-weight:600;font-size:var(--body-size);margin-bottom:0.3rem">📝 Auditoría dual</p><p class="small-text" style="color:var(--text-secondary)">Archivo JSONL + tabla PostgreSQL. Quién, qué, cuándo, IP.</p></div>
+        <div class="card glass-panel"><p style="color:#fff;font-weight:600;font-size:var(--body-size);margin-bottom:0.3rem">👥 RBAC + Geofencing</p><p class="small-text" style="color:var(--text-secondary)">Admin vs Operario. Fichaje con coordenadas GPS.</p></div>
+        <div class="card glass-panel"><p style="color:#fff;font-weight:600;font-size:var(--body-size);margin-bottom:0.3rem">📱 PWA instalable</p><p class="small-text" style="color:var(--text-secondary)">Instalación nativa en PC y celular. Funciona offline-friendly.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 11: STACK TECNOLÓGICO -->
+  <section class="slide" id="s11" data-slide="11">
+    <div class="glow-orb blue" style="top:-5%;right:-5%"></div>
+    <div class="slide-content" style="gap:var(--content-gap);align-items:center;text-align:center">
+      <span class="reveal badge badge-indigo mono">Tecnología</span>
+      <h2 class="reveal title-lg text-gradient">Stack tecnológico</h2>
+      <div class="card-grid reveal" style="max-width:50rem">
+        <div class="card glass-panel"><div class="card-icon blue" style="margin:0 auto 0.5rem">⚛️</div><p style="color:#fff;font-weight:600;font-size:var(--body-size)">React 19</p><p class="small-text" style="color:var(--text-secondary)">Interfaz de usuario</p></div>
+        <div class="card glass-panel"><div class="card-icon emerald" style="margin:0 auto 0.5rem">🟢</div><p style="color:#fff;font-weight:600;font-size:var(--body-size)">Node + Express</p><p class="small-text" style="color:var(--text-secondary)">Servidor y API REST</p></div>
+        <div class="card glass-panel"><div class="card-icon indigo" style="margin:0 auto 0.5rem">📘</div><p style="color:#fff;font-weight:600;font-size:var(--body-size)">TypeScript</p><p class="small-text" style="color:var(--text-secondary)">Tipado seguro</p></div>
+        <div class="card glass-panel"><div class="card-icon cyan" style="margin:0 auto 0.5rem">🗄️</div><p style="color:#fff;font-weight:600;font-size:var(--body-size)">PostgreSQL</p><p class="small-text" style="color:var(--text-secondary)">Base de datos</p></div>
+        <div class="card glass-panel"><div class="card-icon amber" style="margin:0 auto 0.5rem">🔷</div><p style="color:#fff;font-weight:600;font-size:var(--body-size)">Prisma ORM</p><p class="small-text" style="color:var(--text-secondary)">Mapeo de datos</p></div>
+        <div class="card glass-panel"><div class="card-icon rose" style="margin:0 auto 0.5rem">🎨</div><p style="color:#fff;font-weight:600;font-size:var(--body-size)">Tailwind CSS 4</p><p class="small-text" style="color:var(--text-secondary)">Estilos glassmorphism</p></div>
+        <div class="card glass-panel"><div class="card-icon blue" style="margin:0 auto 0.5rem">📊</div><p style="color:#fff;font-weight:600;font-size:var(--body-size)">Recharts</p><p class="small-text" style="color:var(--text-secondary)">Gráficos interactivos</p></div>
+        <div class="card glass-panel"><div class="card-icon emerald" style="margin:0 auto 0.5rem">🧪</div><p style="color:#fff;font-weight:600;font-size:var(--body-size)">Vitest + Playwright</p><p class="small-text" style="color:var(--text-secondary)">Testing completo</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 12: ROLES -->
+  <section class="slide" id="s12" data-slide="12">
+    <div class="glow-orb indigo" style="bottom:-10%;left:-5%"></div>
+    <div class="slide-content" style="gap:var(--content-gap);align-items:center;text-align:center">
+      <span class="reveal badge badge-blue mono">Accesos</span>
+      <h2 class="reveal title-lg text-gradient">Roles y permisos</h2>
+      <div style="display:flex;gap:var(--content-gap);flex-wrap:wrap;justify-content:center">
+        <div class="reveal glass-panel card" style="flex:1;min-width:200px;max-width:320px;border-top:3px solid var(--accent)"><p style="color:#60a5fa;font-weight:700;font-size:var(--h3-size);margin-bottom:0.5rem">👑 Administrador</p><div style="display:flex;flex-direction:column;gap:0.3rem;text-align:left"><p class="small-text" style="color:#34d399">✓ Dashboard completo</p><p class="small-text" style="color:#34d399">✓ Importar Excel</p><p class="small-text" style="color:#34d399">✓ Registrar horas/insumos</p><p class="small-text" style="color:#34d399">✓ Iniciar viajes</p><p class="small-text" style="color:#34d399">✓ CRUD clientes/proyectos</p><p class="small-text" style="color:#34d399">✓ Reportes y pre-factura</p><p class="small-text" style="color:#34d399">✓ Auditoría y marcaciones</p></div></div>
+        <div class="reveal glass-panel card" style="flex:1;min-width:200px;max-width:320px;border-top:3px solid var(--accent-4)"><p style="color:#34d399;font-weight:700;font-size:var(--h3-size);margin-bottom:0.5rem">🔧 Operario</p><div style="display:flex;flex-direction:column;gap:0.3rem;text-align:left"><p class="small-text" style="color:#34d399">✓ Registrar horas/insumos</p><p class="small-text" style="color:#34d399">✓ Timer con pausa</p><p class="small-text" style="color:#34d399">✓ Iniciar/finalizar viajes</p><p class="small-text" style="color:#34d399">✓ Ver "Mis Registros"</p><p class="small-text" style="color:#34d399">✓ Fichaje con geofencing</p><p class="small-text" style="color:var(--text-secondary)">✗ Sin acceso a Dashboard</p><p class="small-text" style="color:var(--text-secondary)">✗ Sin Reportes/Admin</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 13: ANTES VS AHORA -->
+  <section class="slide" id="s13" data-slide="13">
+    <div class="glow-orb blue" style="top:0%;right:-5%"></div>
+    <div class="slide-content" style="gap:var(--content-gap);align-items:center;text-align:center">
+      <span class="reveal badge badge-emerald mono">Resultados</span>
+      <h2 class="reveal title-lg text-gradient">Lo que cambia con aFull</h2>
+      <div style="display:flex;gap:var(--content-gap);flex-wrap:wrap;justify-content:center">
+        <div class="reveal glass-panel card" style="flex:1;min-width:200px;max-width:350px;border:1px solid rgba(244,63,94,0.2)"><p style="color:#fb7185;font-weight:600;font-size:var(--body-size);margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.1em">Antes</p><div style="display:flex;flex-direction:column;gap:0.3rem;text-align:left"><p class="small-text" style="color:var(--text-secondary)">❌ Planillas en email/WhatsApp</p><p class="small-text" style="color:var(--text-secondary)">❌ Cálculo manual de horas</p><p class="small-text" style="color:var(--text-secondary)">❌ Sin control de viajes</p><p class="small-text" style="color:var(--text-secondary)">❌ Rentabilidad desconocida</p><p class="small-text" style="color:var(--text-secondary)">❌ Datos sin backup</p><p class="small-text" style="color:var(--text-secondary)">❌ Sin trazabilidad</p><p class="small-text" style="color:var(--text-secondary)">❌ Sin control de asistencia</p></div></div>
+        <div class="reveal glass-panel card" style="flex:1;min-width:200px;max-width:350px;border:1px solid rgba(16,185,129,0.3)"><p style="color:#34d399;font-weight:600;font-size:var(--body-size);margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.1em">Ahora</p><div style="display:flex;flex-direction:column;gap:0.3rem;text-align:left"><p class="small-text" style="color:var(--text-secondary)">✅ Importación drag & drop</p><p class="small-text" style="color:var(--text-secondary)">✅ Timer automático</p><p class="small-text" style="color:var(--text-secondary)">✅ GPS + foto de odómetro</p><p class="small-text" style="color:var(--text-secondary)">✅ Pre-factura con markup</p><p class="small-text" style="color:var(--text-secondary)">✅ PostgreSQL en la nube</p><p class="small-text" style="color:var(--text-secondary)">✅ Auditoría de cada acción</p><p class="small-text" style="color:var(--text-secondary)">✅ Geofencing de fichajes</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 14: CIERRE -->
+  <section class="slide" id="s14" data-slide="14">
+    <div class="glow-orb blue" style="top:-15%;left:-10%"></div>
+    <div class="glow-orb indigo" style="bottom:-15%;right:-10%"></div>
+    <div class="slide-content" style="align-items:center;text-align:center;gap:var(--content-gap)">
+      <div class="reveal" style="width:clamp(3rem,6vw,4.5rem);height:clamp(3rem,6vw,4.5rem);background:linear-gradient(135deg,var(--accent),var(--accent-2));border-radius:1.2rem;display:flex;align-items:center;justify-content:center;margin-bottom:0.5rem"><svg width="50%" height="50%" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M2 20h20"/><path d="M5 20V8l7-5 7 5v12"/><path d="M9 20v-4h6v4"/></svg></div>
+      <h2 class="reveal title-xl text-gradient-blue">¿Preguntas?</h2>
+      <p class="reveal body-text" style="max-width:28rem">Sistema aFull está listo para transformar la gestión operativa de su empresa.</p>
+      <p class="reveal small-text mono" style="color:rgba(255,255,255,0.3);margin-top:0.5rem">Agosto 2026 · Versión 2.0</p>
+    </div>
+  </section>
+
+  <script>
+    class SlidePresentation {
+      constructor() {
+        this.slides = document.querySelectorAll('.slide');
+        this.totalSlides = this.slides.length;
+        this.currentSlide = 0;
+        this.navDotsContainer = document.getElementById('navDots');
+        this.progressBar = document.getElementById('progressBar');
+        this.slideCounter = document.getElementById('slideCounter');
+        this.scrolling = false;
+        this.touchStartY = 0;
+        this.buildNavDots();
+        this.setupIntersectionObserver();
+        this.setupKeyboardNav();
+        this.setupTouchNav();
+        this.setupWheelNav();
+        this.markVisible(0);
+      }
+      buildNavDots() {
+        this.navDotsContainer.innerHTML = '';
+        for (let i = 0; i < this.totalSlides; i++) {
+          const dot = document.createElement('div');
+          dot.className = 'nav-dot';
+          dot.title = `Ir a diapositiva ${i + 1}`;
+          dot.addEventListener('click', () => this.goTo(i));
+          this.navDotsContainer.appendChild(dot);
+        }
+        this.navDots = this.navDotsContainer.querySelectorAll('.nav-dot');
+      }
+      setupIntersectionObserver() {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              this.markVisible(parseInt(entry.target.dataset.slide) - 1);
+            }
+          });
+        }, { threshold: 0.5 });
+        this.slides.forEach(slide => observer.observe(slide));
+      }
+      markVisible(idx) {
+        this.currentSlide = idx;
+        this.slides.forEach((s, i) => s.classList.toggle('visible', i === idx));
+        this.navDots.forEach((d, i) => d.classList.toggle('active', i === idx));
+        this.progressBar.style.width = `${((idx + 1) / this.totalSlides) * 100}%`;
+        this.slideCounter.textContent = `${idx + 1} / ${this.totalSlides}`;
+      }
+      goTo(idx) {
+        if (idx < 0 || idx >= this.totalSlides) return;
+        this.slides[idx].scrollIntoView({ behavior: 'smooth' });
+      }
+      setupKeyboardNav() {
+        document.addEventListener('keydown', (e) => {
+          if (['ArrowDown','ArrowRight',' ','PageDown'].includes(e.key)) { e.preventDefault(); this.goTo(this.currentSlide + 1); }
+          else if (['ArrowUp','ArrowLeft','PageUp'].includes(e.key)) { e.preventDefault(); this.goTo(this.currentSlide - 1); }
+          else if (e.key === 'Home') { e.preventDefault(); this.goTo(0); }
+          else if (e.key === 'End') { e.preventDefault(); this.goTo(this.totalSlides - 1); }
+        });
+      }
+      setupWheelNav() {
+        let wheelTimeout;
+        document.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          if (this.scrolling) return;
+          this.scrolling = true;
+          clearTimeout(wheelTimeout);
+          wheelTimeout = setTimeout(() => this.scrolling = false, 800);
+          if (e.deltaY > 20) this.goTo(this.currentSlide + 1);
+          else if (e.deltaY < -20) this.goTo(this.currentSlide - 1);
+        }, { passive: false });
+      }
+      setupTouchNav() {
+        document.addEventListener('touchstart', (e) => { this.touchStartY = e.touches[0].clientY; }, { passive: true });
+        document.addEventListener('touchend', (e) => {
+          const deltaY = this.touchStartY - e.changedTouches[0].clientY;
+          if (Math.abs(deltaY) > 50) this.goTo(this.currentSlide + (deltaY > 0 ? 1 : -1));
+        }, { passive: true });
+      }
+    }
+    new SlidePresentation();
+  </script>
+</body>
+</html>
