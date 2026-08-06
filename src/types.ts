@@ -7,6 +7,9 @@ export interface Cliente {
   id: string;
   nombre: string;
   codigo?: string;
+  tokenPortal?: string | null;
+  activarPortal?: boolean;
+  revocarPortal?: boolean;
   fechaCreacion: string;
 }
 
@@ -151,6 +154,48 @@ export interface DatabaseState {
     rol: 'Admin' | 'Operario' | 'Visor';
     activo: boolean;
   }[];
+}
+
+// ─── Portal de Pedidos para Clientes ────────────────────────────────
+
+export interface Pedido {
+  id: string;
+  clienteId: string;
+  clienteNombre: string;
+  proyectoId: string;
+  local: string;
+  descripcion: string;
+  cantidad: number;
+  tipo?: string | null;
+  prioridad?: string | null;
+  estado: string;
+  fotoUrl?: string | null;
+  fechaSolicitud: string;
+  fechaFin?: string | null;
+  facturaNumero?: string | null;
+  registroId?: string | null;
+}
+
+export interface PortalData {
+  cliente: { id: string; nombre: string };
+  locales: { id: string; nombre: string }[];
+  pedidos: {
+    id: string;
+    local: string;
+    descripcion: string;
+    cantidad: number;
+    estado: string;
+    prioridad?: string | null;
+    fotoUrl?: string | null;
+    fechaSolicitud: string;
+  }[];
+}
+
+export interface PortalPedidoInput {
+  proyectoId: string;
+  descripcion: string;
+  cantidad: number;
+  foto?: string | null;
 }
 
 // Authentication & Authorization Types

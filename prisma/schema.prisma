@@ -12,12 +12,14 @@ model Cliente {
   id             String    @id @db.VarChar(50)
   nombre         String
   codigo         String    @db.VarChar(10)
+  tokenPortal    String?   @unique @map("token_portal") @db.VarChar(64)
   fechaCreacion  DateTime  @default(now()) @map("fecha_creacion")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
   proyectos         Proyecto[]
   registros         Registro[]
+  pedidos           Pedido[]
 
   @@map("clientes")
 }
@@ -34,6 +36,7 @@ model Proyecto {
 
   cliente           Cliente            @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   registros         Registro[]
+  pedidos           Pedido[]
 
   @@index([clienteId])
   @@map("proyectos")
@@ -76,11 +79,41 @@ model Registro {
   cliente      Cliente      @relation(fields: [clienteId], references: [id])
   proyecto     Proyecto     @relation(fields: [proyectoId], references: [id])
   colaborador  Colaborador? @relation(fields: [colaboradorId], references: [id])
+  pedido       Pedido?
 
   @@index([clienteId])
   @@index([proyectoId])
   @@index([fecha(sort: Desc)])
   @@map("registros")
+}
+
+model Pedido {
+  id              String    @id @db.VarChar(50)
+  clienteId       String    @map("cliente_id") @db.VarChar(50)
+  proyectoId      String    @map("proyecto_id") @db.VarChar(50)
+  proyectoNombre  String    @map("proyecto_nombre")
+  descripcion     String
+  cantidad        Decimal   @db.Decimal(10, 4)
+  tipo            String?   @db.VarChar(50)
+  prioridad       String?   @default("Media") @db.VarChar(20)
+  estado          String    @default("Pendiente") @db.VarChar(30)
+  fotoUrl         String?   @map("foto_url")
+  fechaSolicitud  DateTime  @default(now()) @map("fecha_solicitud")
+  fechaFin        DateTime? @map("fecha_fin")
+  facturaNumero   String?   @map("factura_numero") @db.VarChar(30)
+  registroId      String?   @unique @map("registro_id") @db.VarChar(50)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  cliente   Cliente    @relation(fields: [clienteId], references: [id])
+  proyecto  Proyecto   @relation(fields: [proyectoId], references: [id])
+  registro  Registro?  @relation(fields: [registroId], references: [id])
+
+  @@index([clienteId])
+  @@index([proyectoId])
+  @@index([estado])
+  @@index([fechaSolicitud(sort: Desc)])
+  @@map("pedidos")
 }
 
 model RegistroVehiculo {

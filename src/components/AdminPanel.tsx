@@ -24,6 +24,8 @@ import {
   Edit2,
   Search,
   RefreshCw,
+  Link2,
+  ExternalLink,
 } from 'lucide-react';
 import { DatabaseState, Cliente, Proyecto, Colaborador } from '../types.ts';
 import VehiculosAdminView from './VehiculosAdminView.tsx';
@@ -592,6 +594,19 @@ function ClientesTab({
     await onEditCliente(editingId!, { nombre: editNombre.trim(), codigo: editCodigo.trim() });
     setEditingId(null);
   };
+
+  const portalLink = (c: Cliente) => c.tokenPortal ? `${window.location.origin}/portal/${c.tokenPortal}` : null;
+
+  const copiarPortalLink = async (c: Cliente) => {
+    const link = portalLink(c);
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+    } catch {
+      // fallback: mostrar el link en un prompt
+      window.prompt('Link del portal del cliente:', link);
+    }
+  };
   return (
     <motion.div 
       initial={{ opacity: 0, x: 20 }}
@@ -664,6 +679,34 @@ function ClientesTab({
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 rounded-2xl bg-white/5 border border-emerald-500/30 space-y-3">
                   <input value={editNombre} onChange={e => setEditNombre(e.target.value)} placeholder="Nombre" className="w-full glass-input rounded-xl px-3 py-2 text-sm" />
                   <input value={editCodigo} onChange={e => setEditCodigo(e.target.value)} placeholder="Código" className="w-full glass-input rounded-xl px-3 py-2 text-sm" />
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
+                    <p className="text-[10px] font-mono uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                      <Link2 className="w-3 h-3" /> Portal de Pedidos
+                    </p>
+                    {c.tokenPortal ? (
+                      <div className="space-y-2">
+                        <p className="text-[10px] text-slate-500 font-mono break-all">{portalLink(c)}</p>
+                        <div className="flex gap-2 flex-wrap">
+                          <button onClick={() => copiarPortalLink(c)} className="text-[10px] px-2 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 rounded-lg border border-cyan-500/20 transition-all flex items-center gap-1">
+                            <ExternalLink className="w-3 h-3" /> Copiar Link
+                          </button>
+                          <button onClick={async () => {
+                            await onEditCliente(c.id, { nombre: editNombre.trim() || c.nombre, revocarPortal: true });
+                            setEditingId(null);
+                          }} className="text-[10px] px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-lg border border-rose-500/20 transition-all">
+                            Revocar Portal
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={async () => {
+                        await onEditCliente(c.id, { nombre: editNombre.trim() || c.nombre, activarPortal: true });
+                        setEditingId(null);
+                      }} className="text-[10px] px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 rounded-lg border border-emerald-500/20 transition-all">
+                        Activar Portal (generar link)
+                      </button>
+                    )}
+                  </div>
                   <div className="flex gap-2">
                     <button onClick={submitEdit} className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-all">Guardar</button>
                     <button onClick={cancelEdit} className="flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-slate-400 text-xs rounded-lg transition-all">Cancelar</button>
@@ -673,11 +716,16 @@ function ClientesTab({
                 <DataCard
                   title={c.nombre}
                   subtitle={`ID: ${c.id} | Código: ${c.codigo || 'S/N'}`}
-                  badge={{ label: 'Vigente', color: 'emerald' }}
+                  badge={{ label: c.tokenPortal ? 'Portal ON' : 'Vigente', color: c.tokenPortal ? 'blue' : 'emerald' }}
                   icon={<Building2 className="w-4 h-4" />}
                 >
-                  <div className="flex gap-2 mt-2">
+                  <div className="flex gap-2 mt-2 flex-wrap">
                     <button onClick={() => startEdit(c)} className="text-[10px] px-2 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 rounded-lg border border-blue-500/20 transition-all">Editar</button>
+                    {c.tokenPortal && (
+                      <button onClick={() => copiarPortalLink(c)} className="text-[10px] px-2 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 rounded-lg border border-cyan-500/20 transition-all flex items-center gap-1">
+                        <Link2 className="w-3 h-3" /> Copiar Link
+                      </button>
+                    )}
                     <button onClick={() => requestConfirm(`¿Eliminar cliente?`, `Se eliminarán todos los proyectos y registros de "${c.nombre}".`, 'danger', () => onDeleteCliente(c.id), 'Eliminar')} className="text-[10px] px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-lg border border-rose-500/20 transition-all">Eliminar</button>
                   </div>
                 </DataCard>

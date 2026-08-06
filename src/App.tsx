@@ -21,6 +21,7 @@ import {
   User as UserIcon,
   ClipboardList,
   Folder,
+  ShoppingCart,
 } from 'lucide-react';
 import { DatabaseState, Cliente, Proyecto, Colaborador } from './types.ts';
 import { authFetch, authFetchJSON, clearCSRFToken } from './authFetch.ts';
@@ -33,9 +34,10 @@ import RegistroOperativo from './components/RegistroOperativo.tsx';
 import MisRegistros from './components/MisRegistros.tsx';
 import MarcacionesUI from './components/MarcacionesUI.tsx';
 import ErrorBoundary from './components/ErrorBoundary.tsx';
+import PedidosAdmin from './components/PedidosAdmin.tsx';
 import { NotifProvider, useNotif } from './context/NotifContext.tsx';
 
-type TabType = 'dashboard' | 'registro' | 'import' | 'admin' | 'reportes' | 'misregistros';
+type TabType = 'dashboard' | 'registro' | 'import' | 'admin' | 'reportes' | 'misregistros' | 'pedidos';
 
 interface SessionUser {
   nombre: string;
@@ -603,6 +605,7 @@ function AppInner() {
                 return r.concepto === 'MO' && r.colaboradorId === colaborador?.id && r.fecha === new Date().toISOString().substring(0, 10);
               }).length || 0 },
               { id: 'import', label: 'Importar', icon: FileSpreadsheet, adminOnly: true },
+              { id: 'pedidos', label: 'Pedidos', icon: ShoppingCart, adminOnly: true },
               { id: 'reportes', label: 'Reportes', icon: BarChart2, adminOnly: true },
               { id: 'admin', label: 'Administración', icon: ShieldCheck, adminOnly: true },
             ]
@@ -758,6 +761,21 @@ function AppInner() {
                 data={dbState}
                 markupRate={markupRate}
                 onMarkupChange={handleMarkupChange}
+              />
+            </motion.div>
+          )}
+
+          {activeTab === 'pedidos' && (
+            <motion.div
+              key="pedidos_tab"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.22 }}
+            >
+              <PedidosAdmin
+                clientes={dbState?.clientes || []}
+                onConvertido={fetchDbState}
               />
             </motion.div>
           )}

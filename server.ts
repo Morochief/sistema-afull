@@ -321,6 +321,21 @@ const authLimiter = rateLimit({
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 
+// SECURITY: Rate limiter for public portal endpoints (client order portal)
+const portalLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30, // 30 requests per minute per IP
+  message: {
+    success: false,
+    error: {
+      code: 'RATE_LIMIT_EXCEEDED',
+      message: 'Demasiadas solicitudes. Por favor, intentá nuevamente en un minuto.'
+    }
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // SECURITY Phase 2 Fix #3: CSRF Protection Middleware
 function validateCSRF(req: Request, res: Response, next: NextFunction) {
   // Skip CSRF for GET requests (they should be idempotent)
@@ -378,10 +393,10 @@ function validateCSRF(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-// Apply CSRF protection to all API routes except login, logout, and CSRF token generation
+// Apply CSRF protection to all API routes except login, logout, CSRF token generation, and public portal routes
 app.use('/api', (req, res, next) => {
-  // Skip CSRF for login, logout, and csrf-token endpoints
-  if (req.path === '/auth/login' || req.path === '/auth/logout' || req.path === '/csrf-token') {
+  // Skip CSRF for login, logout, csrf-token, and public portal endpoints
+  if (req.path === '/auth/login' || req.path === '/auth/logout' || req.path === '/csrf-token' || req.path.startsWith('/portal/')) {
     return next();
   }
   validateCSRF(req, res, next);
@@ -405,6 +420,182 @@ app.get('/api/marcacion/config', async (req, res) => {
   } catch (error) {
     logger.error('Error fetching geocerca config:', error);
     res.status(500).json({ success: false, error: { code: 'CONFIG_ERROR', message: 'Error al obtener geocerca' } });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// PORTAL DE PEDIDOS PARA CLIENTES (PUBLIC)
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/portal/:token
+ * Public portal data: cliente info, active locales (proyectos), and recent pedidos.
+ * No JWT auth — validated by the tokenPortal field on Cliente.
+ */
+app.get('/api/portal/:token', portalLimiter, async (req, res) => {
+  const { token } = req.params;
+  if (!token || typeof token !== 'string' || token.length < 8) {
+    return res.status(404).json({ success: false, error: { code: 'PORTAL_NOT_FOUND', message: 'Link no válido' } });
+  }
+  try {
+    const cliente = await prisma.cliente.findUnique({ where: { tokenPortal: token } });
+    if (!cliente) {
+      return res.status(404).json({ success: false, error: { code: 'PORTAL_NOT_FOUND', message: 'Link no válido o expirado' } });
+    }
+
+    const [locales, pedidos] = await Promise.all([
+      prisma.proyecto.findMany({
+        where: { clienteId: cliente.id, activo: true },
+        orderBy: { nombre: 'asc' },
+        select: { id: true, nombre: true }
+      }),
+      prisma.pedido.findMany({
+        where: { clienteId: cliente.id },
+        orderBy: { fechaSolicitud: 'desc' },
+        take: 50,
+        select: {
+          id: true,
+          proyectoNombre: true,
+          descripcion: true,
+          cantidad: true,
+          estado: true,
+          prioridad: true,
+          fotoUrl: true,
+          fechaSolicitud: true
+        }
+      })
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        cliente: { id: cliente.id, nombre: cliente.nombre },
+        locales: locales.map((l) => ({ id: l.id, nombre: l.nombre })),
+        pedidos: pedidos.map((p) => ({
+          id: p.id,
+          local: p.proyectoNombre,
+          descripcion: p.descripcion,
+          cantidad: Number(p.cantidad),
+          estado: p.estado,
+          prioridad: p.prioridad,
+          fotoUrl: p.fotoUrl,
+          fechaSolicitud: p.fechaSolicitud
+        }))
+      }
+    });
+  } catch (error: any) {
+    logger.error('[PORTAL] Error fetching portal data:', error);
+    res.status(500).json({ success: false, error: { code: 'PORTAL_ERROR', message: 'Error al obtener el portal' } });
+  }
+});
+
+/**
+ * POST /api/portal/:token/pedido
+ * Public: client creates a new pedido. Only proyectoId (local), descripcion and cantidad come from the client.
+ */
+app.post('/api/portal/:token/pedido', portalLimiter, async (req, res) => {
+  const { token } = req.params;
+  if (!token || typeof token !== 'string' || token.length < 8) {
+    return res.status(404).json({ success: false, error: { code: 'PORTAL_NOT_FOUND', message: 'Link no válido' } });
+  }
+  const { proyectoId, descripcion, cantidad, foto } = req.body || {};
+
+  if (!proyectoId || !descripcion?.trim()) {
+    return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Local y descripción son requeridos' } });
+  }
+  const cantNum = Number(cantidad);
+  if (isNaN(cantNum) || cantNum <= 0) {
+    return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'La cantidad debe ser mayor a 0' } });
+  }
+  const descripcionLimpia = String(descripcion).trim().slice(0, 1000);
+
+  try {
+    const cliente = await prisma.cliente.findUnique({ where: { tokenPortal: token } });
+    if (!cliente) {
+      return res.status(404).json({ success: false, error: { code: 'PORTAL_NOT_FOUND', message: 'Link no válido o expirado' } });
+    }
+
+    // Validate the proyecto (local) belongs to this cliente and is active
+    const proyecto = await prisma.proyecto.findFirst({
+      where: { id: proyectoId, clienteId: cliente.id, activo: true }
+    });
+    if (!proyecto) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Local no válido para este cliente' } });
+    }
+
+    // Optional photo upload (base64) to Supabase Storage or local fallback
+    let fotoUrl: string | undefined;
+    if (foto && typeof foto === 'string' && foto.startsWith('data:image')) {
+      const pedidoId = generateId('ped');
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+      if (supabaseUrl && supabaseServiceKey) {
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+        const base64 = foto.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64, 'base64');
+        const storagePath = `pedidos/${pedidoId}/foto.jpg`;
+        const { error } = await supabaseAdmin.storage
+          .from('pedidos-fotos')
+          .upload(storagePath, buffer, { contentType: 'image/jpeg', upsert: true });
+        if (!error) {
+          const { data } = supabaseAdmin.storage.from('pedidos-fotos').getPublicUrl(storagePath);
+          fotoUrl = data.publicUrl;
+        } else {
+          logger.error('[PORTAL] Supabase foto upload failed:', error.message);
+        }
+      } else {
+        // Local fallback (development)
+        try {
+          const base64 = foto.replace(/^data:image\/\w+;base64,/, '');
+          const uploadsDir = path.join(__dirname, 'uploads', 'pedidos', pedidoId);
+          await fs.promises.mkdir(uploadsDir, { recursive: true });
+          await fs.promises.writeFile(path.join(uploadsDir, 'foto.jpg'), base64, 'base64');
+          fotoUrl = `/uploads/pedidos/${pedidoId}/foto.jpg`;
+        } catch (err) {
+          logger.error('[PORTAL] Local foto save failed:', err);
+        }
+      }
+    }
+
+    const pedido = await prisma.pedido.create({
+      data: {
+        id: generateId('ped'),
+        clienteId: cliente.id,
+        proyectoId: proyecto.id,
+        proyectoNombre: proyecto.nombre,
+        descripcion: descripcionLimpia,
+        cantidad: new Decimal(cantNum),
+        estado: 'Pendiente',
+        fotoUrl,
+      }
+    });
+
+    auditLog({
+      usuario: 'portal:' + cliente.nombre,
+      accion: 'create_pedido',
+      recurso: `/api/portal/${token}/pedido`,
+      resultado: 'success',
+      ip: getClientIp(req),
+      detalle: `Pedido ${pedido.id} - ${proyecto.nombre}: ${descripcionLimpia.slice(0, 100)}`
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        id: pedido.id,
+        local: pedido.proyectoNombre,
+        descripcion: pedido.descripcion,
+        cantidad: Number(pedido.cantidad),
+        estado: pedido.estado,
+        fotoUrl: pedido.fotoUrl,
+        fechaSolicitud: pedido.fechaSolicitud
+      },
+      message: 'Pedido enviado correctamente'
+    });
+  } catch (error: any) {
+    logger.error('[PORTAL] Error creating pedido:', error);
+    res.status(500).json({ success: false, error: { code: 'PORTAL_ERROR', message: 'Error al enviar el pedido' } });
   }
 });
 
@@ -1142,6 +1333,7 @@ function convertPrismaToFrontend(prismaData: any): DatabaseState {
       id: c.id,
       nombre: c.nombre,
       codigo: c.codigo,
+      tokenPortal: c.tokenPortal || null,
       fechaCreacion: c.fechaCreacion.toISOString().substring(0, 10)
     })),
     proyectos: prismaData.proyectos.map((p: any) => ({
@@ -3605,7 +3797,7 @@ app.post('/api/clientes', requireAuth, requireAdmin, requireWriteAccess, async (
       }
     });
     auditLog({ usuario: req.user!.usuario, accion: 'create_cliente', recurso: `/api/clientes/${cliente.id}`, resultado: 'success', ip: getClientIp(req) });
-    res.status(201).json({ success: true, data: { ...cliente, fechaCreacion: cliente.fechaCreacion.toISOString().substring(0, 10) }, message: 'Cliente creado' } as ApiResponse);
+    res.status(201).json({ success: true, data: { ...cliente, tokenPortal: cliente.tokenPortal || null, fechaCreacion: cliente.fechaCreacion.toISOString().substring(0, 10) }, message: 'Cliente creado' } as ApiResponse);
   } catch (error: any) {
     logger.error('Error creating cliente:', error);
     res.status(500).json({ success: false, error: { code: 'CREATE_ERROR', message: 'Error al crear cliente' } } as ApiResponse);
@@ -3614,17 +3806,28 @@ app.post('/api/clientes', requireAuth, requireAdmin, requireWriteAccess, async (
 
 app.put('/api/clientes/:id', requireAuth, requireAdmin, requireWriteAccess, async (req, res) => {
   const { id } = req.params;
-  const { nombre, codigo } = req.body;
+  const { nombre, codigo, activarPortal, revocarPortal } = req.body;
   if (!nombre?.trim()) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Nombre requerido' } } as ApiResponse);
   try {
     const existing = await prisma.cliente.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Cliente no encontrado' } } as ApiResponse);
+
+    const data: any = { nombre: nombre.trim(), codigo: codigo ? codigo.trim() : existing.codigo };
+
+    // Portal token management: activate generates a token, revoke clears it
+    if (activarPortal === true && !existing.tokenPortal) {
+      data.tokenPortal = crypto.randomUUID();
+    }
+    if (revocarPortal === true && existing.tokenPortal) {
+      data.tokenPortal = null;
+    }
+
     const updated = await prisma.cliente.update({
       where: { id },
-      data: { nombre: nombre.trim(), codigo: codigo ? codigo.trim() : existing.codigo }
+      data
     });
     auditLog({ usuario: req.user!.usuario, accion: 'update_cliente', recurso: `/api/clientes/${id}`, resultado: 'success', ip: getClientIp(req) });
-    res.json({ success: true, data: { ...updated, fechaCreacion: updated.fechaCreacion.toISOString().substring(0, 10) }, message: 'Cliente actualizado' } as ApiResponse);
+    res.json({ success: true, data: { ...updated, tokenPortal: updated.tokenPortal || null, fechaCreacion: updated.fechaCreacion.toISOString().substring(0, 10) }, message: 'Cliente actualizado' } as ApiResponse);
   } catch (error: any) {
     logger.error('Error updating cliente:', error);
     res.status(500).json({ success: false, error: { code: 'UPDATE_ERROR', message: 'Error al actualizar cliente' } } as ApiResponse);
@@ -3923,6 +4126,162 @@ app.delete('/api/colaboradores/:id', requireAuth, requireAdmin, async (req, res)
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════
+// PEDIDOS (PORTAL DE CLIENTES) — ADMIN
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/admin/pedidos
+ * List pedidos with optional filters. Admin only.
+ * Query params: estado, clienteId
+ */
+app.get('/api/admin/pedidos', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { estado, clienteId } = req.query as { estado?: string; clienteId?: string };
+    const where: any = {};
+    if (estado) where.estado = String(estado);
+    if (clienteId) where.clienteId = String(clienteId);
+
+    const pedidos = await prisma.pedido.findMany({
+      where,
+      orderBy: { fechaSolicitud: 'desc' },
+      include: { cliente: { select: { nombre: true } } }
+    });
+
+    res.json({
+      success: true,
+      data: pedidos.map((p) => ({
+        id: p.id,
+        clienteId: p.clienteId,
+        clienteNombre: p.cliente.nombre,
+        proyectoId: p.proyectoId,
+        local: p.proyectoNombre,
+        descripcion: p.descripcion,
+        cantidad: Number(p.cantidad),
+        tipo: p.tipo,
+        prioridad: p.prioridad,
+        estado: p.estado,
+        fotoUrl: p.fotoUrl,
+        fechaSolicitud: p.fechaSolicitud,
+        fechaFin: p.fechaFin,
+        facturaNumero: p.facturaNumero,
+        registroId: p.registroId
+      }))
+    } as ApiResponse);
+  } catch (error: any) {
+    logger.error('[PEDIDOS] Error listing pedidos:', error);
+    res.status(500).json({ success: false, error: { code: 'LIST_ERROR', message: 'Error al listar pedidos' } } as ApiResponse);
+  }
+});
+
+/**
+ * PUT /api/admin/pedidos/:id
+ * Update pedido fields (tipo, prioridad, estado, fotoUrl, fechaFin, facturaNumero). Admin only.
+ */
+app.put('/api/admin/pedidos/:id', requireAuth, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { tipo, prioridad, estado, fotoUrl, fechaFin, facturaNumero } = req.body || {};
+
+  try {
+    const existing = await prisma.pedido.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Pedido no encontrado' } } as ApiResponse);
+
+    const data: any = {};
+    if (tipo !== undefined) data.tipo = String(tipo).slice(0, 50);
+    if (prioridad !== undefined) data.prioridad = String(prioridad).slice(0, 20);
+    if (estado !== undefined) data.estado = String(estado).slice(0, 30);
+    if (fotoUrl !== undefined) data.fotoUrl = fotoUrl ? String(fotoUrl) : null;
+    if (fechaFin !== undefined) data.fechaFin = fechaFin ? new Date(String(fechaFin)) : null;
+    if (facturaNumero !== undefined) data.facturaNumero = facturaNumero ? String(facturaNumero).slice(0, 30) : null;
+
+    const updated = await prisma.pedido.update({ where: { id }, data });
+    auditLog({ usuario: req.user!.usuario, accion: 'update_pedido', recurso: `/api/admin/pedidos/${id}`, resultado: 'success', ip: getClientIp(req) });
+    res.json({
+      success: true,
+      data: {
+        id: updated.id,
+        clienteId: updated.clienteId,
+        proyectoId: updated.proyectoId,
+        local: updated.proyectoNombre,
+        descripcion: updated.descripcion,
+        cantidad: Number(updated.cantidad),
+        tipo: updated.tipo,
+        prioridad: updated.prioridad,
+        estado: updated.estado,
+        fotoUrl: updated.fotoUrl,
+        fechaSolicitud: updated.fechaSolicitud,
+        fechaFin: updated.fechaFin,
+        facturaNumero: updated.facturaNumero,
+        registroId: updated.registroId
+      },
+      message: 'Pedido actualizado'
+    } as ApiResponse);
+  } catch (error: any) {
+    logger.error('[PEDIDOS] Error updating pedido:', error);
+    res.status(500).json({ success: false, error: { code: 'UPDATE_ERROR', message: 'Error al actualizar pedido' } } as ApiResponse);
+  }
+});
+
+/**
+ * POST /api/admin/pedidos/:id/convertir
+ * Convert a pedido into a Registro (concepto INSUMO, origen API). Admin only.
+ */
+app.post('/api/admin/pedidos/:id/convertir', requireAuth, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const pedido = await prisma.pedido.findUnique({ where: { id } });
+    if (!pedido) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Pedido no encontrado' } } as ApiResponse);
+    if (pedido.registroId) {
+      return res.status(400).json({ success: false, error: { code: 'ALREADY_CONVERTED', message: 'Este pedido ya fue convertido a registro' } } as ApiResponse);
+    }
+
+    const cliente = await prisma.cliente.findUnique({ where: { id: pedido.clienteId } });
+    const proyecto = await prisma.proyecto.findUnique({ where: { id: pedido.proyectoId } });
+    if (!cliente || !proyecto) {
+      return res.status(400).json({ success: false, error: { code: 'MISSING_REFERENCES', message: 'Cliente o proyecto no encontrado' } } as ApiResponse);
+    }
+
+    const registroId = generateId('reg');
+    await prisma.$transaction(async (tx) => {
+      await tx.registro.create({
+        data: {
+          id: registroId,
+          clienteId: cliente.id,
+          clienteNombre: cliente.nombre,
+          proyectoId: proyecto.id,
+          proyectoNombre: proyecto.nombre,
+          fecha: new Date(),
+          concepto: 'INSUMO',
+          descripcion: pedido.descripcion,
+          cantidad: pedido.cantidad,
+          precioUnitario: new Decimal(0),
+          total: new Decimal(0),
+          origen: 'API',
+          fechaImportacion: new Date(),
+        }
+      });
+      await tx.pedido.update({
+        where: { id: pedido.id },
+        data: { registroId, estado: 'Completado' }
+      });
+    });
+
+    auditLog({
+      usuario: req.user!.usuario,
+      accion: 'convertir_pedido',
+      recurso: `/api/admin/pedidos/${id}/convertir`,
+      resultado: 'success',
+      ip: getClientIp(req),
+      detalle: `Pedido ${id} -> Registro ${registroId}`
+    });
+
+    res.json({ success: true, data: { registroId }, message: 'Pedido convertido a registro correctamente' } as ApiResponse);
+  } catch (error: any) {
+    logger.error('[PEDIDOS] Error converting pedido:', error);
+    res.status(500).json({ success: false, error: { code: 'CONVERT_ERROR', message: 'Error al convertir pedido' } } as ApiResponse);
+  }
+});
+
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // ADMIN CLEANUP â€” Eliminar duplicados de importaciÃ³n Excel
 // TEMPORAL: Solo accesible para Admin, eliminar despuÃ©s de usarlo
@@ -4085,6 +4444,13 @@ async function startServer() {
     // Serve static files in production
     const distPath = path.resolve(process.cwd(), 'dist');
     app.use(express.static(distPath));
+
+    // Serve the public client portal page (multi-page entry) for /portal/:token routes
+    app.get('/portal/:token', (req, res) => {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.sendFile(path.join(distPath, 'portal.html'));
+    });
+
     app.get('*', (req, res) => {
       // Prevent browser caching of the entry HTML file so it always pulls new asset hashes
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
