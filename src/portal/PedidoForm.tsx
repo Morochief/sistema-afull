@@ -18,7 +18,8 @@ export function badgeEstado(estado: string): string {
 }
 
 export default function PedidoForm({token, locales, onPedidoCreado}: PedidoFormProps) {
-  const [proyectoId, setProyectoId] = useState('');
+  // Auto-select cuando el cliente tiene un solo local
+  const [proyectoId, setProyectoId] = useState<string>(locales.length === 1 ? locales[0].id : '');
   const [descripcion, setDescripcion] = useState('');
   const [cantidad, setCantidad] = useState('1');
   const [foto, setFoto] = useState<string | null>(null);
@@ -98,8 +99,23 @@ export default function PedidoForm({token, locales, onPedidoCreado}: PedidoFormP
       </h2>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {locales.length === 0 ? (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+            Todavía no hay locales cargados para este cliente. Contactá al equipo de aFull para habilitar tus locales.
+          </div>
+        ) : (
+          <>
         <div>
           <label className={labelCls} htmlFor="local">Local *</label>
+          {locales.length === 1 ? (
+            <input
+              id="local"
+              type="text"
+              className={`${inputCls} opacity-80`}
+              value={locales[0].nombre}
+              disabled
+            />
+          ) : (
           <select
             id="local"
             className={inputCls}
@@ -107,11 +123,12 @@ export default function PedidoForm({token, locales, onPedidoCreado}: PedidoFormP
             onChange={(e) => setProyectoId(e.target.value)}
             disabled={locales.length === 0}
           >
-            <option value="">{locales.length === 0 ? 'No hay locales disponibles' : 'Seleccioná un local...'}</option>
+            <option value="">Seleccioná un local...</option>
             {locales.map((l) => (
               <option key={l.id} value={l.id} className="bg-slate-900">{l.nombre}</option>
             ))}
           </select>
+          )}
         </div>
 
         <div>
@@ -177,6 +194,8 @@ export default function PedidoForm({token, locales, onPedidoCreado}: PedidoFormP
         >
           {enviando ? 'Enviando...' : 'Enviar Pedido'}
         </button>
+        </>
+        )}
       </form>
     </section>
   );
