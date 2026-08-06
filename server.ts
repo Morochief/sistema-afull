@@ -4250,17 +4250,43 @@ app.get('/api/admin/pedidos', requireAuth, requireAdmin, async (req, res) => {
 
 /**
  * PUT /api/admin/pedidos/:id
- * Update pedido fields (marca, tipo, prioridad, estado, fotoUrl, fechaFin, facturaNumero). Admin only.
+ * Update pedido fields. Admin can edit EVERYTHING:
+ * sucursalId (local), descripcion, cantidad, fechaSolicitud (Fecha Inicio),
+ * marca, tipo, prioridad, estado, fotoUrl, fechaFin, facturaNumero.
+ * The client sees changes reflected in their portal.
  */
 app.put('/api/admin/pedidos/:id', requireAuth, requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const { marca, tipo, prioridad, estado, fotoUrl, fechaFin, facturaNumero } = req.body || {};
+  const { sucursalId, descripcion, cantidad, fechaSolicitud, marca, tipo, prioridad, estado, fotoUrl, fechaFin, facturaNumero } = req.body || {};
 
   try {
     const existing = await prisma.pedido.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Pedido no encontrado' } } as ApiResponse);
 
     const data: any = {};
+
+    // Sucursal (local) — si cambia, actualizar también el nombre denormalizado
+    if (sucursalId !== undefined) {
+      const sucursal = await prisma.sucursal.findFirst({ where: { id: sucursalId, clienteId: existing.clienteId } });
+      if (!sucursal) {
+        return res.status(400).json({ success: false, error: { code: 'FORBIDDEN', message: 'Sucursal no válida para este cliente' } } as ApiResponse);
+      }
+      data.sucursalId = sucursal.id;
+      data.sucursalNombre = sucursal.nombre;
+    }
+    if (descripcion !== undefined) {
+      const d = String(descripcion).trim().slice(0, 1000);
+      if (!d) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'La descripción no puede estar vacía' } } as ApiResponse);
+      data.descripcion = d;
+    }
+    if (cantidad !== undefined) {
+      const cantNum = Number(cantidad);
+      if (isNaN(cantNum) || cantNum <= 0) {
+        return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'La cantidad debe ser mayor a 0' } } as ApiResponse);
+      }
+      data.cantidad = new Decimal(cantNum);
+    }
+    if (fechaSolicitud !== undefined) data.fechaSolicitud = fechaSolicitud ? new Date(String(fechaSolicitud)) : new Date();
     if (marca !== undefined) data.marca = marca ? String(marca).slice(0, 50) : null;
     if (tipo !== undefined) data.tipo = String(tipo).slice(0, 50);
     if (prioridad !== undefined) data.prioridad = String(prioridad).slice(0, 20);

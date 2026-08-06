@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useState} from 'react';
 import {authFetchJSON} from '../authFetch.ts';
-import {Cliente, Pedido} from '../types.ts';
+import {Cliente, Pedido, Sucursal} from '../types.ts';
 import PedidoDetalleModal from './PedidoDetalleModal.tsx';
 
 interface PedidosAdminProps {
@@ -40,6 +40,7 @@ function formatFecha(iso: string): string {
 
 export default function PedidosAdmin({clientes, onConvertido}: PedidosAdminProps) {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [sucursales, setSucursales] = useState<Sucursal[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroEstado, setFiltroEstado] = useState('');
   const [filtroCliente, setFiltroCliente] = useState('');
@@ -54,8 +55,12 @@ export default function PedidosAdmin({clientes, onConvertido}: PedidosAdminProps
       if (filtroEstado) params.set('estado', filtroEstado);
       if (filtroCliente) params.set('clienteId', filtroCliente);
       const qs = params.toString();
-      const json = await authFetchJSON<{success: boolean; data: Pedido[]}>(`/api/admin/pedidos${qs ? `?${qs}` : ''}`);
-      setPedidos(json.data || []);
+      const [pedidosJson, sucursalesJson] = await Promise.all([
+        authFetchJSON<{success: boolean; data: Pedido[]}>(`/api/admin/pedidos${qs ? `?${qs}` : ''}`),
+        authFetchJSON<{success: boolean; data: Sucursal[]}>(`/api/admin/sucursales${filtroCliente ? `?clienteId=${encodeURIComponent(filtroCliente)}` : ''}`),
+      ]);
+      setPedidos(pedidosJson.data || []);
+      setSucursales(sucursalesJson.data || []);
     } catch (e: any) {
       setError(e.message || 'Error al cargar pedidos');
     } finally {
@@ -243,7 +248,14 @@ export default function PedidosAdmin({clientes, onConvertido}: PedidosAdminProps
         </div>
       </div>
 
-      {detalle && <PedidoDetalleModal pedido={detalle} onClose={() => setDetalle(null)} onUpdate={updatePedido} />}
+      {detalle && (
+        <PedidoDetalleModal
+          pedido={detalle}
+          sucursales={sucursales.filter((s) => s.clienteId === detalle.clienteId)}
+          onClose={() => setDetalle(null)}
+          onUpdate={updatePedido}
+        />
+      )}
     </div>
   );
 }

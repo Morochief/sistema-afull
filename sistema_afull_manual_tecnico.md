@@ -359,7 +359,7 @@ erDiagram
 
 ### Pedidos (Admin)
 - `GET /api/admin/pedidos`: Lista pedidos con filtros opcionales `?estado=&clienteId=` (Admin Only).
-- `PUT /api/admin/pedidos/:id`: Actualiza `marca`, `tipo`, `prioridad`, `estado`, `fotoUrl`, `fechaFin`, `facturaNumero` (Admin Only).
+- `PUT /api/admin/pedidos/:id`: Actualiza **todos** los campos del pedido: `sucursalId` (local, actualiza el nombre denormalizado), `descripcion`, `cantidad`, `fechaSolicitud` (Fecha Inicio), `marca`, `tipo`, `prioridad`, `estado`, `fotoUrl`, `fechaFin`, `facturaNumero` (Admin Only). Los cambios se reflejan al instante en el portal del cliente.
 - `POST /api/admin/pedidos/:id/convertir`: Convierte el pedido en un `Registro` (concepto `INSUMO`, origen `API`) dentro de una transacción, vincula `registro_id` y marca el pedido como `Completado`. Asocia el registro a un proyecto del cliente cuyo nombre es la **descripción del pedido** (lo crea si no existe). Evita conversiones duplicadas (Admin Only).
 
 ### Sucursales / Locales (Admin)
