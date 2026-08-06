@@ -4318,16 +4318,18 @@ app.post('/api/admin/pedidos/:id/convertir', requireAuth, requireAdmin, async (r
       return res.status(400).json({ success: false, error: { code: 'MISSING_REFERENCES', message: 'Cliente no encontrado' } } as ApiResponse);
     }
 
-    // Resolver proyecto: buscar activo con el nombre de la sucursal, o crearlo
+    // Resolver proyecto: buscar activo con el nombre de la DESCRIPCIÓN del pedido, o crearlo.
+    // El proyecto representa el trabajo/obra cargado por el cliente, no el local.
+    const nombreProyecto = pedido.descripcion.slice(0, 200);
     let proyecto = await prisma.proyecto.findFirst({
-      where: { clienteId: cliente.id, nombre: pedido.sucursalNombre, activo: true }
+      where: { clienteId: cliente.id, nombre: nombreProyecto, activo: true }
     });
     if (!proyecto) {
       proyecto = await prisma.proyecto.create({
         data: {
           id: generateId('pro'),
           clienteId: cliente.id,
-          nombre: pedido.sucursalNombre,
+          nombre: nombreProyecto,
           estado: 'EN_PROCESO',
           fechaInicio: new Date(),
         }
