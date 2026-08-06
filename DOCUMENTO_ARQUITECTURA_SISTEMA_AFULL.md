@@ -177,7 +177,7 @@ Sistema aFull es una **plataforma integral de gestión operativa** desarrollada 
 - **Link compartible** por cliente: `https://sistema-afull.onrender.com/portal/{token}` (generado desde Administración → Clientes)
 - **El cliente carga**: Local (dropdown), Descripción, Cantidad (+ foto opcional)
 - **Sin login**: el token del link autentica el acceso; rate limiting 30 req/min por IP
-- **Historial**: el cliente ve sus pedidos anteriores con estado (Pendiente/En Proceso/Completado/Entregado)
+- **Historial**: el cliente ve sus pedidos anteriores con estado (Pendiente/En Proceso/Completado/Entregado), paginados de a 10 con controles Anterior/Siguiente
 - **Vinculación automática**: el Local mapea a un proyecto existente del cliente; los pedidos quedan en la tabla `pedidos` con su `cliente_id`
 - **Desde el panel admin**: pestaña "Pedidos" → filtros, cambio de prioridad/estado, y botón "Convertir a Registro" que genera un `Registro` (concepto Insumo, origen API) en la base de datos
 

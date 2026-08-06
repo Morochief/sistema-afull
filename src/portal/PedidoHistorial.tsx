@@ -13,6 +13,11 @@ interface HistorialPedido {
 
 interface PedidoHistorialProps {
   pedidos: HistorialPedido[];
+  pagina: number;
+  totalPaginas: number;
+  total: number;
+  cargando: boolean;
+  onCambioPagina: (pagina: number) => void;
 }
 
 function formatFecha(iso: string): string {
@@ -24,8 +29,8 @@ function formatFecha(iso: string): string {
   }
 }
 
-export default function PedidoHistorial({pedidos}: PedidoHistorialProps) {
-  if (pedidos.length === 0) {
+export default function PedidoHistorial({pedidos, pagina, totalPaginas, total, cargando, onCambioPagina}: PedidoHistorialProps) {
+  if (!cargando && pedidos.length === 0) {
     return (
       <section className="mt-8">
         <h2 className="mb-4 text-lg font-semibold">Mis Pedidos</h2>
@@ -36,9 +41,15 @@ export default function PedidoHistorial({pedidos}: PedidoHistorialProps) {
     );
   }
 
+  const btnCls = 'rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed';
+
   return (
     <section className="mt-8">
-      <h2 className="mb-4 text-lg font-semibold">Mis Pedidos</h2>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Mis Pedidos</h2>
+        <span className="text-xs text-slate-500">{total} pedidos en total</span>
+      </div>
+
       <div className="overflow-hidden rounded-2xl border border-white/10">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -52,7 +63,12 @@ export default function PedidoHistorial({pedidos}: PedidoHistorialProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {pedidos.map((p) => (
+              {cargando && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-400">Cargando...</td>
+                </tr>
+              )}
+              {!cargando && pedidos.map((p) => (
                 <tr key={p.id} className="bg-white/[0.02] transition hover:bg-white/[0.05]">
                   <td className="whitespace-nowrap px-4 py-3 text-slate-400">{formatFecha(p.fechaSolicitud)}</td>
                   <td className="whitespace-nowrap px-4 py-3 font-medium">{p.local}</td>
@@ -71,6 +87,29 @@ export default function PedidoHistorial({pedidos}: PedidoHistorialProps) {
           </table>
         </div>
       </div>
+
+      {/* Paginación */}
+      {totalPaginas > 1 && (
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <button
+            className={btnCls}
+            disabled={pagina <= 1 || cargando}
+            onClick={() => onCambioPagina(pagina - 1)}
+          >
+            ← Anterior
+          </button>
+          <span className="text-xs text-slate-400">
+            Página {pagina} de {totalPaginas}
+          </span>
+          <button
+            className={btnCls}
+            disabled={pagina >= totalPaginas || cargando}
+            onClick={() => onCambioPagina(pagina + 1)}
+          >
+            Siguiente →
+          </button>
+        </div>
+      )}
     </section>
   );
 }

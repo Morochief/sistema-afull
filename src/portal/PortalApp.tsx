@@ -16,16 +16,17 @@ interface PortalAppState {
  */
 export default function PortalApp() {
   const [state, setState] = useState<PortalAppState>({loading: true, error: null, data: null});
+  const [page, setPage] = useState(1);
 
   const token = window.location.pathname.split('/portal/')[1]?.replace(/\/+$/, '') || '';
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (targetPage: number) => {
     if (!token) {
       setState({loading: false, error: 'Link no válido', data: null});
       return;
     }
     try {
-      const res = await fetch('/api/portal/' + encodeURIComponent(token));
+      const res = await fetch(`/api/portal/${encodeURIComponent(token)}?page=${targetPage}&limit=10`);
       const json = await res.json();
       if (!res.ok || !json.success) {
         setState({loading: false, error: json?.error?.message || 'Link no válido o expirado', data: null});
@@ -38,11 +39,19 @@ export default function PortalApp() {
   }, [token]);
 
   useEffect(() => {
-    loadData();
+    loadData(1);
+  }, [loadData]);
+
+  const handleCambioPagina = useCallback((nuevaPagina: number) => {
+    setPage(nuevaPagina);
+    loadData(nuevaPagina);
+    window.scrollTo({top: 0, behavior: 'smooth'});
   }, [loadData]);
 
   const handlePedidoCreado = useCallback(() => {
-    loadData();
+    // Volver a la primera página para ver el pedido nuevo al tope
+    setPage(1);
+    loadData(1);
   }, [loadData]);
 
   return (
@@ -82,7 +91,14 @@ export default function PortalApp() {
         {!state.loading && !state.error && state.data && (
           <>
             <PedidoForm token={token} locales={state.data.locales} onPedidoCreado={handlePedidoCreado} />
-            <PedidoHistorial pedidos={state.data.pedidos} />
+            <PedidoHistorial
+              pedidos={state.data.pedidos}
+              pagina={state.data.paginacion.page}
+              totalPaginas={state.data.paginacion.totalPages}
+              total={state.data.paginacion.total}
+              cargando={state.loading}
+              onCambioPagina={handleCambioPagina}
+            />
           </>
         )}
 

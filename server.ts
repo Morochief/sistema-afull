@@ -429,7 +429,8 @@ app.get('/api/marcacion/config', async (req, res) => {
 
 /**
  * GET /api/portal/:token
- * Public portal data: cliente info, active locales (proyectos), and recent pedidos.
+ * Public portal data: cliente info, active locales (proyectos), and paginated pedidos.
+ * Query params: page (1-based, default 1), limit (default 10, max 50).
  * No JWT auth — validated by the tokenPortal field on Cliente.
  */
 app.get('/api/portal/:token', portalLimiter, async (req, res) => {
@@ -443,7 +444,12 @@ app.get('/api/portal/:token', portalLimiter, async (req, res) => {
       return res.status(404).json({ success: false, error: { code: 'PORTAL_NOT_FOUND', message: 'Link no válido o expirado' } });
     }
 
-    const [locales, pedidos] = await Promise.all([
+    // Pagination
+    const page = Math.max(1, parseInt(String(req.query.page || '1'), 10) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(String(req.query.limit || '10'), 10) || 10));
+    const skip = (page - 1) * limit;
+
+    const [locales, pedidos, total] = await Promise.all([
       prisma.proyecto.findMany({
         where: { clienteId: cliente.id, activo: true },
         orderBy: { nombre: 'asc' },
@@ -452,7 +458,8 @@ app.get('/api/portal/:token', portalLimiter, async (req, res) => {
       prisma.pedido.findMany({
         where: { clienteId: cliente.id },
         orderBy: { fechaSolicitud: 'desc' },
-        take: 50,
+        skip,
+        take: limit,
         select: {
           id: true,
           proyectoNombre: true,
@@ -463,7 +470,8 @@ app.get('/api/portal/:token', portalLimiter, async (req, res) => {
           fotoUrl: true,
           fechaSolicitud: true
         }
-      })
+      }),
+      prisma.pedido.count({ where: { clienteId: cliente.id } })
     ]);
 
     res.json({
@@ -480,7 +488,13 @@ app.get('/api/portal/:token', portalLimiter, async (req, res) => {
           prioridad: p.prioridad,
           fotoUrl: p.fotoUrl,
           fechaSolicitud: p.fechaSolicitud
-        }))
+        })),
+        paginacion: {
+          page,
+          limit,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / limit))
+        }
       }
     });
   } catch (error: any) {

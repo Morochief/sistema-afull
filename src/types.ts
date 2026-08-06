@@ -189,6 +189,12 @@ export interface PortalData {
     fotoUrl?: string | null;
     fechaSolicitud: string;
   }[];
+  paginacion: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export interface PortalPedidoInput {

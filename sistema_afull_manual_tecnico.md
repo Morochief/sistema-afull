@@ -342,7 +342,7 @@ erDiagram
 - `POST /api/admin/cleanup-duplicates`: Limpia registros duplicados (Admin Only).
 
 ### Portal de Pedidos para Clientes (Público)
-- `GET /api/portal/:token`: Devuelve los datos del portal: nombre del cliente, locales activos (proyectos) e historial de pedidos. Público, autenticado por el `token_portal` del cliente. Rate limit 30 req/min por IP.
+- `GET /api/portal/:token`: Devuelve los datos del portal: nombre del cliente, locales activos (proyectos) e historial de pedidos **paginado** (parámetros `?page=` y `?limit=`, default 10 por página, máximo 50). Respuesta incluye `paginacion: { page, limit, total, totalPages }`. Público, autenticado por el `token_portal` del cliente. Rate limit 30 req/min por IP.
 - `POST /api/portal/:token/pedido`: Crea un pedido nuevo. Body: `{ proyectoId, descripcion, cantidad, foto? }`. Valida que el proyecto pertenezca al cliente y esté activo; sube la foto (base64) a Supabase Storage bucket `pedidos-fotos` o al filesystem local en dev. Público, con las mismas protecciones.
 
 ### Pedidos (Admin)
