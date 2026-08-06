@@ -90,7 +90,7 @@ export default function PortalApp() {
 
         {!state.loading && !state.error && state.data && (
           <>
-            <PedidoForm token={token} locales={state.data.locales} onPedidoCreado={handlePedidoCreado} />
+            <PedidoForm token={token} sucursales={state.data.sucursales} onPedidoCreado={handlePedidoCreado} />
             <PedidoHistorial
               pedidos={state.data.pedidos}
               pagina={state.data.paginacion.page}

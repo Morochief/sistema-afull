@@ -26,11 +26,12 @@ import {
   RefreshCw,
   Link2,
   ExternalLink,
+  Store,
 } from 'lucide-react';
 import { DatabaseState, Cliente, Proyecto, Colaborador } from '../types.ts';
 import VehiculosAdminView from './VehiculosAdminView.tsx';
+import SucursalesTab from './SucursalesTab.tsx';
 import { useNotif } from '../context/NotifContext.tsx';
-import TimelineMarcaciones from './TimelineMarcaciones.tsx';
 import TimelineMarcaciones from './TimelineMarcaciones.tsx';
 import AuditLogTab from './AuditLogTab.tsx';
 
@@ -1455,7 +1456,7 @@ export default function AdminPanel({
 }: AdminPanelProps) {
   const { showToast, requestConfirm } = useNotif();
   // Tabs for the administration panel - usar initialSubTab si existe
-  const [activeSubTab, setActiveSubTab] = useState<'registro' | 'clientes' | 'proyectos' | 'colaboradores' | 'vehiculos' | 'marcaciones' | 'auditlog'>(
+  const [activeSubTab, setActiveSubTab] = useState<'registro' | 'clientes' | 'proyectos' | 'colaboradores' | 'vehiculos' | 'marcaciones' | 'auditlog' | 'sucursales'>(
     (initialSubTab as any) || 'registro'
   );
 
@@ -1615,6 +1616,18 @@ export default function AdminPanel({
           </button>
 
           <button
+            onClick={() => setActiveSubTab('sucursales')}
+            className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-semibold shrink-0 cursor-pointer transition-all ${
+              activeSubTab === 'sucursales' 
+                ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30 font-bold' 
+                : 'text-slate-400 hover:bg-white/5'
+            }`}
+          >
+            <Store className="w-4 h-4" />
+            <span>Sucursales / Locales</span>
+          </button>
+
+          <button
             onClick={() => setActiveSubTab('colaboradores')}
             className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-semibold shrink-0 cursor-pointer transition-all ${
               activeSubTab === 'colaboradores' 
@@ -1725,6 +1738,13 @@ export default function AdminPanel({
               onCreateProject={handleCreateProject}
               onEditProyecto={onEditProyecto}
               onDeleteProyecto={onDeleteProyecto}
+            />
+          )}
+
+          {activeSubTab === 'sucursales' && (
+            <SucursalesTab
+              key="sucursales"
+              clientes={data.clientes}
             />
           )}
 

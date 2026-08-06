@@ -132,10 +132,14 @@ Sistema aFull es una **plataforma integral de gestión operativa** desarrollada 
 **audit_events** — Auditoría en base de datos
 
 **pedidos** — Pedidos cargados por clientes externos vía portal público
-- `id`, `cliente_id`, `proyecto_id` (Local), `descripcion`, `cantidad`
-- `tipo`, `prioridad`, `estado` (Pendiente/En Proceso/Completado/Entregado)
+- `id`, `cliente_id`, `sucursal_id` (Local), `descripcion`, `cantidad`
+- `marca`, `tipo`, `prioridad`, `estado` (Pendiente/En Proceso/Completado/Entregado) — completados por aFull
 - `foto_url` (Supabase Storage), `fecha_solicitud`, `fecha_fin`, `factura_numero`
 - `registro_id` — FK opcional al registro generado al convertir el pedido
+
+**sucursales** — Locales/sedes físicas de cada cliente (ej: sucursales de McDonald's)
+- `id`, `cliente_id`, `nombre`, `ciudad` (opcional), `activo`
+- Las crea aFull desde el panel admin o el propio cliente desde el portal (link compartible)
 - El campo `token_portal` en `clientes` habilita el link compartible del portal
 
 ---
@@ -175,12 +179,12 @@ Sistema aFull es una **plataforma integral de gestión operativa** desarrollada 
 ### 4.5 Portal de Pedidos del Cliente
 
 - **Link compartible** por cliente: `https://sistema-afull.onrender.com/portal/{token}` (generado desde Administración → Clientes)
-- **El cliente carga**: Local (dropdown, auto-seleccionado si hay un solo local), Descripción, Cantidad (+ foto opcional)
-- **Locales**: los locales del cliente son sus **proyectos activos** cargados desde Administración → Proyectos; si no hay ninguno, el portal avisa que contacte a aFull
+- **El cliente carga**: Local (dropdown de sucursales), Descripción, Cantidad (+ foto opcional). aFull completa el resto (Marca, Tipo, Prioridad, Estado, Factura)
+- **Sucursales/Locales**: son las sedes físicas del cliente (ej: Mariano Roque Alonso, Luque, Villa Elisa). Las administra aFull desde Administración → Sucursales, y el cliente también puede crear las suyas desde el portal con un botón "Agregar local"
 - **Sin login**: el token del link autentica el acceso; rate limiting 30 req/min por IP
 - **Historial**: el cliente ve sus pedidos anteriores con estado (Pendiente/En Proceso/Completado/Entregado), paginados de a 10 con controles Anterior/Siguiente
-- **Vinculación automática**: el Local mapea a un proyecto existente del cliente; los pedidos quedan en la tabla `pedidos` con su `cliente_id`
-- **Desde el panel admin**: pestaña "Pedidos" → filtros, cambio de prioridad/estado, y botón "Convertir a Registro" que genera un `Registro` (concepto Insumo, origen API) en la base de datos
+- **Vinculación automática**: el Local mapea a una sucursal del cliente; los pedidos quedan en la tabla `pedidos` con su `cliente_id`
+- **Desde el panel admin**: pestaña "Pedidos" → filtros, campo Marca, cambio de prioridad/estado, y botón "Convertir a Registro" que genera un `Registro` (concepto Insumo, origen API) en la base de datos
 
 ---
 

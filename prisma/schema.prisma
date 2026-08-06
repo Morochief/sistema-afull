@@ -20,6 +20,7 @@ model Cliente {
   proyectos         Proyecto[]
   registros         Registro[]
   pedidos           Pedido[]
+  sucursales        Sucursal[]
 
   @@map("clientes")
 }
@@ -36,10 +37,25 @@ model Proyecto {
 
   cliente           Cliente            @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   registros         Registro[]
-  pedidos           Pedido[]
 
   @@index([clienteId])
   @@map("proyectos")
+}
+
+model Sucursal {
+  id          String   @id @db.VarChar(50)
+  clienteId   String   @map("cliente_id") @db.VarChar(50)
+  nombre      String
+  ciudad      String?  @db.VarChar(100)
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  cliente   Cliente    @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  pedidos   Pedido[]
+
+  @@index([clienteId])
+  @@map("sucursales")
 }
 
 model Colaborador {
@@ -90,8 +106,9 @@ model Registro {
 model Pedido {
   id              String    @id @db.VarChar(50)
   clienteId       String    @map("cliente_id") @db.VarChar(50)
-  proyectoId      String    @map("proyecto_id") @db.VarChar(50)
-  proyectoNombre  String    @map("proyecto_nombre")
+  sucursalId      String    @map("sucursal_id") @db.VarChar(50)
+  sucursalNombre  String    @map("sucursal_nombre")
+  marca           String?   @db.VarChar(50)
   descripcion     String
   cantidad        Decimal   @db.Decimal(10, 4)
   tipo            String?   @db.VarChar(50)
@@ -106,11 +123,11 @@ model Pedido {
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
   cliente   Cliente    @relation(fields: [clienteId], references: [id])
-  proyecto  Proyecto   @relation(fields: [proyectoId], references: [id])
+  sucursal  Sucursal   @relation(fields: [sucursalId], references: [id])
   registro  Registro?  @relation(fields: [registroId], references: [id])
 
   @@index([clienteId])
-  @@index([proyectoId])
+  @@index([sucursalId])
   @@index([estado])
   @@index([fechaSolicitud(sort: Desc)])
   @@map("pedidos")

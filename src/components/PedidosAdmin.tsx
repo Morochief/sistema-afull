@@ -141,6 +141,7 @@ export default function PedidosAdmin({clientes, onConvertido}: PedidosAdminProps
               <tr>
                 <th className="px-4 py-3">Fecha</th>
                 <th className="px-4 py-3">Cliente</th>
+                <th className="px-4 py-3">Marca</th>
                 <th className="px-4 py-3">Local</th>
                 <th className="px-4 py-3">Descripción</th>
                 <th className="px-4 py-3 text-center">Cant.</th>
@@ -152,18 +153,26 @@ export default function PedidosAdmin({clientes, onConvertido}: PedidosAdminProps
             <tbody className="divide-y divide-white/5">
               {loading && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400">Cargando pedidos...</td>
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">Cargando pedidos...</td>
                 </tr>
               )}
               {!loading && pedidos.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400">No hay pedidos con los filtros seleccionados.</td>
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">No hay pedidos con los filtros seleccionados.</td>
                 </tr>
               )}
               {pedidos.map((p) => (
                 <tr key={p.id} className="bg-white/[0.02] transition hover:bg-white/[0.05]">
                   <td className="whitespace-nowrap px-4 py-3 text-slate-400">{formatFecha(p.fechaSolicitud)}</td>
                   <td className="whitespace-nowrap px-4 py-3">{p.clienteNombre}</td>
+                  <td className="px-4 py-3">
+                    <input
+                      defaultValue={p.marca || ''}
+                      onBlur={(e) => e.target.value !== (p.marca || '') && updatePedido(p.id, {marca: e.target.value})}
+                      placeholder="—"
+                      className="w-24 rounded-lg border border-white/10 bg-slate-800 px-2 py-1 text-xs text-slate-200 outline-none focus:border-blue-500/60"
+                    />
+                  </td>
                   <td className="whitespace-nowrap px-4 py-3">{p.local}</td>
                   <td className="max-w-[16rem]">
                     <button

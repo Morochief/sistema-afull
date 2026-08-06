@@ -49,9 +49,21 @@ export default function PedidoDetalleModal({pedido, onClose, onUpdate}: PedidoDe
 
           <div className="grid grid-cols-2 gap-4">
             <div>
+              <label className={labelCls}>Marca</label>
+              <input
+                className={inputCls}
+                defaultValue={pedido.marca || ''}
+                onBlur={(e) => e.target.value !== (pedido.marca || '') && onUpdate(pedido.id, {marca: e.target.value})}
+                placeholder="Ej: McDonald's"
+              />
+            </div>
+            <div>
               <label className={labelCls}>Cantidad</label>
               <p className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-slate-200">{pedido.cantidad}</p>
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Tipo</label>
               <input
@@ -61,9 +73,6 @@ export default function PedidoDetalleModal({pedido, onClose, onUpdate}: PedidoDe
                 placeholder="Ej: Cartelería"
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Prioridad</label>
               <select
@@ -76,6 +85,9 @@ export default function PedidoDetalleModal({pedido, onClose, onUpdate}: PedidoDe
                 ))}
               </select>
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Estado</label>
               <select
@@ -88,9 +100,6 @@ export default function PedidoDetalleModal({pedido, onClose, onUpdate}: PedidoDe
                 ))}
               </select>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Factura #</label>
               <input
@@ -100,15 +109,16 @@ export default function PedidoDetalleModal({pedido, onClose, onUpdate}: PedidoDe
                 placeholder="Número de factura"
               />
             </div>
-            <div>
-              <label className={labelCls}>Fecha fin</label>
-              <input
-                type="date"
-                className={inputCls}
-                defaultValue={pedido.fechaFin ? new Date(pedido.fechaFin).toISOString().substring(0, 10) : ''}
-                onChange={(e) => onUpdate(pedido.id, {fechaFin: e.target.value || null})}
-              />
-            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Fecha fin</label>
+            <input
+              type="date"
+              className={inputCls}
+              defaultValue={pedido.fechaFin ? new Date(pedido.fechaFin).toISOString().substring(0, 10) : ''}
+              onChange={(e) => onUpdate(pedido.id, {fechaFin: e.target.value || null})}
+            />
           </div>
 
           <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-slate-400">

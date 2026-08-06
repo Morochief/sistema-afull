@@ -429,7 +429,7 @@ app.get('/api/marcacion/config', async (req, res) => {
 
 /**
  * GET /api/portal/:token
- * Public portal data: cliente info, active locales (proyectos), and paginated pedidos.
+ * Public portal data: cliente info, active sucursales (locales), and paginated pedidos.
  * Query params: page (1-based, default 1), limit (default 10, max 50).
  * No JWT auth — validated by the tokenPortal field on Cliente.
  */
@@ -449,8 +449,8 @@ app.get('/api/portal/:token', portalLimiter, async (req, res) => {
     const limit = Math.min(50, Math.max(1, parseInt(String(req.query.limit || '10'), 10) || 10));
     const skip = (page - 1) * limit;
 
-    const [locales, pedidos, total] = await Promise.all([
-      prisma.proyecto.findMany({
+    const [sucursales, pedidos, total] = await Promise.all([
+      prisma.sucursal.findMany({
         where: { clienteId: cliente.id, activo: true },
         orderBy: { nombre: 'asc' },
         select: { id: true, nombre: true }
@@ -462,7 +462,7 @@ app.get('/api/portal/:token', portalLimiter, async (req, res) => {
         take: limit,
         select: {
           id: true,
-          proyectoNombre: true,
+          sucursalNombre: true,
           descripcion: true,
           cantidad: true,
           estado: true,
@@ -478,10 +478,10 @@ app.get('/api/portal/:token', portalLimiter, async (req, res) => {
       success: true,
       data: {
         cliente: { id: cliente.id, nombre: cliente.nombre },
-        locales: locales.map((l) => ({ id: l.id, nombre: l.nombre })),
+        sucursales: sucursales.map((l) => ({ id: l.id, nombre: l.nombre })),
         pedidos: pedidos.map((p) => ({
           id: p.id,
-          local: p.proyectoNombre,
+          local: p.sucursalNombre,
           descripcion: p.descripcion,
           cantidad: Number(p.cantidad),
           estado: p.estado,
@@ -504,17 +504,76 @@ app.get('/api/portal/:token', portalLimiter, async (req, res) => {
 });
 
 /**
+ * POST /api/portal/:token/sucursal
+ * Public: client can create their own sucursal (local) for this cliente.
+ */
+app.post('/api/portal/:token/sucursal', portalLimiter, async (req, res) => {
+  const { token } = req.params;
+  if (!token || typeof token !== 'string' || token.length < 8) {
+    return res.status(404).json({ success: false, error: { code: 'PORTAL_NOT_FOUND', message: 'Link no válido' } });
+  }
+  const { nombre, ciudad } = req.body || {};
+  const nombreLimpio = String(nombre || '').trim().slice(0, 100);
+  if (!nombreLimpio) {
+    return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'El nombre del local es requerido' } });
+  }
+
+  try {
+    const cliente = await prisma.cliente.findUnique({ where: { tokenPortal: token } });
+    if (!cliente) {
+      return res.status(404).json({ success: false, error: { code: 'PORTAL_NOT_FOUND', message: 'Link no válido o expirado' } });
+    }
+
+    // Evitar duplicados por nombre (case-insensitive) para el mismo cliente
+    const duplicado = await prisma.sucursal.findFirst({
+      where: { clienteId: cliente.id, nombre: { equals: nombreLimpio, mode: 'insensitive' } }
+    });
+    if (duplicado) {
+      return res.status(400).json({ success: false, error: { code: 'DUPLICADO', message: 'Ese local ya existe' } });
+    }
+
+    const sucursal = await prisma.sucursal.create({
+      data: {
+        id: generateId('suc'),
+        clienteId: cliente.id,
+        nombre: nombreLimpio,
+        ciudad: ciudad ? String(ciudad).trim().slice(0, 100) : null,
+      }
+    });
+
+    auditLog({
+      usuario: 'portal:' + cliente.nombre,
+      accion: 'create_sucursal',
+      recurso: `/api/portal/${token}/sucursal`,
+      resultado: 'success',
+      ip: getClientIp(req),
+      detalle: `Sucursal ${sucursal.id}: ${nombreLimpio}`
+    });
+
+    res.status(201).json({
+      success: true,
+      data: { id: sucursal.id, nombre: sucursal.nombre, ciudad: sucursal.ciudad },
+      message: 'Local creado correctamente'
+    });
+  } catch (error: any) {
+    logger.error('[PORTAL] Error creating sucursal:', error);
+    res.status(500).json({ success: false, error: { code: 'PORTAL_ERROR', message: 'Error al crear el local' } });
+  }
+});
+
+/**
  * POST /api/portal/:token/pedido
- * Public: client creates a new pedido. Only proyectoId (local), descripcion and cantidad come from the client.
+ * Public: client creates a new pedido. Only sucursalId (local), descripcion and cantidad come from the client.
+ * aFull completa el resto (marca, tipo, prioridad, estado) desde el panel admin.
  */
 app.post('/api/portal/:token/pedido', portalLimiter, async (req, res) => {
   const { token } = req.params;
   if (!token || typeof token !== 'string' || token.length < 8) {
     return res.status(404).json({ success: false, error: { code: 'PORTAL_NOT_FOUND', message: 'Link no válido' } });
   }
-  const { proyectoId, descripcion, cantidad, foto } = req.body || {};
+  const { sucursalId, descripcion, cantidad, foto } = req.body || {};
 
-  if (!proyectoId || !descripcion?.trim()) {
+  if (!sucursalId || !descripcion?.trim()) {
     return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Local y descripción son requeridos' } });
   }
   const cantNum = Number(cantidad);
@@ -529,11 +588,11 @@ app.post('/api/portal/:token/pedido', portalLimiter, async (req, res) => {
       return res.status(404).json({ success: false, error: { code: 'PORTAL_NOT_FOUND', message: 'Link no válido o expirado' } });
     }
 
-    // Validate the proyecto (local) belongs to this cliente and is active
-    const proyecto = await prisma.proyecto.findFirst({
-      where: { id: proyectoId, clienteId: cliente.id, activo: true }
+    // Validate the sucursal (local) belongs to this cliente and is active
+    const sucursal = await prisma.sucursal.findFirst({
+      where: { id: sucursalId, clienteId: cliente.id, activo: true }
     });
-    if (!proyecto) {
+    if (!sucursal) {
       return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Local no válido para este cliente' } });
     }
 
@@ -576,8 +635,8 @@ app.post('/api/portal/:token/pedido', portalLimiter, async (req, res) => {
       data: {
         id: generateId('ped'),
         clienteId: cliente.id,
-        proyectoId: proyecto.id,
-        proyectoNombre: proyecto.nombre,
+        sucursalId: sucursal.id,
+        sucursalNombre: sucursal.nombre,
         descripcion: descripcionLimpia,
         cantidad: new Decimal(cantNum),
         estado: 'Pendiente',
@@ -591,14 +650,14 @@ app.post('/api/portal/:token/pedido', portalLimiter, async (req, res) => {
       recurso: `/api/portal/${token}/pedido`,
       resultado: 'success',
       ip: getClientIp(req),
-      detalle: `Pedido ${pedido.id} - ${proyecto.nombre}: ${descripcionLimpia.slice(0, 100)}`
+      detalle: `Pedido ${pedido.id} - ${sucursal.nombre}: ${descripcionLimpia.slice(0, 100)}`
     });
 
     res.status(201).json({
       success: true,
       data: {
         id: pedido.id,
-        local: pedido.proyectoNombre,
+        local: pedido.sucursalNombre,
         descripcion: pedido.descripcion,
         cantidad: Number(pedido.cantidad),
         estado: pedido.estado,
@@ -4168,8 +4227,9 @@ app.get('/api/admin/pedidos', requireAuth, requireAdmin, async (req, res) => {
         id: p.id,
         clienteId: p.clienteId,
         clienteNombre: p.cliente.nombre,
-        proyectoId: p.proyectoId,
-        local: p.proyectoNombre,
+        sucursalId: p.sucursalId,
+        local: p.sucursalNombre,
+        marca: p.marca,
         descripcion: p.descripcion,
         cantidad: Number(p.cantidad),
         tipo: p.tipo,
@@ -4190,17 +4250,18 @@ app.get('/api/admin/pedidos', requireAuth, requireAdmin, async (req, res) => {
 
 /**
  * PUT /api/admin/pedidos/:id
- * Update pedido fields (tipo, prioridad, estado, fotoUrl, fechaFin, facturaNumero). Admin only.
+ * Update pedido fields (marca, tipo, prioridad, estado, fotoUrl, fechaFin, facturaNumero). Admin only.
  */
 app.put('/api/admin/pedidos/:id', requireAuth, requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const { tipo, prioridad, estado, fotoUrl, fechaFin, facturaNumero } = req.body || {};
+  const { marca, tipo, prioridad, estado, fotoUrl, fechaFin, facturaNumero } = req.body || {};
 
   try {
     const existing = await prisma.pedido.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Pedido no encontrado' } } as ApiResponse);
 
     const data: any = {};
+    if (marca !== undefined) data.marca = marca ? String(marca).slice(0, 50) : null;
     if (tipo !== undefined) data.tipo = String(tipo).slice(0, 50);
     if (prioridad !== undefined) data.prioridad = String(prioridad).slice(0, 20);
     if (estado !== undefined) data.estado = String(estado).slice(0, 30);
@@ -4215,8 +4276,9 @@ app.put('/api/admin/pedidos/:id', requireAuth, requireAdmin, async (req, res) =>
       data: {
         id: updated.id,
         clienteId: updated.clienteId,
-        proyectoId: updated.proyectoId,
-        local: updated.proyectoNombre,
+        sucursalId: updated.sucursalId,
+        local: updated.sucursalNombre,
+        marca: updated.marca,
         descripcion: updated.descripcion,
         cantidad: Number(updated.cantidad),
         tipo: updated.tipo,
@@ -4239,6 +4301,8 @@ app.put('/api/admin/pedidos/:id', requireAuth, requireAdmin, async (req, res) =>
 /**
  * POST /api/admin/pedidos/:id/convertir
  * Convert a pedido into a Registro (concepto INSUMO, origen API). Admin only.
+ * El registro se asocia al proyecto del cliente que corresponda a la sucursal del pedido:
+ * se busca un proyecto activo con ese nombre; si no existe, se crea uno.
  */
 app.post('/api/admin/pedidos/:id/convertir', requireAuth, requireAdmin, async (req, res) => {
   const { id } = req.params;
@@ -4250,9 +4314,24 @@ app.post('/api/admin/pedidos/:id/convertir', requireAuth, requireAdmin, async (r
     }
 
     const cliente = await prisma.cliente.findUnique({ where: { id: pedido.clienteId } });
-    const proyecto = await prisma.proyecto.findUnique({ where: { id: pedido.proyectoId } });
-    if (!cliente || !proyecto) {
-      return res.status(400).json({ success: false, error: { code: 'MISSING_REFERENCES', message: 'Cliente o proyecto no encontrado' } } as ApiResponse);
+    if (!cliente) {
+      return res.status(400).json({ success: false, error: { code: 'MISSING_REFERENCES', message: 'Cliente no encontrado' } } as ApiResponse);
+    }
+
+    // Resolver proyecto: buscar activo con el nombre de la sucursal, o crearlo
+    let proyecto = await prisma.proyecto.findFirst({
+      where: { clienteId: cliente.id, nombre: pedido.sucursalNombre, activo: true }
+    });
+    if (!proyecto) {
+      proyecto = await prisma.proyecto.create({
+        data: {
+          id: generateId('pro'),
+          clienteId: cliente.id,
+          nombre: pedido.sucursalNombre,
+          estado: 'EN_PROCESO',
+          fechaInicio: new Date(),
+        }
+      });
     }
 
     const registroId = generateId('reg');
@@ -4262,8 +4341,8 @@ app.post('/api/admin/pedidos/:id/convertir', requireAuth, requireAdmin, async (r
           id: registroId,
           clienteId: cliente.id,
           clienteNombre: cliente.nombre,
-          proyectoId: proyecto.id,
-          proyectoNombre: proyecto.nombre,
+          proyectoId: proyecto!.id,
+          proyectoNombre: proyecto!.nombre,
           fecha: new Date(),
           concepto: 'INSUMO',
           descripcion: pedido.descripcion,
@@ -4293,6 +4372,117 @@ app.post('/api/admin/pedidos/:id/convertir', requireAuth, requireAdmin, async (r
   } catch (error: any) {
     logger.error('[PEDIDOS] Error converting pedido:', error);
     res.status(500).json({ success: false, error: { code: 'CONVERT_ERROR', message: 'Error al convertir pedido' } } as ApiResponse);
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// SUCURSALES (LOCALES DE CLIENTES) — ADMIN
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/admin/sucursales
+ * List sucursales with optional clienteId filter. Admin only.
+ */
+app.get('/api/admin/sucursales', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { clienteId } = req.query as { clienteId?: string };
+    const where: any = {};
+    if (clienteId) where.clienteId = String(clienteId);
+
+    const sucursales = await prisma.sucursal.findMany({
+      where,
+      orderBy: { nombre: 'asc' },
+      include: { cliente: { select: { nombre: true } } }
+    });
+
+    res.json({
+      success: true,
+      data: sucursales.map((s) => ({
+        id: s.id,
+        clienteId: s.clienteId,
+        clienteNombre: s.cliente.nombre,
+        nombre: s.nombre,
+        ciudad: s.ciudad,
+        activo: s.activo
+      }))
+    } as ApiResponse);
+  } catch (error: any) {
+    logger.error('[SUCURSALES] Error listing sucursales:', error);
+    res.status(500).json({ success: false, error: { code: 'LIST_ERROR', message: 'Error al listar sucursales' } } as ApiResponse);
+  }
+});
+
+/**
+ * POST /api/admin/sucursales
+ * Create a sucursal for a cliente. Admin only.
+ */
+app.post('/api/admin/sucursales', requireAuth, requireAdmin, async (req, res) => {
+  const { clienteId, nombre, ciudad } = req.body || {};
+  const nombreLimpio = String(nombre || '').trim().slice(0, 100);
+  if (!clienteId || !nombreLimpio) {
+    return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Cliente y nombre son requeridos' } } as ApiResponse);
+  }
+  try {
+    const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } });
+    if (!cliente) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Cliente no encontrado' } } as ApiResponse);
+
+    const sucursal = await prisma.sucursal.create({
+      data: {
+        id: generateId('suc'),
+        clienteId,
+        nombre: nombreLimpio,
+        ciudad: ciudad ? String(ciudad).trim().slice(0, 100) : null,
+      }
+    });
+    auditLog({ usuario: req.user!.usuario, accion: 'create_sucursal', recurso: `/api/admin/sucursales/${sucursal.id}`, resultado: 'success', ip: getClientIp(req) });
+    res.status(201).json({ success: true, data: { id: sucursal.id, clienteId, nombre: sucursal.nombre, ciudad: sucursal.ciudad, activo: true }, message: 'Sucursal creada' } as ApiResponse);
+  } catch (error: any) {
+    logger.error('[SUCURSALES] Error creating sucursal:', error);
+    res.status(500).json({ success: false, error: { code: 'CREATE_ERROR', message: 'Error al crear sucursal' } } as ApiResponse);
+  }
+});
+
+/**
+ * PUT /api/admin/sucursales/:id
+ * Update sucursal (nombre, ciudad, activo). Admin only.
+ */
+app.put('/api/admin/sucursales/:id', requireAuth, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { nombre, ciudad, activo } = req.body || {};
+  try {
+    const existing = await prisma.sucursal.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Sucursal no encontrada' } } as ApiResponse);
+
+    const data: any = {};
+    if (nombre !== undefined) data.nombre = String(nombre).trim().slice(0, 100);
+    if (ciudad !== undefined) data.ciudad = ciudad ? String(ciudad).trim().slice(0, 100) : null;
+    if (activo !== undefined) data.activo = Boolean(activo);
+
+    const updated = await prisma.sucursal.update({ where: { id }, data });
+    auditLog({ usuario: req.user!.usuario, accion: 'update_sucursal', recurso: `/api/admin/sucursales/${id}`, resultado: 'success', ip: getClientIp(req) });
+    res.json({ success: true, data: { id: updated.id, clienteId: updated.clienteId, nombre: updated.nombre, ciudad: updated.ciudad, activo: updated.activo }, message: 'Sucursal actualizada' } as ApiResponse);
+  } catch (error: any) {
+    logger.error('[SUCURSALES] Error updating sucursal:', error);
+    res.status(500).json({ success: false, error: { code: 'UPDATE_ERROR', message: 'Error al actualizar sucursal' } } as ApiResponse);
+  }
+});
+
+/**
+ * DELETE /api/admin/sucursales/:id
+ * Soft-delete (activo=false) a sucursal. Admin only.
+ */
+app.delete('/api/admin/sucursales/:id', requireAuth, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const existing = await prisma.sucursal.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Sucursal no encontrada' } } as ApiResponse);
+    // Soft-delete: se mantiene el histórico de pedidos
+    await prisma.sucursal.update({ where: { id }, data: { activo: false } });
+    auditLog({ usuario: req.user!.usuario, accion: 'delete_sucursal', recurso: `/api/admin/sucursales/${id}`, resultado: 'success', ip: getClientIp(req) });
+    res.json({ success: true, message: 'Sucursal desactivada' } as ApiResponse);
+  } catch (error: any) {
+    logger.error('[SUCURSALES] Error deleting sucursal:', error);
+    res.status(500).json({ success: false, error: { code: 'DELETE_ERROR', message: 'Error al desactivar sucursal' } } as ApiResponse);
   }
 });
 

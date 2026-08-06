@@ -162,8 +162,9 @@ export interface Pedido {
   id: string;
   clienteId: string;
   clienteNombre: string;
-  proyectoId: string;
+  sucursalId: string;
   local: string;
+  marca?: string | null;
   descripcion: string;
   cantidad: number;
   tipo?: string | null;
@@ -176,9 +177,18 @@ export interface Pedido {
   registroId?: string | null;
 }
 
+export interface Sucursal {
+  id: string;
+  clienteId: string;
+  clienteNombre: string;
+  nombre: string;
+  ciudad?: string | null;
+  activo: boolean;
+}
+
 export interface PortalData {
   cliente: { id: string; nombre: string };
-  locales: { id: string; nombre: string }[];
+  sucursales: { id: string; nombre: string }[];
   pedidos: {
     id: string;
     local: string;
@@ -198,7 +208,7 @@ export interface PortalData {
 }
 
 export interface PortalPedidoInput {
-  proyectoId: string;
+  sucursalId: string;
   descripcion: string;
   cantidad: number;
   foto?: string | null;
