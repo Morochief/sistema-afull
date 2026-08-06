@@ -174,7 +174,7 @@ Sistema aFull es una **plataforma integral de gestión operativa** desarrollada 
 
 ### 4.5 Portal de Pedidos del Cliente
 
-- **Link compartible** por cliente: `https://app.afull.com.py/portal/{token}` (generado desde Administración → Clientes)
+- **Link compartible** por cliente: `https://sistema-afull.onrender.com/portal/{token}` (generado desde Administración → Clientes)
 - **El cliente carga**: Local (dropdown), Descripción, Cantidad (+ foto opcional)
 - **Sin login**: el token del link autentica el acceso; rate limiting 30 req/min por IP
 - **Historial**: el cliente ve sus pedidos anteriores con estado (Pendiente/En Proceso/Completado/Entregado)
