@@ -53,7 +53,7 @@ graph TD
 
 ## 2. Modelo de Datos (Esquema Relacional)
 
-La base de datos se compone de 11 tablas gestionadas a través de Prisma. Se implementa desnormalización de nombres de clientes y proyectos en las tablas `Registro` y `RegistroVehiculo` para optimizar consultas de reportes y mitigar saturación de JOINs.
+La base de datos se compone de 12 tablas gestionadas a través de Prisma. Se implementa desnormalización de nombres de clientes y proyectos en las tablas `Registro` y `RegistroVehiculo` para optimizar consultas de reportes y mitigar saturación de JOINs.
 
 ```mermaid
 erDiagram
@@ -67,6 +67,9 @@ erDiagram
     Usuario ||--o{ TimerActivo : "inicia"
     Usuario ||--o{ ViajeActivo : "realiza"
     GeocercaConfig ||--o{ Marcacion : "valida"
+    Cliente ||--o{ Pedido : "recibe"
+    Proyecto ||--o{ Pedido : "pertenece"
+    Pedido ||--o| Registro : "se convierte en"
 
     Cliente {
         String id PK
@@ -112,6 +115,24 @@ erDiagram
         Decimal total
         Origen origen
         DateTime fechaImportacion
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    Pedido {
+        String id PK
+        String clienteId FK
+        String proyectoId FK
+        String proyectoNombre
+        String descripcion
+        Decimal cantidad
+        String tipo
+        String prioridad
+        String estado
+        String fotoUrl
+        DateTime fechaSolicitud
+        DateTime fechaFin
+        String facturaNumero
+        String registroId FK
         DateTime createdAt
         DateTime updatedAt
     }
@@ -320,6 +341,15 @@ erDiagram
 - `POST /api/clear`: Borra datos operativos de la base de datos para reinicio del sistema (Admin Only).
 - `POST /api/admin/cleanup-duplicates`: Limpia registros duplicados (Admin Only).
 
+### Portal de Pedidos para Clientes (Público)
+- `GET /api/portal/:token`: Devuelve los datos del portal: nombre del cliente, locales activos (proyectos) e historial de pedidos. Público, autenticado por el `token_portal` del cliente. Rate limit 30 req/min por IP.
+- `POST /api/portal/:token/pedido`: Crea un pedido nuevo. Body: `{ proyectoId, descripcion, cantidad, foto? }`. Valida que el proyecto pertenezca al cliente y esté activo; sube la foto (base64) a Supabase Storage bucket `pedidos-fotos` o al filesystem local en dev. Público, con las mismas protecciones.
+
+### Pedidos (Admin)
+- `GET /api/admin/pedidos`: Lista pedidos con filtros opcionales `?estado=&clienteId=` (Admin Only).
+- `PUT /api/admin/pedidos/:id`: Actualiza `tipo`, `prioridad`, `estado`, `fotoUrl`, `fechaFin`, `facturaNumero` (Admin Only).
+- `POST /api/admin/pedidos/:id/convertir`: Convierte el pedido en un `Registro` (concepto `INSUMO`, origen `API`) dentro de una transacción, vincula `registro_id` y marca el pedido como `Completado`. Evita conversiones duplicadas (Admin Only).
+
 ### Seguridad y Auditoría
 - `GET /api/csrf-token`: Devuelve el token CSRF para el cliente.
 - `GET /api/health`: Estado de salud de la API.
@@ -334,3 +364,4 @@ erDiagram
 3. **Helmet y Content Security Policy (CSP)**: Inyecta cabeceras HTTP de seguridad en producción para restringir scripts maliciosos o inyecciones de iframes no autorizados.
 4. **Sanitización contra XSS**: La carga de datos en el cliente utiliza validación e implementa escapado de strings para evitar la ejecución de código script.
 5. **Row-Level Authorization**: Los operarios comunes solo pueden ver e interactuar con sus propios registros de horas y marcaciones personales. Los administradores tienen acceso total de lectura/escritura y visualización global de timelines.
+6. **Portal de Pedidos (acceso por token)**: El portal público de clientes se autentica mediante un `token_portal` único por cliente (UUID). Los endpoints públicos tienen rate limiting propio (30 req/min por IP), el `proyectoId` se valida contra el cliente del token (403 si no pertenece), y el token puede revocarse desde el panel admin, dejando el link inmediatamente inactivo. Las rutas `/api/portal/*` están excluidas de la validación CSRF (no requieren sesión JWT).

@@ -38,8 +38,15 @@ Sistema aFull es una **plataforma integral de gestión operativa** desarrollada 
 │              PostgreSQL (Supabase Cloud)                     │
 │  Tablas: clientes, proyectos, colaboradores, registros,     │
 │          registros_vehiculo, timers_activos, viajes_activos,│
-│          usuarios, marcaciones, audit_events                │
-│  + Supabase Storage (fotos de odómetro)                     │
+│          usuarios, marcaciones, audit_events, pedidos       │
+│  + Supabase Storage (fotos de odómetro y pedidos)           │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│              PORTAL DE PEDIDOS (página pública)              │
+│  /portal/:token — sin login, link compartible por cliente   │
+│  El cliente carga: Local, Descripción, Cantidad (+ foto)    │
+│  Se vincula automáticamente a clientes/proyectos en BD      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -124,6 +131,13 @@ Sistema aFull es una **plataforma integral de gestión operativa** desarrollada 
 **marcaciones** — Geofencing de fichajes entrada/salida con IP y dispositivo
 **audit_events** — Auditoría en base de datos
 
+**pedidos** — Pedidos cargados por clientes externos vía portal público
+- `id`, `cliente_id`, `proyecto_id` (Local), `descripcion`, `cantidad`
+- `tipo`, `prioridad`, `estado` (Pendiente/En Proceso/Completado/Entregado)
+- `foto_url` (Supabase Storage), `fecha_solicitud`, `fecha_fin`, `factura_numero`
+- `registro_id` — FK opcional al registro generado al convertir el pedido
+- El campo `token_portal` en `clientes` habilita el link compartible del portal
+
 ---
 
 ## 4. Flujos Principales
@@ -158,6 +172,15 @@ Sistema aFull es una **plataforma integral de gestión operativa** desarrollada 
 - Precio de venta = Costo Base × (1 + Markup)
 - Exportación Excel e impresión/PDF
 
+### 4.5 Portal de Pedidos del Cliente
+
+- **Link compartible** por cliente: `https://app.afull.com.py/portal/{token}` (generado desde Administración → Clientes)
+- **El cliente carga**: Local (dropdown), Descripción, Cantidad (+ foto opcional)
+- **Sin login**: el token del link autentica el acceso; rate limiting 30 req/min por IP
+- **Historial**: el cliente ve sus pedidos anteriores con estado (Pendiente/En Proceso/Completado/Entregado)
+- **Vinculación automática**: el Local mapea a un proyecto existente del cliente; los pedidos quedan en la tabla `pedidos` con su `cliente_id`
+- **Desde el panel admin**: pestaña "Pedidos" → filtros, cambio de prioridad/estado, y botón "Convertir a Registro" que genera un `Registro` (concepto Insumo, origen API) en la base de datos
+
 ---
 
 ## 5. Sistema de Seguridad
@@ -187,6 +210,7 @@ Sistema aFull es una **plataforma integral de gestión operativa** desarrollada 
 | Sin trazabilidad | Auditoría completa de cada acción |
 | Sin control de asistencia | Geofencing de marcaciones entrada/salida |
 | Solo PC | PWA instalable en PC y móvil |
+| Pedidos por planilla Google/WhatsApp | Portal de pedidos con link compartible por cliente |
 
 ---
 
