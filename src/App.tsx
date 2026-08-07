@@ -47,10 +47,19 @@ interface SessionUser {
 }
 
 const MARKUP_RATE_KEY = 'afull_markup_rate';
+const ACTIVE_TAB_KEY = 'afull_active_tab';
 
 function AppInner() {
   const { showToast } = useNotif();
-  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+
+  // Restore last active tab on refresh (F5)
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    const saved = sessionStorage.getItem(ACTIVE_TAB_KEY);
+    if (saved && (['dashboard', 'registro', 'import', 'admin', 'reportes', 'misregistros', 'pedidos'] as TabType[]).includes(saved as TabType)) {
+      return saved as TabType;
+    }
+    return 'dashboard';
+  });
   const [dbState, setDbState] = useState<DatabaseState | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -62,6 +71,13 @@ function AppInner() {
   // Navigation state for deep-linking to specific records
   const [vehicleEditId, setVehicleEditId] = useState<string | null>(null);
   const [adminSubTab, setAdminSubTab] = useState<string | null>(null);
+
+  // Persist active tab so F5 stays on the same module
+  useEffect(() => {
+    if (session) {
+      sessionStorage.setItem(ACTIVE_TAB_KEY, activeTab);
+    }
+  }, [activeTab, session]);
   
   // Clear vehicle edit ID after it's been used (after navigating to admin panel)
   useEffect(() => {
@@ -203,6 +219,7 @@ function AppInner() {
     }
     
     clearCSRFToken(); // Clear CSRF token cache
+    sessionStorage.removeItem(ACTIVE_TAB_KEY);
     setSession(null);
     setDbState(null);
     setActiveTab('dashboard');
@@ -517,11 +534,12 @@ function AppInner() {
   // ================================
 
   // Not logged in → Show Login
-  if (!session) {
+  // (pero durante la restauración de sesión mostramos el splash, no el login)
+  if (!session && !loading) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // Loading data after login
+  // Loading data after login / restoring session on refresh
   if (loading) {
     return (
       <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#020617] text-slate-300 relative overflow-hidden">
