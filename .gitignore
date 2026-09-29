@@ -21,3 +21,4 @@ test-results/
 playwright-report/
 _update_schema.py
 *.tmp*
+env-vercel.txt
