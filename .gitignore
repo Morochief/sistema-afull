@@ -11,3 +11,13 @@ audit.log
 !.env.example
 # Uploaded vehicle photos (stored locally, not in git)
 uploads/vehiculos/
+uploads/presupuestos/
+uploads/entregas/
+
+# Local sensitive or temporary files
+cookies.txt
+.commandcode/
+test-results/
+playwright-report/
+_update_schema.py
+*.tmp*

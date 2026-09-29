@@ -28,6 +28,10 @@ export interface Colaborador {
   nombre: string;
   tarifaSugerida: number; // Precio por minuto o por hora
   rol?: string;
+  ci?: string;
+  cargo?: string;
+  departamento?: string;
+  jefeInmediato?: string;
   usuario?: {
     id: string;
     username: string;
@@ -36,6 +40,44 @@ export interface Colaborador {
     rol: 'Admin' | 'Operario' | 'Visor';
     activo: boolean;
   } | null;
+}
+
+export interface Permiso {
+  id: string;
+  colaboradorId: string;
+  nombreSolicitante: string;
+  cargo?: string | null;
+  ci?: string | null;
+  departamento?: string | null;
+  jefeInmediato?: string | null;
+  tipoPermiso: string;
+  motivo?: string | null;
+  modoTiempo: 'horas' | 'dias';
+  horaInicio?: string | null;
+  horaFin?: string | null;
+  fechaHora?: string | null;
+  fechaDesde?: string | null;
+  fechaHasta?: string | null;
+  estado: 'Pendiente' | 'AprobadoJefe' | 'Aprobado' | 'Rechazado';
+  jefeDecision?: string | null;
+  jefeComentario?: string | null;
+  jefeFecha?: string | null;
+  rrhhDecision?: string | null;
+  rrhhComentario?: string | null;
+  rrhhDescontarSalario?: boolean | null;
+  rrhhFecha?: string | null;
+  creadoPor: string;
+  createdAt: string;
+  updatedAt: string;
+  colaborador?: {
+    id: string;
+    nombre: string;
+    ci?: string | null;
+    cargo?: string | null;
+    departamento?: string | null;
+    jefeInmediato?: string | null;
+    rol?: string | null;
+  };
 }
 
 export interface RegistroItem {
@@ -56,6 +98,29 @@ export interface RegistroItem {
   total: number;
   origen: 'Manual' | 'Excel';
   fechaImportacion?: string;
+  modoInsumo?: 'UNIDAD' | 'METRO' | 'DIMENSION' | 'PORCENTAJE' | 'FACTURA' | string | null;
+  anchoCm?: number | null;
+  altoCm?: number | null;
+  desperdicioCalculado?: boolean | null;
+  porcentajeUsado?: number | null;
+  facturaCompraId?: string | null;
+  prorrateoGrupoId?: string | null;
+  porcentajeProrrateo?: number | null;
+}
+
+export interface FacturaCompraItem {
+  id: string;
+  facturaNumero: string;
+  proveedor: string;
+  fecha: string;
+  descripcion: string;
+  cantidadComprada: number;
+  cantidadUsada: number;
+  cantidadDisponible: number;
+  unidad: string;
+  precioUnitario: number;
+  total: number;
+  notas?: string | null;
 }
 
 export interface PauseRecord {
@@ -175,6 +240,21 @@ export interface Pedido {
   fechaFin?: string | null;
   facturaNumero?: string | null;
   registroId?: string | null;
+  presupuestoEstado?: string | null;
+  presupuestoTotal?: number | null;
+  presupuestoProyecto?: string | null;
+  archivado?: boolean;
+  archivadoAt?: string | null;
+  // Campos de Remisión y Entrega (POD)
+  fotoRemisionUrl?: string | null;
+  fotoEntregaUrl?: string | null;
+  fechaEntrega?: string | null;
+  receptorNombre?: string | null;
+  contacto?: string | null;
+  proyecto?: string | null;
+  fechaInicioDeseada?: string | null;
+  fechaTope?: string | null;
+  comentarioCliente?: string | null;
 }
 
 export interface Sucursal {
@@ -198,6 +278,12 @@ export interface PortalData {
     prioridad?: string | null;
     fotoUrl?: string | null;
     fechaSolicitud: string;
+    fechaFin?: string | null;
+    facturaNumero?: string | null;
+    fotoRemisionUrl?: string | null;
+    fotoEntregaUrl?: string | null;
+    fechaEntrega?: string | null;
+    receptorNombre?: string | null;
   }[];
   paginacion: {
     page: number;
@@ -246,6 +332,143 @@ export interface LoginResponse {
     usuario: string;
   };
   error?: string;
+}
+
+// ─── Presupuestos (cotización de aFull al cliente) ──────────────────
+
+export const PRESUPUESTO_CATEGORIAS = ['Insumo', 'Adquisicion', 'ManoDeObra', 'Entrega'] as const;
+export type PresupuestoCategoria = typeof PRESUPUESTO_CATEGORIAS[number];
+
+export interface PresupuestoItem {
+  id: string;
+  descripcion: string;
+  cantidad: number;
+  precioUnitario: number;
+  total: number;
+  orden: number;
+  categoria: PresupuestoCategoria;
+  horas?: number | null;
+  tarifa?: number | null;
+}
+
+export interface Presupuesto {
+  id: string;
+  pedidoId: string;
+  clienteId: string;
+  clienteNombre: string;
+  proyecto: string;
+  contacto?: string | null;
+  fechaInicio?: string | null;
+  fechaTope?: string | null;
+  estado: 'Borrador' | 'Enviado' | 'Aprobado' | 'Rechazado' | 'En Proceso';
+  total: number;
+  markup: number;
+  costoTotal?: number | null;
+  venta1?: number | null;
+  venta2?: number | null;
+  comentarioCliente?: string | null;
+  respuestaCliente?: string | null;
+  fotos?: string[];
+  fechaEnvio?: string | null;
+  fechaRespuesta?: string | null;
+  registroId?: string | null;
+  createdAt: string;
+  items?: PresupuestoItem[];
+  pedido?: { id: string; descripcion: string; sucursalNombre: string } | null;
+}
+
+// ─── Ordenes de Trabajo (OT generadas desde presupuestos aprobados) ──
+
+export interface OrdenTrabajo {
+  id: string;
+  presupuestoId: string;
+  clienteId: string;
+  clienteNombre: string;
+  proyecto: string;
+  contacto?: string | null;
+  fechaInicio?: string | null;
+  fechaTope?: string | null;
+  detallesTrabajo: string;
+  comentarioCliente?: string | null;
+  estado: string;
+  enviadoWhatsapp: boolean;
+  fechaEnvioWsp?: string | null;
+  mensajeWhatsapp?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Hojas de Ruta y Tareas de Operarios ───────────────────────────
+
+export interface HojaRutaTarea {
+  id: string;
+  hojaRutaId: string;
+  colaboradorId?: string | null;
+  operarioNombre: string;
+  orden: number;
+  descripcion: string;
+  categoria: string;
+  cantidad?: number | null;
+  unidad?: string | null;
+  estado: string;
+  tiempoEstimado?: string | null;
+  fechaAsignada: string;
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
+  notasOperario?: string | null;
+  fotoUrl?: string | null;
+  colaborador?: { id: string; nombre: string; rol: string | null } | null;
+}
+
+export interface HojaRuta {
+  id: string;
+  ordenTrabajoId: string;
+  clienteId: string;
+  clienteNombre: string;
+  proyecto: string;
+  fecha: string;
+  estado: string;
+  notas?: string | null;
+  enviadoWhatsapp: boolean;
+  fechaEnvioWsp?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  tareas?: HojaRutaTarea[];
+  ordenTrabajo?: { id: string; estado: string };
+  _count?: { tareas: number };
+}
+
+// ─── Cartera de Clientes (módulo separado del Cliente operativo) ───
+
+export interface CarteraCliente {
+  id: string;
+  nombre: string;
+  ruc?: string | null;
+  activo: boolean;
+  fechaCreacion: string;
+  _count?: {
+    contactos: number;
+    marcas: number;
+  };
+}
+
+export interface CarteraContacto {
+  id: string;
+  clienteId: string;
+  clienteNombre: string;
+  nombre: string;
+  cargo?: string | null;
+  telefono?: string | null;
+  email?: string | null;
+  activo: boolean;
+}
+
+export interface CarteraMarca {
+  id: string;
+  clienteId: string;
+  clienteNombre: string;
+  nombre: string;
+  activo: boolean;
 }
 
 // Normalized API Response Types

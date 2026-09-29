@@ -4,6 +4,8 @@ import { User, Shield, UserX, UserCheck, Key, ShieldAlert, Edit2, Trash2, ArrowL
 import { Colaborador } from '../types.ts';
 import { useNotif } from '../context/NotifContext.tsx';
 import { authFetchJSON } from '../authFetch.ts';
+import { useSortAndPaginate } from '../lib/tableUtils.ts';
+import Pagination from './Pagination.tsx';
 
 interface Props {
   colaboradores: Colaborador[];
@@ -24,6 +26,15 @@ export default function UsuariosTab({ colaboradores }: Props) {
   const { showToast, requestConfirm } = useNotif();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchText, setSearchText] = useState('');
+
+  type UserSortField = 'nombre' | 'username' | 'rol' | 'createdAt';
+  const table = useSortAndPaginate<AppUser, UserSortField>(users, {
+    defaultSortField: 'nombre',
+    defaultSortOrder: 'asc',
+    defaultItemsPerPage: 25,
+    resetDeps: [searchText],
+  });
   
   // Mode State
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
@@ -183,11 +194,11 @@ export default function UsuariosTab({ colaboradores }: Props) {
       <div className="flex flex-col md:flex-row gap-6">
         
         {/* Create / Edit user form */}
-        <div className="glass-panel p-6 rounded-3xl border border-white/10 shadow-2xl flex-1 max-w-md h-fit relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/5 via-transparent to-indigo-500/5 pointer-events-none" />
+        <div className="glass-panel p-6 rounded-md border border-white/10 shadow-2xl flex-1 max-w-md h-fit relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-tr from-orange-500/5 via-transparent to-amber-500/5 pointer-events-none" />
           
           <div className="flex items-center gap-2.5 mb-4 relative z-10">
-            <div className={`p-2 rounded-xl border ${editingUser ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
+            <div className={`p-2 rounded-md border ${editingUser ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'}`}>
               {editingUser ? <Edit2 className="w-5 h-5" /> : <Shield className="w-5 h-5" />}
             </div>
             <div>
@@ -296,7 +307,7 @@ export default function UsuariosTab({ colaboradores }: Props) {
                 className={`flex-1 py-3 text-white font-bold rounded-xl text-sm border border-white/10 shadow-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 ${
                   editingUser 
                     ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-500/20' 
-                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-500/20'
+                    : 'bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 shadow-orange-500/20'
                 }`}
               >
                 {editingUser 
@@ -309,32 +320,42 @@ export default function UsuariosTab({ colaboradores }: Props) {
         </div>
 
         {/* Users list */}
-        <div className="glass-panel p-6 rounded-3xl border border-white/10 shadow-2xl flex-1 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/5 via-transparent to-blue-500/5 pointer-events-none" />
+        <div className="glass-panel p-6 rounded-md border border-white/10 shadow-2xl flex-1 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/5 via-transparent to-orange-500/5 pointer-events-none" />
           
           <h3 className="text-lg font-bold text-white mb-4 relative z-10 tracking-wide">Usuarios Registrados ({users.length})</h3>
 
+          <div className="mb-4 relative z-10">
+            <input
+              type="text"
+              placeholder="Buscar por nombre, usuario o rol..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              className="glass-input w-full max-w-sm px-4 py-2 rounded-md text-sm text-slate-200 placeholder-slate-500"
+            />
+          </div>
+
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3 text-slate-400 relative z-10">
-              <div className="w-8 h-8 rounded-full border-2 border-transparent border-t-blue-500 animate-spin" />
+              <div className="w-8 h-8 rounded-full border-2 border-transparent border-t-orange-500 animate-spin" />
               <span className="text-xs font-medium font-mono">Cargando cuentas...</span>
             </div>
           ) : users.length === 0 ? (
             <p className="text-slate-500 text-center py-12 text-sm relative z-10">No hay cuentas de usuario creadas.</p>
           ) : (
-            <div className="space-y-3.5 max-h-[500px] overflow-y-auto pr-1 relative z-10">
-              {users.map(u => {
+            <div className="space-y-3.5 relative z-10">
+              {table.paginatedData.map(u => {
                 const colabName = colaboradores.find(c => c.id === u.colaboradorId)?.nombre || 'Sin Vinculación';
                 const isCurrentEdit = editingUser?.id === u.id;
                 
                 return (
                   <div 
                     key={u.id}
-                    className={`p-4 rounded-2xl border transition-all flex justify-between items-center ${
+                    className={`p-4 rounded-md border transition-all flex justify-between items-center ${
                       isCurrentEdit
                         ? 'bg-amber-500/10 border-amber-500/40 shadow-lg shadow-amber-500/5'
                         : u.activo 
-                        ? 'bg-white/5 border-white/5 hover:border-white/10' 
+                        ? 'bg-[#111318] border-white/10 hover:border-white/20' 
                         : 'bg-rose-500/5 border-rose-500/10 opacity-70'
                     }`}
                   >
@@ -348,8 +369,8 @@ export default function UsuariosTab({ colaboradores }: Props) {
                           u.rol === 'Admin' 
                             ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
                             : u.rol === 'Visor'
-                            ? 'bg-violet-500/10 text-violet-400 border border-violet-500/20'
-                            : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            : 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
                         }`}>
                           {u.rol}
                         </span>
@@ -395,6 +416,18 @@ export default function UsuariosTab({ colaboradores }: Props) {
                 );
               })}
             </div>
+          )}
+
+          {!loading && users.length > 0 && (
+            <Pagination
+              currentPage={table.currentPage}
+              totalPages={table.totalPages}
+              itemsPerPage={table.itemsPerPage}
+              totalItems={users.length}
+              pageNumbers={table.pageNumbers}
+              onPageChange={table.setCurrentPage}
+              onItemsPerPageChange={table.setItemsPerPage}
+            />
           )}
         </div>
 

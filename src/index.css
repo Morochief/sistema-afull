@@ -1,130 +1,141 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+:root {
+  color-scheme: dark;
+  accent-color: #ea580c;
+}
+
+::selection {
+  background-color: #ea580c;
+  color: #ffffff;
 }
 
 @layer base {
   body {
-    background-color: #020617;
-    color: #f1f5f9;
+    background-color: #090a0f;
+    color: #e2e8f0;
     font-family: var(--font-sans);
     overflow-x: hidden;
+    letter-spacing: -0.01em;
+    accent-color: #ea580c;
   }
 }
 
-/* Custom Utilities for Premium Glass & Glow */
+/* ===== Enterprise Industrial Panels (Strict minimal radius: 6px) ===== */
+.panel-base,
 .glass-panel {
-  background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: #111318;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 0.375rem; /* 6px rounded-md */
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .glass-panel-hover:hover {
-  background: rgba(15, 23, 42, 0.65);
-  border-color: rgba(59, 130, 246, 0.45);
-  box-shadow: 0 12px 40px 0 rgba(59, 130, 246, 0.2);
-  transform: translateY(-2px);
+  background: #151821;
+  border-color: rgba(234, 88, 12, 0.4);
 }
 
+/* Enterprise Clean Inputs (4px - 6px radius) */
 .glass-input {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #fff;
-  transition: all 0.2s ease-in-out;
+  background: #0b0c10;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: #f8fafc;
+  font-size: 0.875rem;
+  border-radius: 0.375rem;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .glass-input:focus {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(59, 130, 246, 0.6);
+  background: #0b0c10;
+  border-color: #ea580c;
   outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+  box-shadow: 0 0 0 1px #ea580c;
 }
 
-/* Glass Select / Dropdown Styles */
+/* Enterprise Clean Selects (Strictly Black & Orange) */
+select,
 .glass-select {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #f1f5f9;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  background-color: #0b0c10;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: #f8fafc;
+  font-size: 0.875rem;
+  border-radius: 0.375rem;
+  outline: none;
+  accent-color: #ea580c;
+  transition: border-color 0.15s ease;
   cursor: pointer;
 }
 
+select:hover,
 .glass-select:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(59, 130, 246, 0.3);
+  border-color: rgba(234, 88, 12, 0.4);
 }
 
+select:focus,
 .glass-select:focus {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(59, 130, 246, 0.6);
+  background-color: #0b0c10;
+  border-color: #ea580c;
   outline: none;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 0 1px #ea580c;
 }
 
+select:disabled,
 .glass-select:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-  background: rgba(255, 255, 255, 0.02);
+  background-color: #08090b;
 }
 
-/* Dropdown options styling */
+select option,
 .glass-select option {
-  background: #0f172a;
-  color: #f1f5f9;
+  background-color: #111318;
+  color: #f8fafc;
   padding: 8px 12px;
-  font-weight: 500;
 }
 
-.glass-select option:hover,
+select option:checked,
+select option:hover,
 .glass-select option:checked,
-.glass-select option:focus {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(99, 102, 241, 0.2) 100%);
-  color: #fff;
+.glass-select option:hover {
+  background-color: #ea580c !important;
+  color: #ffffff !important;
 }
 
-/* Glowing background bubbles */
-.glow-orb-primary {
-  position: absolute;
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(37, 99, 235, 0.15) 0%, rgba(37, 99, 235, 0) 70%);
-  filter: blur(100px);
-  pointer-events: none;
-  z-index: 0;
+/* Radio & Checkbox: Strictly Orange */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: #ea580c;
 }
 
+/* Orbs neutralizados / eliminados */
+.glow-orb-primary,
 .glow-orb-secondary {
-  position: absolute;
-  width: 500px;
-  height: 500px;
-  background: radial-gradient(circle, rgba(124, 58, 237, 0.12) 0%, rgba(124, 58, 237, 0) 70%);
-  filter: blur(100px);
-  pointer-events: none;
-  z-index: 0;
+  display: none;
 }
 
-/* Custom scrollbar for glass tables */
+/* Scrollbar enterprise */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.01);
-  border-radius: 4px;
+  background: #090a0f;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(59, 130, 246, 0.5);
+  background: rgba(234, 88, 12, 0.6);
 }

@@ -25,12 +25,12 @@ vi.mock('xlsx', () => ({
 
 const mockData: DatabaseState = {
   clientes: [
-    { id: 'cli1', nombre: 'Cliente A', codigo: 'CA' },
-    { id: 'cli2', nombre: 'Cliente B', codigo: 'CB' }
+    { id: 'cli1', nombre: 'Cliente A', codigo: 'CA', fechaCreacion: '2026-01-01' },
+    { id: 'cli2', nombre: 'Cliente B', codigo: 'CB', fechaCreacion: '2026-01-01' }
   ],
   proyectos: [
-    { id: 'proj1', nombre: 'Proyecto Alpha', clienteId: 'cli1', estado: 'En Proceso' },
-    { id: 'proj2', nombre: 'Proyecto Beta', clienteId: 'cli2', estado: 'Completado' }
+    { id: 'proj1', nombre: 'Proyecto Alpha', clienteId: 'cli1', estado: 'En Proceso', fechaInicio: '2026-01-01' },
+    { id: 'proj2', nombre: 'Proyecto Beta', clienteId: 'cli2', estado: 'Completado', fechaInicio: '2026-01-01' }
   ],
   colaboradores: [],
   registros: [

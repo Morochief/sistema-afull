@@ -58,62 +58,36 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#020617] flex items-center justify-center relative overflow-hidden p-4">
-      {/* Ambient Glow Orbs */}
-      <div className="glow-orb-primary -top-32 -left-32 opacity-70" />
-      <div className="glow-orb-secondary -bottom-32 -right-32 opacity-70" />
-      <div
-        className="absolute w-[400px] h-[400px] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-        style={{
-          background: 'radial-gradient(circle, rgba(99,102,241,0.08) 0%, rgba(99,102,241,0) 70%)',
-          filter: 'blur(80px)',
-        }}
-      />
-
+    <div className="min-h-screen w-full bg-[#090a0f] flex items-center justify-center p-4">
       <motion.div
-        initial={{ opacity: 0, y: 30, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-md relative z-10"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="w-full max-w-sm relative z-10"
       >
         {/* Header Logo */}
-        <div className="flex flex-col items-center mb-8">
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.1, duration: 0.4 }}
-            className="h-16 w-16 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/30 mb-4"
-          >
-            <img src="/Logo-AFULL-_1_.svg" alt="aFull Logo" className="w-12 h-12 object-contain" />
-          </motion.div>
-          <motion.h1
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent"
-          >
+        <div className="flex flex-col items-center mb-6">
+          <div className="h-12 w-12 bg-orange-600 rounded-xl flex items-center justify-center shadow-md mb-3">
+            <img src="/Logo-AFULL-_1_.svg" alt="aFull Logo" className="w-8 h-8 object-contain" />
+          </div>
+          <h1 className="text-xl font-bold tracking-tight text-white">
             Sistema aFull
-          </motion.h1>
-          <p className="text-xs text-slate-500 font-mono tracking-widest uppercase mt-1">
+          </h1>
+          <p className="text-[11px] text-slate-500 font-mono tracking-wider uppercase mt-0.5">
             Módulo de Automatización Operativa
           </p>
         </div>
 
         {/* Login Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25, duration: 0.45 }}
-          className="glass-panel rounded-3xl p-8"
-        >
-          <div className="mb-6">
-            <h2 className="text-lg font-semibold text-white">Iniciar Sesión</h2>
-            <p className="text-xs text-slate-400 mt-1">Ingresá tus credenciales para acceder al sistema.</p>
+        <div className="glass-panel rounded-xl p-6 border border-white/10 shadow-xl">
+          <div className="mb-5">
+            <h2 className="text-base font-semibold text-white">Iniciar Sesión</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Ingresá tus credenciales para acceder al sistema.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Usuario Field */}
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <label className="text-xs font-medium text-slate-400 uppercase tracking-wider font-mono">
                 Usuario
               </label>
@@ -125,7 +99,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                   value={usuario}
                   onChange={e => setUsuario(e.target.value)}
                   placeholder="ej: admin, rodrigo, ricardo"
-                  className="glass-input w-full rounded-xl pl-9 pr-4 py-3 text-sm font-sans placeholder:text-slate-600"
+                  className="glass-input w-full rounded-lg pl-9 pr-4 py-2.5 text-sm font-sans placeholder:text-slate-600"
                   required
                   autoComplete="username"
                 />
@@ -133,7 +107,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             </div>
 
             {/* Password Field */}
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <label className="text-xs font-medium text-slate-400 uppercase tracking-wider font-mono">
                 Contraseña
               </label>
@@ -145,7 +119,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="glass-input w-full rounded-xl pl-9 pr-10 py-3 text-sm font-sans"
+                  className="glass-input w-full rounded-lg pl-9 pr-10 py-2.5 text-sm font-sans"
                   required
                   autoComplete="current-password"
                 />
@@ -161,24 +135,18 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
             {/* Error Message */}
             {error && (
-              <motion.div
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="flex items-start gap-2 bg-rose-500/10 border border-rose-500/25 rounded-xl px-4 py-3"
-              >
+              <div className="flex items-start gap-2 bg-rose-500/10 border border-rose-500/25 rounded-lg px-3 py-2.5">
                 <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                 <p className="text-xs text-rose-300">{error}</p>
-              </motion.div>
+              </div>
             )}
 
             {/* Submit Button */}
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+            <button
               type="submit"
               disabled={loading}
               id="login-submit-btn"
-              className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold text-sm shadow-lg shadow-blue-500/25 border border-white/10 transition-all cursor-pointer mt-2"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-medium text-xs shadow-sm border border-orange-500/30 transition-colors cursor-pointer mt-2"
             >
               {loading ? (
                 <>
@@ -191,9 +159,9 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                   <span>Ingresar al Sistema</span>
                 </>
               )}
-            </motion.button>
+            </button>
           </form>
-        </motion.div>
+        </div>
 
         <p className="text-center text-[10px] text-slate-700 mt-6 font-mono">
           Sistema aFull v2.0 · Gestión Operativa Automatizada

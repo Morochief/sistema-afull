@@ -49,13 +49,13 @@ Object.defineProperty(window, 'localStorage', { value: localStorageMock });
 
 const mockData: DatabaseState = {
   clientes: [
-    { id: 'cli1', nombre: 'Cliente A', codigo: 'CA' },
-    { id: 'cli2', nombre: 'Cliente B', codigo: 'CB' }
+    { id: 'cli1', nombre: 'Cliente A', codigo: 'CA', fechaCreacion: '2026-01-01' },
+    { id: 'cli2', nombre: 'Cliente B', codigo: 'CB', fechaCreacion: '2026-01-01' }
   ],
   proyectos: [
-    { id: 'proj1', nombre: 'Proyecto Alpha', clienteId: 'cli1', estado: 'En Proceso' },
-    { id: 'proj2', nombre: 'Proyecto Beta', clienteId: 'cli2', estado: 'Completado' },
-    { id: 'proj3', nombre: 'Proyecto Gamma', clienteId: 'cli1', estado: 'En Proceso' }
+    { id: 'proj1', nombre: 'Proyecto Alpha', clienteId: 'cli1', estado: 'En Proceso', fechaInicio: '2026-01-01' },
+    { id: 'proj2', nombre: 'Proyecto Beta', clienteId: 'cli2', estado: 'Completado', fechaInicio: '2026-01-01' },
+    { id: 'proj3', nombre: 'Proyecto Gamma', clienteId: 'cli1', estado: 'En Proceso', fechaInicio: '2026-01-01' }
   ],
   colaboradores: [
     { id: 'col1', nombre: 'Juan Pérez', rol: 'Montador', tarifaSugerida: 400 },
@@ -326,9 +326,7 @@ describe('RegistroOperativo', () => {
       await user.click(addButton);
       
       // Remove the second line
-      const deleteButtons = screen.getAllByRole('button', { name: '' }).filter(
-        btn => btn.querySelector('svg')
-      );
+      const deleteButtons = screen.getAllByRole('button', { name: /Eliminar línea/i });
       
       if (deleteButtons.length > 0) {
         await user.click(deleteButtons[0]);
@@ -440,7 +438,6 @@ describe('RegistroOperativo', () => {
       localStorage.setItem('afull_timer_admin_paused', 'false');
       localStorage.setItem('afull_timer_admin_seconds', '60');
       localStorage.setItem('afull_timer_admin_start', new Date(now.getTime() - 60000).toISOString());
-      localStorage.setItem('afull_timer_admin_end', now.toISOString());
 
       const user = userEvent.setup();
       render(<RegistroOperativo {...mockProps} />);

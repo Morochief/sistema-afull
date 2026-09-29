@@ -16,7 +16,7 @@ describe('Auth API Integration (Supertest)', () => {
     // Get CSRF and session
     const csrfRes = await request(app).get('/api/csrf-token');
     csrfToken = csrfRes.body.data.csrfToken;
-    const rawCookies = csrfRes.headers['set-cookie'] || [];
+    const rawCookies = (csrfRes.headers['set-cookie'] || []) as string[];
     const sessionCookieMatch = rawCookies.find((c: string) => c.startsWith('sessionId='));
     sessionCookie = sessionCookieMatch ? sessionCookieMatch.split(';')[0] : '';
   });
@@ -50,7 +50,7 @@ describe('Auth API Integration (Supertest)', () => {
     expect(res.body.data.user.rol).toBe('Admin');
     
     // Should return JWT cookie
-    const rawCookies = res.headers['set-cookie'] || [];
+    const rawCookies = (res.headers['set-cookie'] || []) as string[];
     const jwtCookie = rawCookies.find((c: string) => c.startsWith('jwt='));
     expect(jwtCookie).toBeDefined();
   });
@@ -62,7 +62,7 @@ describe('Auth API Integration (Supertest)', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
 
-    const rawCookies = res.headers['set-cookie'] || [];
+    const rawCookies = (res.headers['set-cookie'] || []) as string[];
     // Cookies should be set with empty values or expired date (1970)
     const jwtCookie = rawCookies.find((c: string) => c.startsWith('jwt='));
     expect(jwtCookie).toBeDefined();

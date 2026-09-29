@@ -48,13 +48,13 @@ describe('server-auth', () => {
   });
 
   describe('User Lookup', () => {
-    it('finds user by username', () => {
-      const user = findUserByUsername('admin');
+    it('finds user by username', async () => {
+      const user = await findUserByUsername('admin');
       expect(user?.usuario).toBe('admin');
     });
 
-    it('returns undefined for non-existent user', () => {
-      const user = findUserByUsername('nonexistent');
+    it('returns undefined for non-existent user', async () => {
+      const user = await findUserByUsername('nonexistent');
       expect(user).toBeUndefined();
     });
   });

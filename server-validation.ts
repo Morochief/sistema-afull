@@ -156,7 +156,8 @@ export const TimerStopSchema = z.object({
  * Timer Pause Schema
  */
 export const TimerPauseSchema = z.object({
-  usuario: z.string().min(1, 'Usuario requerido')
+  usuario: z.string().min(1, 'Usuario requerido'),
+  tipo: z.enum(['descanso', 'pausa']).optional()
 });
 
 /**
@@ -294,3 +295,93 @@ export function validateSchema<T>(schema: z.ZodSchema<T>, data: unknown) {
     data: result.data
   };
 }
+
+/**
+ * Cartera de Clientes Schemas
+ * Módulo separado del Cliente operativo: empresas con RUC, contactos y marcas.
+ */
+
+const RUC_REGEX = /^\d{6,8}-\d$/;
+
+const rucField = z.string()
+  .regex(RUC_REGEX, 'RUC inválido (formato: 8 dígitos + guion + dígito verificador)')
+  .optional()
+  .or(z.literal(''));
+
+const emailField = z.string()
+  .email('Correo inválido')
+  .max(255, 'Correo muy largo')
+  .optional()
+  .or(z.literal(''));
+
+export const CarteraClienteSchema = z.object({
+  nombre: z.string()
+    .min(1, 'Nombre requerido')
+    .max(200, 'Nombre muy largo')
+    .transform(sanitizeHTML),
+  ruc: rucField.transform(v => v ? v.trim() : null)
+});
+
+export const CarteraClienteUpdateSchema = z.object({
+  nombre: z.string()
+    .min(1, 'Nombre requerido')
+    .max(200, 'Nombre muy largo')
+    .transform(sanitizeHTML)
+    .optional(),
+  ruc: rucField.transform(v => v ? v.trim() : null).optional(),
+  activo: z.boolean().optional()
+});
+
+export const CarteraContactoSchema = z.object({
+  clienteId: z.string().min(1, 'Cliente requerido'),
+  nombre: z.string()
+    .min(1, 'Nombre requerido')
+    .max(200, 'Nombre muy largo')
+    .transform(sanitizeHTML),
+  cargo: z.string()
+    .max(100, 'Cargo muy largo')
+    .transform(sanitizeHTML)
+    .optional()
+    .or(z.literal('')),
+  telefono: z.string()
+    .max(50, 'Teléfono muy largo')
+    .optional()
+    .or(z.literal('')),
+  email: emailField
+});
+
+export const CarteraContactoUpdateSchema = z.object({
+  nombre: z.string()
+    .min(1, 'Nombre requerido')
+    .max(200, 'Nombre muy largo')
+    .transform(sanitizeHTML)
+    .optional(),
+  cargo: z.string()
+    .max(100, 'Cargo muy largo')
+    .transform(sanitizeHTML)
+    .optional()
+    .or(z.literal('')),
+  telefono: z.string()
+    .max(50, 'Teléfono muy largo')
+    .optional()
+    .or(z.literal('')),
+  email: emailField.optional(),
+  activo: z.boolean().optional()
+});
+
+export const CarteraMarcaSchema = z.object({
+  clienteId: z.string().min(1, 'Cliente requerido'),
+  nombre: z.string()
+    .min(1, 'Nombre requerido')
+    .max(100, 'Nombre muy largo')
+    .transform(sanitizeHTML)
+});
+
+export const CarteraMarcaUpdateSchema = z.object({
+  nombre: z.string()
+    .min(1, 'Nombre requerido')
+    .max(100, 'Nombre muy largo')
+    .transform(sanitizeHTML)
+    .optional(),
+  activo: z.boolean().optional()
+});

@@ -52,7 +52,7 @@ function ToastIcon({ type }: { type: ToastType }) {
   if (type === 'success') return <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />;
   if (type === 'error')   return <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0" />;
   if (type === 'warning') return <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />;
-  return <Info className="w-4 h-4 text-blue-400 flex-shrink-0" />;
+  return <Info className="w-4 h-4 text-orange-400 flex-shrink-0" />;
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ export function NotifProvider({ children }: { children: ReactNode }) {
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 80, scale: 0.9 }}
               transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-              className="pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-2xl glass-panel border border-white/10 shadow-2xl max-w-xs w-full backdrop-blur-xl"
+              className="pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-md glass-panel border border-white/10 shadow-2xl max-w-xs w-full backdrop-blur-xl"
             >
               <ToastIcon type={t.type} />
               <p className="text-xs text-slate-200 leading-relaxed flex-1">{t.message}</p>

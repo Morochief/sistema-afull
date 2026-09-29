@@ -16,13 +16,33 @@ function formatDuration(seconds: number): string {
   return `${h}h ${m}m`;
 }
 
+function compressImage(base64: string, maxWidth = 1200, quality = 0.75): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { resolve(base64); return; }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(base64);
+    img.src = base64;
+  });
+}
+
 function useCameraCapture() {
   const [photo, setPhoto] = useState<string | null>(null);
   
   const capturePhoto = async (file: File) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
-      setPhoto(e.target?.result as string);
+    reader.onload = async (e) => {
+      const raw = e.target?.result as string;
+      const base64 = await compressImage(raw);
+      setPhoto(base64);
     };
     reader.readAsDataURL(file);
   };
@@ -76,17 +96,17 @@ export default function ModalFinalizarViaje({ onClose, onFinish, kmInicio, durac
   };
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020617]/80 backdrop-blur-md p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0a0a0a]/80 backdrop-blur-md p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: -10 }}
         transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-        className="glass-panel rounded-3xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto border border-white/10 shadow-2xl"
+        className="glass-panel rounded-md p-6 max-w-md w-full max-h-[90vh] overflow-y-auto border border-white/10 shadow-2xl"
       >
         <h3 className="text-xl font-bold text-white mb-4">Finalizar Viaje</h3>
         
-        <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg text-sm">
+        <div className="mb-4 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg text-sm">
           <div className="grid grid-cols-2 gap-2 text-slate-300">
             <div><span className="text-slate-400">Duración:</span> {formatDuration(duracionSegundos)}</div>
             <div><span className="text-slate-400">Km inicial:</span> {kmInicio.toLocaleString()}</div>
@@ -112,7 +132,7 @@ export default function ModalFinalizarViaje({ onClose, onFinish, kmInicio, durac
             <button
               type="button"
               onClick={() => inputFileRef.current?.click()}
-              className="w-full h-40 border-2 border-dashed border-slate-600 rounded-lg flex flex-col items-center justify-center gap-2 hover:border-blue-500 transition"
+              className="w-full h-40 border-2 border-dashed border-slate-600 rounded-lg flex flex-col items-center justify-center gap-2 hover:border-orange-500 transition"
             >
               <Camera className="w-8 h-8 text-slate-500" />
               <span className="text-sm text-slate-400">Tomar foto</span>

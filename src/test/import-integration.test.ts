@@ -30,7 +30,7 @@ describe('Import API Integration (Supertest)', () => {
     // Get CSRF and session
     const csrfRes = await request(app).get('/api/csrf-token');
     csrfToken = csrfRes.body.data.csrfToken;
-    const rawCookies = csrfRes.headers['set-cookie'] || [];
+    const rawCookies = (csrfRes.headers['set-cookie'] || []) as string[];
     const sessionCookieMatch = rawCookies.find((c: string) => c.startsWith('sessionId='));
     sessionCookie = sessionCookieMatch ? sessionCookieMatch.split(';')[0] : '';
   });

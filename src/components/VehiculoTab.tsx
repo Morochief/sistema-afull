@@ -88,7 +88,7 @@ function useCameraCapture() {
       try {
         const { data } = await Tesseract.recognize(file, 'spa', {
           tessedit_char_whitelist: '0123456789.'
-        });
+        } as any);
         const kmMatch = data.text.match(/\d+\.?\d*/);
         const km = kmMatch ? parseFloat(kmMatch[0]) : null;
         setExtractedKm(km);
@@ -350,7 +350,7 @@ export default function VehiculoTab({ selectedClienteId, selectedProyectoId, cur
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <Car className="w-5 h-5 text-blue-400" />
+        <Car className="w-5 h-5 text-orange-400" />
         <h3 className="text-lg font-semibold text-white">Registro de Viaje</h3>
       </div>
 
@@ -358,7 +358,7 @@ export default function VehiculoTab({ selectedClienteId, selectedProyectoId, cur
         <div className="space-y-3">
           <button
             onClick={() => setMostrarModalInicio(true)}
-            className="w-full py-4 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition"
+            className="w-full py-4 px-6 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition"
           >
             <MapPin className="w-5 h-5" /> Iniciar Viaje
           </button>

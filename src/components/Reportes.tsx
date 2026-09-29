@@ -139,6 +139,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
   const handlePrint = () => window.print();
 
   // --- PRE-FACTURA LOGIC ---
+  const clientesMap = useMemo(() => new Map(data.clientes.map(c => [c.id, c])), [data.clientes]);
   const proyectoFactura = data.proyectos.find(p => p.id === selectedProyectoFactura);
   const clienteFactura = proyectoFactura ? clientesMap.get(proyectoFactura.clienteId) || null : null;
 
@@ -165,8 +166,6 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
 
   const { moFactura, insumosFactura, vehiculosFactura, otrosFactura } = facturaBreakdown;
 
-  const clientesMap = useMemo(() => new Map(data.clientes.map(c => [c.id, c])), [data.clientes]);
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -181,7 +180,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
         </div>
 
         {/* Sub-tabs */}
-        <nav className="flex bg-[#0f172a]/50 border border-white/5 p-1 rounded-xl">
+        <nav className="flex bg-[#0f172a]/50 border border-white/5 p-1 rounded-md">
           <button
             onClick={() => setActiveSubTab('reportes')}
             className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
@@ -219,7 +218,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
             className="space-y-6"
           >
             {/* Filter Panel */}
-            <div className="glass-panel rounded-2xl p-6">
+            <div className="glass-panel rounded-md p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                   <Filter className="w-4 h-4 text-emerald-400" /> Filtros Avanzados
@@ -239,7 +238,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                   <select
                     value={filterCliente}
                     onChange={e => { setFilterCliente(e.target.value); setFilterProyecto(''); }}
-                    className="glass-select w-full rounded-xl px-3 py-2.5 text-xs"
+                    className="glass-select w-full rounded-md px-3 py-2.5 text-xs"
                   >
                     <option value="">Todos los Clientes</option>
                     {data.clientes.map(c => (
@@ -254,7 +253,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                   <select
                     value={filterProyecto}
                     onChange={e => setFilterProyecto(e.target.value)}
-                    className="glass-select w-full rounded-xl px-3 py-2.5 text-xs"
+                    className="glass-select w-full rounded-md px-3 py-2.5 text-xs"
                   >
                     <option value="">Todos los Proyectos</option>
                     {data.proyectos
@@ -271,7 +270,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                   <select
                     value={filterConcepto}
                     onChange={e => setFilterConcepto(e.target.value)}
-                    className="glass-select w-full rounded-xl px-3 py-2.5 text-xs"
+                    className="glass-select w-full rounded-md px-3 py-2.5 text-xs"
                   >
                     <option value="">Todos</option>
                     <option value="MO">Mano de Obra</option>
@@ -288,7 +287,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                     type="date"
                     value={filterFechaDesde}
                     onChange={e => setFilterFechaDesde(e.target.value)}
-                    className="glass-select w-full rounded-xl px-3 py-2.5 text-xs"
+                    className="glass-select w-full rounded-md px-3 py-2.5 text-xs"
                   />
                 </div>
 
@@ -299,7 +298,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                     type="date"
                     value={filterFechaHasta}
                     onChange={e => setFilterFechaHasta(e.target.value)}
-                    className="glass-select w-full rounded-xl px-3 py-2.5 text-xs"
+                    className="glass-select w-full rounded-md px-3 py-2.5 text-xs"
                   />
                 </div>
               </div>
@@ -307,17 +306,17 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
 
             {/* Summary Metrics */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="glass-panel rounded-2xl p-4 flex items-center justify-between">
+              <div className="glass-panel rounded-md p-4 flex items-center justify-between">
                 <div>
                   <p className="text-[10px] font-mono uppercase tracking-wider text-emerald-400">Total Filtrado</p>
                   <p className="text-2xl font-bold text-white mt-1">{formatGuaranies(totalFiltrado)}</p>
                   <p className="text-xs text-slate-500">{filteredRegistros.length} registros</p>
                 </div>
-                <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
+                <div className="p-3 bg-emerald-500/10 rounded-md border border-emerald-500/20 text-emerald-400">
                   <DollarSign className="w-5 h-5" />
                 </div>
               </div>
-              <div className="glass-panel rounded-2xl p-4 flex items-center justify-between">
+              <div className="glass-panel rounded-md p-4 flex items-center justify-between">
                 <div>
                   <p className="text-[10px] font-mono uppercase tracking-wider text-blue-400">Mano de Obra</p>
                   <p className="text-2xl font-bold text-white mt-1">{formatGuaranies(totalMOFiltrado)}</p>
@@ -325,11 +324,11 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                     {totalFiltrado > 0 ? ((totalMOFiltrado / totalFiltrado) * 100).toFixed(0) : 0}% del total
                   </p>
                 </div>
-                <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20 text-blue-400">
+                <div className="p-3 bg-blue-500/10 rounded-md border border-blue-500/20 text-blue-400">
                   <TrendingUp className="w-5 h-5" />
                 </div>
               </div>
-              <div className="glass-panel rounded-2xl p-4 flex items-center justify-between">
+              <div className="glass-panel rounded-md p-4 flex items-center justify-between">
                 <div>
                   <p className="text-[10px] font-mono uppercase tracking-wider text-cyan-400">Insumos</p>
                   <p className="text-2xl font-bold text-white mt-1">{formatGuaranies(totalInsumoFiltrado)}</p>
@@ -337,7 +336,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                     {totalFiltrado > 0 ? ((totalInsumoFiltrado / totalFiltrado) * 100).toFixed(0) : 0}% del total
                   </p>
                 </div>
-                <div className="p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20 text-cyan-400">
+                <div className="p-3 bg-cyan-500/10 rounded-md border border-cyan-500/20 text-cyan-400">
                   <Calculator className="w-5 h-5" />
                 </div>
               </div>
@@ -350,7 +349,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                 whileTap={{ scale: 0.97 }}
                 onClick={handleExportExcel}
                 disabled={filteredRegistros.length === 0}
-                className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-sm shadow-lg shadow-emerald-500/20 border border-white/10 transition-all cursor-pointer"
+                className="flex items-center gap-2 px-5 py-3 rounded-md bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-sm shadow-lg shadow-orange-500/20 border border-white/10 transition-all cursor-pointer"
               >
                 <FileDown className="w-4 h-4" />
                 Exportar a Excel (.xlsx)
@@ -360,7 +359,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                 whileTap={{ scale: 0.97 }}
                 onClick={handlePrint}
                 disabled={filteredRegistros.length === 0}
-                className="flex items-center gap-2 px-5 py-3 rounded-xl glass-panel hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 hover:text-white font-semibold text-sm border-white/10 transition-all cursor-pointer"
+                className="flex items-center gap-2 px-5 py-3 rounded-md glass-panel hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 hover:text-white font-semibold text-sm border-white/10 transition-all cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
                 Imprimir / Guardar PDF
@@ -368,70 +367,83 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
             </div>
 
             {/* Registros Table */}
-            <div className="glass-panel rounded-2xl p-6">
+            <div className="glass-panel rounded-xl p-6 shadow-xl">
               <h3 className="text-sm font-semibold text-white mb-4">
                 Vista Previa del Reporte ({filteredRegistros.length} registros)
               </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[700px]">
-                  <thead>
-                    <tr className="border-b border-white/5 text-slate-400 text-xs uppercase font-mono tracking-wider">
-                      <th className="pb-3 font-medium">Concepto</th>
-                      <th className="pb-3 font-medium">Cliente / Proyecto</th>
-                      <th className="pb-3 font-medium">Fecha</th>
-                      <th className="pb-3 font-medium">Descripción</th>
-                      <th className="pb-3 font-medium text-right">Cant.</th>
-                      <th className="pb-3 font-medium text-right">P. Unit.</th>
-                      <th className="pb-3 font-medium text-right">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRegistros.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="py-8 text-center text-slate-500 text-sm font-mono">
-                          Sin registros para los filtros seleccionados
-                        </td>
+              <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d0f14]/80 backdrop-blur-sm shadow-xl">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[1000px]">
+                    <thead>
+                      <tr className="border-b border-white/10 bg-[#090a0f] text-slate-400 text-xs uppercase font-mono tracking-wider">
+                        <th className="px-4 py-3.5 font-medium whitespace-nowrap w-[120px]">Concepto</th>
+                        <th className="px-4 py-3.5 font-medium min-w-[200px]">Cliente / Proyecto</th>
+                        <th className="px-4 py-3.5 font-medium whitespace-nowrap w-[130px]">Fecha</th>
+                        <th className="px-4 py-3.5 font-medium min-w-[280px]">Descripción</th>
+                        <th className="px-4 py-3.5 font-medium text-right whitespace-nowrap w-[120px]">Cant.</th>
+                        <th className="px-4 py-3.5 font-medium text-right whitespace-nowrap w-[140px]">P. Unit.</th>
+                        <th className="px-4 py-3.5 font-medium text-right whitespace-nowrap w-[150px]">Total</th>
                       </tr>
-                    ) : (
-                      filteredRegistros.map(reg => (
-                        <tr key={reg.id} className="border-b border-white/5 hover:bg-white/2 text-sm transition-colors">
-                          <td className="py-3">
-                            <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-mono font-semibold ${
-                              reg.concepto === 'MO'
-                                ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20'
-                                : 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/20'
-                            }`}>
-                              {reg.concepto}
-                            </span>
-                          </td>
-                          <td className="py-3">
-                            <div className="font-medium text-white text-xs truncate max-w-[180px]">{reg.clienteNombre}</div>
-                            <div className="text-slate-400 text-[10px] truncate max-w-[180px]">{reg.proyectoNombre}</div>
-                          </td>
-                          <td className="py-3 text-xs font-mono text-slate-300">{reg.fecha}</td>
-                          <td className="py-3 text-xs text-slate-300 max-w-[200px] truncate">{reg.descripcion}</td>
-                          <td className="py-3 text-right font-mono text-slate-300 text-xs">
-                            {reg.concepto === 'MO' && reg.cantidad ? formatMinutosToHHMM(reg.cantidad) : Math.round(reg.cantidad).toLocaleString('es-PY')}
-                          </td>
-                          <td className="py-3 text-right font-mono text-slate-300 text-xs">
-                            {formatGuaranies(reg.precioUnitario)}
-                          </td>
-                          <td className="py-3 text-right font-mono text-white font-semibold text-xs">
-                            {formatGuaranies(reg.total)}
+                    </thead>
+                    <tbody className="divide-y divide-white/5 font-sans">
+                      {filteredRegistros.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="px-4 py-12 text-center text-slate-500 text-sm font-mono">
+                            Sin registros para los filtros seleccionados
                           </td>
                         </tr>
-                      ))
+                      ) : (
+                        filteredRegistros.map(reg => (
+                          <tr key={reg.id} className="hover:bg-white/[0.03] text-sm transition-colors">
+                            <td className="px-4 py-3.5 whitespace-nowrap align-middle">
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-mono font-semibold ${
+                                reg.concepto === 'MO'
+                                  ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
+                                  : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                              }`}>
+                                {reg.concepto}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 align-middle min-w-[200px]">
+                              <div className="font-semibold text-white text-xs leading-snug line-clamp-1" title={reg.clienteNombre}>{reg.clienteNombre}</div>
+                              <div className="text-[11px] text-slate-400 leading-snug flex items-center gap-1 mt-0.5 line-clamp-1" title={reg.proyectoNombre}>
+                                <span className="text-slate-600">↳</span>
+                                {reg.proyectoNombre}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3.5 whitespace-nowrap align-middle">
+                              <span className="inline-block text-xs font-mono text-slate-300 bg-white/[0.03] px-2.5 py-1 rounded border border-white/5">
+                                {reg.fecha}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 align-middle min-w-[280px]">
+                              <p className="text-xs text-slate-200 leading-relaxed break-words line-clamp-2 hover:line-clamp-none transition-all cursor-default" title={reg.descripcion}>
+                                {reg.descripcion}
+                              </p>
+                            </td>
+                            <td className="px-4 py-3.5 text-right font-mono text-slate-300 text-xs whitespace-nowrap align-middle">
+                              {reg.concepto === 'MO' && reg.cantidad ? formatMinutosToHHMM(reg.cantidad) : Math.round(reg.cantidad).toLocaleString('es-PY')}
+                            </td>
+                            <td className="px-4 py-3.5 text-right font-mono text-slate-300 text-xs whitespace-nowrap align-middle">
+                              {formatGuaranies(reg.precioUnitario)}
+                            </td>
+                            <td className="px-4 py-3.5 text-right font-mono text-white font-bold text-xs whitespace-nowrap align-middle">
+                              {formatGuaranies(reg.total)}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                    {filteredRegistros.length > 0 && (
+                      <tfoot>
+                        <tr className="border-t border-white/10 bg-white/[0.02]">
+                          <td colSpan={6} className="px-4 py-3.5 text-right text-xs font-mono text-slate-400 font-medium">TOTAL GENERAL</td>
+                          <td className="px-4 py-3.5 text-right font-mono text-white font-bold text-sm whitespace-nowrap">{formatGuaranies(totalFiltrado)}</td>
+                        </tr>
+                      </tfoot>
                     )}
-                  </tbody>
-                  {filteredRegistros.length > 0 && (
-                    <tfoot>
-                      <tr className="border-t border-white/10">
-                        <td colSpan={6} className="pt-3 text-right text-xs font-mono text-slate-400 pr-2">TOTAL</td>
-                        <td className="pt-3 text-right font-mono text-white font-bold">{formatGuaranies(totalFiltrado)}</td>
-                      </tr>
-                    </tfoot>
-                  )}
-                </table>
+                  </table>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -448,7 +460,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
             className="space-y-6"
           >
             {/* Config Panel */}
-            <div className="glass-panel rounded-2xl p-6">
+            <div className="glass-panel rounded-md p-6">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2 mb-5">
                 <Calculator className="w-4 h-4 text-amber-400" />
                 Configurar Simulación de Pre-Factura
@@ -461,7 +473,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                   <select
                     value={selectedProyectoFactura}
                     onChange={e => setSelectedProyectoFactura(e.target.value)}
-                    className="glass-select w-full rounded-xl px-3 py-2.5 text-sm"
+                    className="glass-select w-full rounded-md px-3 py-2.5 text-sm"
                   >
                     <option value="">-- Seleccionar Proyecto --</option>
                     {data.proyectos.map(p => {
@@ -487,7 +499,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                       min="0"
                       max="500"
                       step="5"
-                      className="glass-select w-full rounded-xl pl-9 pr-4 py-2.5 text-sm"
+                      className="glass-select w-full rounded-md pl-9 pr-4 py-2.5 text-sm"
                     />
                   </div>
                   <p className="text-[10px] text-slate-600 mt-1.5 font-mono">
@@ -499,7 +511,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
 
             {/* Pre-Factura Preview */}
             {!selectedProyectoFactura ? (
-              <div className="glass-panel rounded-2xl p-12 text-center">
+              <div className="glass-panel rounded-md p-12 text-center">
                 <Receipt className="w-10 h-10 text-slate-600 mx-auto mb-3" />
                 <p className="text-slate-500 text-sm">Seleccioná un proyecto para generar la pre-factura</p>
               </div>
@@ -553,7 +565,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                 </div>
 
                 {/* Markup Calculation */}
-                <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-5 space-y-3">
+                <div className="bg-amber-500/5 border border-amber-500/20 rounded-md p-5 space-y-3">
                   <p className="text-xs font-mono uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
                     <Percent className="w-3 h-3" /> Aplicación de Markup ({customMarkup}%)
                   </p>
@@ -594,7 +606,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={handlePrint}
-                    className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold text-sm shadow-lg shadow-amber-500/20 border border-white/10 transition-all cursor-pointer"
+                    className="flex items-center gap-2 px-5 py-3 rounded-md bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold text-sm shadow-lg shadow-amber-500/20 border border-white/10 transition-all cursor-pointer"
                   >
                     <Printer className="w-4 h-4" />
                     Generar PDF
@@ -603,7 +615,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => onMarkupChange(markupDecimal)}
-                    className="flex items-center gap-2 px-5 py-3 rounded-xl glass-panel hover:bg-white/10 text-slate-300 hover:text-white font-semibold text-sm border-white/10 transition-all cursor-pointer"
+                    className="flex items-center gap-2 px-5 py-3 rounded-md glass-panel hover:bg-white/10 text-slate-300 hover:text-white font-semibold text-sm border-white/10 transition-all cursor-pointer"
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     Guardar Markup Global

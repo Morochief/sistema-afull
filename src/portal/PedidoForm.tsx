@@ -8,8 +8,8 @@ interface PedidoFormProps {
 
 const ESTADOS_BADGE: Record<string, string> = {
   Pendiente: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  'En Proceso': 'bg-purple-500/15 text-purple-300 border-purple-500/30',
-  Completado: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
+  'En Proceso': 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+  Completado: 'bg-orange-500/15 text-orange-300 border-orange-500/30',
   Entregado: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
 };
 
@@ -123,20 +123,20 @@ export default function PedidoForm({token, sucursales, onPedidoCreado}: PedidoFo
     }
   };
 
-  const inputCls = 'w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-slate-500 outline-none transition focus:border-blue-500/60 focus:bg-white/10';
+  const inputCls = 'w-full rounded-md border border-white/10 bg-[#090a0f] px-4 py-2.5 text-sm text-white placeholder-slate-500 outline-none transition focus:border-orange-500';
   const labelCls = 'mb-1.5 block text-sm font-medium text-slate-300';
 
   return (
-    <section className="glass-panel rounded-2xl p-5 sm:p-7">
+    <section className="glass-panel rounded-md p-5 sm:p-7">
       <h2 className="mb-5 flex items-center gap-2 text-lg font-semibold">
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600/20 text-blue-400">+</span>
+        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-orange-600/20 text-orange-400">+</span>
         Nuevo Pedido
       </h2>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {sucursales.length === 0 ? (
           <>
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
               Todavía no hay locales cargados. Agregá el primer local para poder enviar pedidos.
             </div>
             <div>
@@ -153,7 +153,7 @@ export default function PedidoForm({token, sucursales, onPedidoCreado}: PedidoFo
                   type="button"
                   onClick={crearSucursal}
                   disabled={creandoSucursal}
-                  className="shrink-0 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-3 text-sm font-semibold text-white transition hover:from-blue-500 hover:to-cyan-400 disabled:opacity-60"
+                  className="shrink-0 rounded-md bg-gradient-to-r from-orange-600 to-amber-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:from-orange-500 hover:to-amber-400 disabled:opacity-60"
                 >
                   {creandoSucursal ? '...' : 'Agregar'}
                 </button>
@@ -169,7 +169,7 @@ export default function PedidoForm({token, sucursales, onPedidoCreado}: PedidoFo
                   <button
                     type="button"
                     onClick={() => setMostrarNuevaSucursal(true)}
-                    className="mb-1.5 text-xs font-medium text-cyan-300 hover:text-cyan-200"
+                    className="mb-1.5 text-xs font-medium text-amber-300 hover:text-amber-200"
                   >
                     + Agregar local
                   </button>
@@ -209,14 +209,14 @@ export default function PedidoForm({token, sucursales, onPedidoCreado}: PedidoFo
                     type="button"
                     onClick={crearSucursal}
                     disabled={creandoSucursal}
-                    className="shrink-0 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-3 text-sm font-semibold text-white transition hover:from-blue-500 hover:to-cyan-400 disabled:opacity-60"
+                    className="shrink-0 rounded-md bg-gradient-to-r from-orange-600 to-amber-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:from-orange-500 hover:to-amber-400 disabled:opacity-60"
                   >
                     {creandoSucursal ? '...' : 'Agregar'}
                   </button>
                   <button
                     type="button"
                     onClick={() => setMostrarNuevaSucursal(false)}
-                    className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-slate-300 hover:bg-white/10"
+                    className="shrink-0 rounded-md border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10"
                   >
                     Cancelar
                   </button>
@@ -264,18 +264,18 @@ export default function PedidoForm({token, sucursales, onPedidoCreado}: PedidoFo
                 <img
                   src={foto}
                   alt="Vista previa del pedido"
-                  className="mt-3 h-32 w-32 rounded-xl border border-white/10 object-cover"
+                  className="mt-3 h-32 w-32 rounded-md border border-white/10 object-cover"
                 />
               )}
             </div>
 
             {error && (
-              <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
                 {error}
               </div>
             )}
             {exito && (
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+              <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
                 {exito}
               </div>
             )}
@@ -283,7 +283,7 @@ export default function PedidoForm({token, sucursales, onPedidoCreado}: PedidoFo
             <button
               type="submit"
               disabled={enviando}
-              className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition hover:from-blue-500 hover:to-cyan-400 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full rounded-md bg-gradient-to-r from-orange-600 to-amber-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/25 transition hover:from-orange-500 hover:to-amber-400 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {enviando ? 'Enviando...' : 'Enviar Pedido'}
             </button>

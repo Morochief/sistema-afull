@@ -99,13 +99,13 @@ export default function ModalIniciarViaje({ onClose, onStart, selectedClienteId,
   };
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020617]/80 backdrop-blur-md p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0a0a0a]/80 backdrop-blur-md p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: -10 }}
         transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-        className="glass-panel rounded-3xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto border border-white/10 shadow-2xl"
+        className="glass-panel rounded-md p-6 max-w-md w-full max-h-[90vh] overflow-y-auto border border-white/10 shadow-2xl"
       >
         <h3 className="text-xl font-bold text-white mb-4">Iniciar Viaje</h3>
         
@@ -147,7 +147,7 @@ export default function ModalIniciarViaje({ onClose, onStart, selectedClienteId,
             <button
               type="button"
               onClick={() => inputFileRef.current?.click()}
-              className="w-full h-40 border-2 border-dashed border-slate-600 rounded-lg flex flex-col items-center justify-center gap-2 hover:border-blue-500 transition"
+              className="w-full h-40 border-2 border-dashed border-slate-600 rounded-lg flex flex-col items-center justify-center gap-2 hover:border-orange-500 transition"
             >
               <Camera className="w-8 h-8 text-slate-500" />
               <span className="text-sm text-slate-400">Tomar foto</span>
@@ -206,7 +206,7 @@ export default function ModalIniciarViaje({ onClose, onStart, selectedClienteId,
             type="button"
             onClick={handleSubmit}
             disabled={!photo || (!kmManual && !extractedKm) || submitting}
-            className="flex-1 py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/25 border border-white/10 transition-all cursor-pointer"
+            className="flex-1 py-2.5 px-4 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25 border border-white/10 transition-all cursor-pointer"
           >
             <Play className="w-4 h-4" /> Iniciar
           </button>

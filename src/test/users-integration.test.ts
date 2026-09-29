@@ -31,7 +31,7 @@ describe('Users API Integration (Supertest)', () => {
     csrfToken = csrfRes.body.data.csrfToken;
     
     // Extract sessionId cookie
-    const rawCookies = csrfRes.headers['set-cookie'] || [];
+    const rawCookies = (csrfRes.headers['set-cookie'] || []) as string[];
     const sessionCookieMatch = rawCookies.find((c: string) => c.startsWith('sessionId='));
     sessionCookie = sessionCookieMatch ? sessionCookieMatch.split(';')[0] : '';
   });

@@ -21,6 +21,7 @@ model Cliente {
   registros         Registro[]
   pedidos           Pedido[]
   sucursales        Sucursal[]
+  presupuestos      Presupuesto[]
 
   @@map("clientes")
 }
@@ -63,12 +64,66 @@ model Colaborador {
   nombre          String
   tarifaSugerida  Decimal?  @map("tarifa_sugerida") @db.Decimal(10, 2)
   rol             String?
+  // ─── Datos para Solicitud de Permiso (RR.HH.) ───
+  ci              String?   @db.VarChar(20)
+  cargo           String?  @db.VarChar(100)
+  departamento    String?  @db.VarChar(100)
+  jefeInmediato   String?  @map("jefe_inmediato") @db.VarChar(100)
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
   registros Registro[]
+  hojasRutaTareas HojaRutaTarea[]
+  permisos        Permiso[]
 
   @@map("colaboradores")
+}
+
+// ─── Solicitudes de Permiso (RR.HH.) ───────────────────────────────
+// Gestión completa: el empleado solicita, el jefe aprueba, RR.HH. valida.
+// El PDF se genera desde el sistema con los datos del colaborador.
+
+model Permiso {
+  id              String    @id @db.VarChar(50)
+  colaboradorId   String    @map("colaborador_id") @db.VarChar(50)
+  // Snapshot de datos del colaborador al momento de la solicitud
+  nombreSolicitante String  @map("nombre_solicitante")
+  cargo            String?
+  ci              String?   @db.VarChar(20)
+  departamento     String?
+  jefeInmediato    String?  @map("jefe_inmediato") @db.VarChar(100)
+  // Datos de la solicitud
+  tipoPermiso      String    @map("tipo_permiso") @db.VarChar(100)
+  motivo           String?  @db.Text
+  // Tiempo a usufructuar
+  modoTiempo       String    @default("horas") @map("modo_tiempo") @db.VarChar(10) // "horas" | "dias"
+  horaInicio       String?   @map("hora_inicio") @db.VarChar(5)
+  horaFin          String?   @map("hora_fin") @db.VarChar(5)
+  fechaHora        DateTime? @map("fecha_hora")
+  fechaDesde       DateTime? @map("fecha_desde")
+  fechaHasta       DateTime? @map("fecha_hasta")
+  // Flujo de aprobación
+  estado           String    @default("Pendiente") @db.VarChar(20) // Pendiente | AprobadoJefe | Aprobado | Rechazado
+  // Jefe inmediato
+  jefeDecision     String?   @map("jefe_decision") @db.VarChar(20) // null | "Aprobado" | "Rechazado"
+  jefeComentario   String?   @map("jefe_comentario") @db.Text
+  jefeFecha       DateTime?  @map("jefe_fecha")
+  // RR.HH.
+  rrhhDecision    String?   @map("rrhh_decision") @db.VarChar(20) // null | "Aprobado" | "Rechazado"
+  rrhhComentario   String?   @map("rrhh_comentario") @db.Text
+  rrhhDescontarSalario Boolean? @map("rrhh_descontar_salario")
+  rrhhFecha       DateTime?  @map("rrhh_fecha")
+  // Quién creó la solicitud
+  creadoPor        String    @map("creado_por") @db.VarChar(50)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  colaborador Colaborador @relation(fields: [colaboradorId], references: [id], onDelete: Cascade)
+
+  @@index([colaboradorId])
+  @@index([estado])
+  @@index([createdAt(sort: Desc)])
+  @@map("permisos")
 }
 
 model Registro {
@@ -89,17 +144,32 @@ model Registro {
   total             Decimal     @db.Decimal(15, 2)
   origen            Origen      @default(MANUAL)
   fechaImportacion  DateTime?   @map("fecha_importacion")
+  
+  // Campos de Costeo de Insumos y Prorrateo
+  modoInsumo            String?   @map("modo_insumo") @db.VarChar(30) // UNIDAD | METRO | DIMENSION | PORCENTAJE | FACTURA
+  anchoCm               Decimal?  @map("ancho_cm") @db.Decimal(10, 2)
+  altoCm                Decimal?  @map("alto_cm") @db.Decimal(10, 2)
+  desperdicioCalculado  Boolean?  @default(false) @map("desperdicio_calculado")
+  porcentajeUsado       Decimal?  @map("porcentaje_usado") @db.Decimal(5, 2)
+  facturaCompraId       String?   @map("factura_compra_id") @db.VarChar(50)
+  prorrateoGrupoId      String?   @map("prorrateo_grupo_id") @db.VarChar(50)
+  porcentajeProrrateo   Decimal?  @map("porcentaje_prorrateo") @db.Decimal(5, 2)
+
   createdAt         DateTime    @default(now()) @map("created_at")
   updatedAt         DateTime    @updatedAt @map("updated_at")
 
-  cliente      Cliente      @relation(fields: [clienteId], references: [id])
-  proyecto     Proyecto     @relation(fields: [proyectoId], references: [id])
-  colaborador  Colaborador? @relation(fields: [colaboradorId], references: [id])
-  pedido       Pedido?
+  cliente        Cliente        @relation(fields: [clienteId], references: [id])
+  proyecto       Proyecto       @relation(fields: [proyectoId], references: [id])
+  colaborador    Colaborador?   @relation(fields: [colaboradorId], references: [id])
+  pedido         Pedido?
+  presupuesto    Presupuesto?
+  facturaCompra  FacturaCompra? @relation(fields: [facturaCompraId], references: [id], onDelete: SetNull)
 
   @@index([clienteId])
   @@index([proyectoId])
   @@index([fecha(sort: Desc)])
+  @@index([facturaCompraId])
+  @@index([prorrateoGrupoId])
   @@map("registros")
 }
 
@@ -119,18 +189,177 @@ model Pedido {
   fechaFin        DateTime? @map("fecha_fin")
   facturaNumero   String?   @map("factura_numero") @db.VarChar(30)
   registroId      String?   @unique @map("registro_id") @db.VarChar(50)
+
+  // Campos enriquecidos del pedido (cargados por el cliente en el portal)
+  contacto             String?   @db.VarChar(200)
+  proyecto             String?   @db.VarChar(200)
+  fechaInicioDeseada   DateTime? @map("fecha_inicio_deseada")
+  fechaTope            DateTime? @map("fecha_tope")
+  comentarioCliente    String?   @map("comentario_cliente") @db.Text
+
+  // Campos de Remisión y Entrega (POD - Proof of Delivery)
+  fotoRemisionUrl      String?   @map("foto_remision_url") @db.Text
+  fotoEntregaUrl       String?   @map("foto_entrega_url") @db.Text
+  fechaEntrega         DateTime? @map("fecha_entrega")
+  receptorNombre       String?   @map("receptor_nombre") @db.VarChar(100)
+
+  archivado       Boolean   @default(false) @map("archivado")
+  archivadoAt     DateTime? @map("archivado_at")
+
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  cliente   Cliente    @relation(fields: [clienteId], references: [id])
-  sucursal  Sucursal   @relation(fields: [sucursalId], references: [id])
-  registro  Registro?  @relation(fields: [registroId], references: [id])
+  cliente       Cliente        @relation(fields: [clienteId], references: [id])
+  sucursal      Sucursal       @relation(fields: [sucursalId], references: [id])
+  registro      Registro?      @relation(fields: [registroId], references: [id])
+  presupuestos  Presupuesto[]
 
   @@index([clienteId])
   @@index([sucursalId])
   @@index([estado])
   @@index([fechaSolicitud(sort: Desc)])
   @@map("pedidos")
+}
+
+// ─── Presupuestos (cotización de aFull al cliente, dentro del portal) ───
+
+model Presupuesto {
+  id                String    @id @db.VarChar(50)
+  pedidoId          String    @map("pedido_id") @db.VarChar(50)
+  clienteId         String    @map("cliente_id") @db.VarChar(50)
+  clienteNombre     String    @map("cliente_nombre")
+  proyecto          String    @db.VarChar(200)
+  contacto          String?   @db.VarChar(200)
+  fechaInicio       DateTime? @map("fecha_inicio")
+  fechaTope         DateTime? @map("fecha_tope")
+  estado            String    @default("Borrador") @db.VarChar(30)
+  total             Decimal   @db.Decimal(15, 2)
+  markup            Decimal   @default(0.35) @db.Decimal(5, 2)
+  costoTotal        Decimal?  @map("costo_total") @db.Decimal(15, 2)
+  venta1            Decimal?  @map("venta_1") @db.Decimal(15, 2)
+  venta2            Decimal?  @map("venta_2") @db.Decimal(15, 2)
+  comentarioCliente String?   @map("comentario_cliente") @db.Text
+  respuestaCliente  String?   @map("respuesta_cliente") @db.Text
+  fotos             String[] @default([])
+  fechaEnvio        DateTime? @map("fecha_envio")
+  fechaRespuesta    DateTime? @map("fecha_respuesta")
+  registroId        String?   @unique @map("registro_id") @db.VarChar(50)
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  pedido       Pedido           @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  cliente      Cliente          @relation(fields: [clienteId], references: [id])
+  items        PresupuestoItem[]
+  registro     Registro?        @relation(fields: [registroId], references: [id])
+  ordenTrabajo OrdenTrabajo?
+
+  @@index([clienteId])
+  @@index([pedidoId])
+  @@index([estado])
+  @@map("presupuestos")
+}
+
+// ─── Orden de Trabajo (OT) generada a partir de un presupuesto aprobado ───
+
+model OrdenTrabajo {
+  id              String    @id @db.VarChar(50)
+  presupuestoId   String    @unique @map("presupuesto_id") @db.VarChar(50)
+  clienteId       String    @map("cliente_id") @db.VarChar(50)
+  clienteNombre   String    @map("cliente_nombre")
+  proyecto        String    @db.VarChar(200)
+  contacto        String?   @db.VarChar(200)
+  fechaInicio     DateTime? @map("fecha_inicio")
+  fechaTope       DateTime? @map("fecha_tope")
+  detallesTrabajo String    @map("detalles_trabajo") @db.Text
+  comentarioCliente String? @map("comentario_cliente") @db.Text
+  estado          String    @default("Generada") @db.VarChar(30)
+  enviadoWhatsapp Boolean  @default(false) @map("enviado_whatsapp")
+  fechaEnvioWsp   DateTime? @map("fecha_envio_wsp")
+  mensajeWhatsapp String?   @map("mensaje_whatsapp") @db.Text
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  presupuesto Presupuesto @relation(fields: [presupuestoId], references: [id], onDelete: Cascade)
+  hojaRuta    HojaRuta?
+
+  @@index([clienteId])
+  @@index([estado])
+  @@map("ordenes_trabajo")
+}
+
+// ─── Hoja de Ruta (actividades/tareas por operario, derivada de una OT) ───
+
+model HojaRuta {
+  id              String    @id @db.VarChar(50)
+  ordenTrabajoId  String    @unique @map("orden_trabajo_id") @db.VarChar(50)
+  clienteId       String    @map("cliente_id") @db.VarChar(50)
+  clienteNombre   String    @map("cliente_nombre")
+  proyecto        String    @db.VarChar(200)
+  fecha           DateTime  @default(now())
+  estado          String    @default("Borrador") @db.VarChar(30) // Borrador / Activa / Cerrada
+  notas           String?   @db.Text
+  enviadoWhatsapp Boolean  @default(false) @map("enviado_whatsapp")
+  fechaEnvioWsp   DateTime? @map("fecha_envio_wsp")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  ordenTrabajo OrdenTrabajo   @relation(fields: [ordenTrabajoId], references: [id], onDelete: Cascade)
+  tareas       HojaRutaTarea[]
+
+  @@index([clienteId])
+  @@index([estado])
+  @@index([fecha(sort: Desc)])
+  @@map("hojas_ruta")
+}
+
+// ─── Tarea individual de una hoja de ruta, asignada a un operario ───
+
+model HojaRutaTarea {
+  id              String    @id @db.VarChar(50)
+  hojaRutaId      String    @map("hoja_ruta_id") @db.VarChar(50)
+  colaboradorId  String?   @map("colaborador_id") @db.VarChar(50)
+  operarioNombre  String    @map("operario_nombre") @db.VarChar(200) // snapshot del nombre (ej: "Edu", "Nahiat")
+  orden           Int       @default(0)
+  descripcion     String    @db.Text
+  categoria       String    @default("Otro") @db.VarChar(30) // Montaje / Instalación / Logística / Diseño / Otro
+  cantidad        Decimal?  @db.Decimal(10, 4)
+  unidad          String?   @db.VarChar(20) // ej: "u", "m2", "h"
+  estado          String    @default("Pendiente") @db.VarChar(30) // Pendiente / EnProgreso / Completada / Omitida
+  fechaAsignada   DateTime  @default(now()) @map("fecha_asignada")
+  fechaInicio     DateTime? @map("fecha_inicio")
+  fechaFin        DateTime? @map("fecha_fin")
+  notasOperario   String?   @map("notas_operario") @db.Text
+  fotoUrl         String?   @map("foto_url") @db.Text
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  hojaRuta    HojaRuta     @relation(fields: [hojaRutaId], references: [id], onDelete: Cascade)
+  colaborador Colaborador? @relation(fields: [colaboradorId], references: [id], onDelete: SetNull)
+
+  @@index([hojaRutaId])
+  @@index([colaboradorId])
+  @@index([estado])
+  @@index([fechaAsignada(sort: Desc)])
+  @@map("hojas_ruta_tareas")
+}
+
+model PresupuestoItem {
+  id             String   @id @db.VarChar(50)
+  presupuestoId  String   @map("presupuesto_id") @db.VarChar(50)
+  descripcion    String
+  cantidad       Decimal  @db.Decimal(10, 4)
+  precioUnitario Decimal @map("precio_unitario") @db.Decimal(15, 2)
+  total          Decimal  @db.Decimal(15, 2)
+  orden          Int      @default(0)
+  categoria      String   @default("Insumo") @db.VarChar(30)
+  horas          Decimal? @db.Decimal(10, 2)
+  tarifa         Decimal? @db.Decimal(15, 2)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  presupuesto Presupuesto @relation(fields: [presupuestoId], references: [id], onDelete: Cascade)
+
+  @@index([presupuestoId])
+  @@map("presupuesto_items")
 }
 
 model RegistroVehiculo {
@@ -186,6 +415,7 @@ model TimerActivo {
   pauseHistory        Json      @default("[]") @map("pause_history")
   isPaused            Boolean   @default(false) @map("is_paused")
   currentPauseStart   DateTime? @map("current_pause_start")
+  currentPauseType    String?   @map("current_pause_type") @db.VarChar(20)
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
@@ -239,12 +469,44 @@ model Marcacion {
   ip              String?   @db.VarChar(45)
   dispositivoHash String?   @map("dispositivo_hash") @db.VarChar(64)
   userAgent       String?   @map("user_agent") @db.Text
-  origen          String    @default("APP") @db.VarChar(10)
+  origen          String    @default("APP") @db.VarChar(10) // APP | REMOTO | HOJA_RUTA
+  motivoRemoto    String?   @map("motivo_remoto") @db.VarChar(200) // motivo cuando origen=REMOTO
+  hojaRutaId      String?   @map("hoja_ruta_id") @db.VarChar(50) // si fue replicada de una hoja de ruta
+  marcadoPor      String?   @map("marcado_por") @db.VarChar(50) // usuario que marcó (si fue replicada)
   createdAt       DateTime  @default(now()) @map("created_at")
 
   @@index([usuario, timestamp(sort: Desc)])
   @@index([usuario, tipo])
+  @@index([hojaRutaId])
   @@map("marcaciones")
+}
+
+model HojaRutaMarcacion {
+  id          String   @id @default(cuid())
+  nombre      String   @db.VarChar(200)
+  descripcion String?  @db.Text
+  estado      String   @default("ACTIVA") @db.VarChar(20) // ACTIVA | CERRADA | CANCELADA
+  creadaPor   String   @map("creada_por") @db.VarChar(50)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  operarios   HojaRutaMarcacionOperario[]
+
+  @@map("hojas_ruta_marcacion")
+}
+
+model HojaRutaMarcacionOperario {
+  id          String   @id @default(cuid())
+  hojaRutaId  String   @map("hoja_ruta_id") @db.VarChar(50)
+  usuario     String   @db.VarChar(50)
+  rol         String   @default("OPERARIO") @db.VarChar(20) // CONDUCTOR | OPERARIO
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  hojaRuta    HojaRutaMarcacion @relation(fields: [hojaRutaId], references: [id], onDelete: Cascade)
+
+  @@unique([hojaRutaId, usuario])
+  @@index([hojaRutaId])
+  @@index([usuario])
+  @@map("hoja_ruta_marcacion_operarios")
 }
 
 model AuditEvent {
@@ -273,6 +535,103 @@ model GeocercaConfig {
   createdAt   DateTime @default(now()) @map("created_at")
 
   @@map("geocerca_config")
+}
+
+// ─── Cartera de Clientes (módulo separado del Cliente operativo) ─────
+
+model CarteraCliente {
+  id        String   @id @db.VarChar(50)
+  nombre    String
+  ruc       String?  @unique @db.VarChar(20)
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  contactos CarteraContacto[]
+  marcas    CarteraMarca[]
+
+  @@map("cartera_clientes")
+}
+
+model CarteraContacto {
+  id        String   @id @db.VarChar(50)
+  clienteId String   @map("cliente_id") @db.VarChar(50)
+  nombre    String
+  cargo     String?  @db.VarChar(100)
+  telefono  String?  @db.VarChar(50)
+  email     String?  @db.VarChar(255)
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cliente CarteraCliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@index([clienteId])
+  @@map("cartera_contactos")
+}
+
+model CarteraMarca {
+  id        String   @id @db.VarChar(50)
+  clienteId String   @map("cliente_id") @db.VarChar(50)
+  nombre    String   @db.VarChar(100)
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cliente CarteraCliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@index([clienteId])
+  @@map("cartera_marcas")
+}
+
+// ─── Catálogo de Insumos de Taller y Producción ──────────────────────
+// Permite gestión CRUD directa desde la interfaz sin depender de Excel.
+model Insumo {
+  id               String   @id @db.VarChar(50)
+  codigo           String?  @unique @db.VarChar(50)
+  nombre           String   @db.VarChar(255)
+  categoria        String   @db.VarChar(100)
+  proveedor        String?  @db.VarChar(100)
+  unidad           String   @default("m2") @db.VarChar(50)
+  costo            Decimal  @db.Decimal(15, 2)
+  costoDesperdicio Decimal? @map("costo_desperdicio") @db.Decimal(15, 2)
+  esLona           Boolean  @default(false) @map("es_lona")
+  esImpresion      Boolean  @default(false) @map("es_impresion")
+  anchoEstandar    Decimal? @map("ancho_estandar") @db.Decimal(10, 2)
+  altoEstandar     Decimal? @map("alto_estandar") @db.Decimal(10, 2)
+  activo           Boolean  @default(true)
+  notas            String?  @db.Text
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([categoria])
+  @@index([nombre])
+  @@index([activo])
+  @@map("insumos")
+}
+
+// ─── Facturas de Compra de Insumos (Materiales / Ferretería) ────────
+// Permite ingresar compras y luego imputar su consumo fraccionado a clientes.
+model FacturaCompra {
+  id               String    @id @db.VarChar(50)
+  facturaNumero    String    @map("factura_numero") @db.VarChar(50)
+  proveedor        String    @db.VarChar(100)
+  fecha            DateTime  @default(now())
+  descripcion      String    @db.VarChar(255)
+  cantidadComprada Decimal   @map("cantidad_comprada") @db.Decimal(10, 4)
+  cantidadUsada    Decimal   @default(0) @map("cantidad_usada") @db.Decimal(10, 4)
+  unidad           String    @default("u") @db.VarChar(30)
+  precioUnitario   Decimal   @map("precio_unitario") @db.Decimal(15, 2)
+  total            Decimal   @db.Decimal(15, 2)
+  notas            String?   @db.Text
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  registros        Registro[]
+
+  @@index([proveedor])
+  @@index([facturaNumero])
+  @@map("facturas_compra")
 }
 
 enum EstadoProyecto {

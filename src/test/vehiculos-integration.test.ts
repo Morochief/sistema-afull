@@ -31,15 +31,26 @@ describe('Vehicles API Integration (Supertest)', () => {
     // Get CSRF and session
     const csrfRes = await request(app).get('/api/csrf-token');
     csrfToken = csrfRes.body.data.csrfToken;
-    const rawCookies = csrfRes.headers['set-cookie'] || [];
+    const rawCookies = (csrfRes.headers['set-cookie'] || []) as string[];
     const sessionCookieMatch = rawCookies.find((c: string) => c.startsWith('sessionId='));
     sessionCookie = sessionCookieMatch ? sessionCookieMatch.split(';')[0] : '';
 
-    // Fetch existing client & project to link
-    const cli = await prisma.cliente.findFirst();
-    testClientId = cli ? cli.id : 'cli_default';
-    const proj = await prisma.proyecto.findFirst({ where: { clienteId: testClientId } });
-    testProyectoId = proj ? proj.id : 'proj_default';
+    // Fetch or create client & project to link
+    let cli = await prisma.cliente.findFirst();
+    if (!cli) {
+      cli = await prisma.cliente.create({
+        data: { id: 'cli_veh_test', codigo: 'CLI_VEH_TEST', nombre: 'Cliente Test Vehículo' }
+      });
+    }
+    testClientId = cli.id;
+
+    let proj = await prisma.proyecto.findFirst({ where: { clienteId: testClientId } });
+    if (!proj) {
+      proj = await prisma.proyecto.create({
+        data: { id: 'pro_veh_test', nombre: 'Proyecto Test Vehículo', clienteId: testClientId, fechaInicio: new Date() }
+      });
+    }
+    testProyectoId = proj.id;
 
     // Clean up any lingering active trip for 'admin' to prevent VIAJE_ACTIVO error
     await prisma.viajeActivo.deleteMany({ where: { usuario: 'admin' } });

@@ -126,13 +126,13 @@ export default function VehiculosAnalysis({ data }: VehiculosAnalysisProps) {
     <div className="space-y-6">
       
       {/* SECCIÓN DE FILTROS */}
-      <div className="glass-panel rounded-3xl p-6">
+      <div className="glass-panel rounded-md p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-cyan-400" />
+            <Filter className="w-5 h-5 text-amber-400" />
             <h3 className="text-lg font-semibold text-white">Filtros de Análisis</h3>
             {hasActiveFilters && (
-              <span className="text-xs font-mono bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 px-2 py-1 rounded">
+              <span className="text-xs font-mono bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2 py-1 rounded">
                 Activos
               </span>
             )}
@@ -159,7 +159,7 @@ export default function VehiculosAnalysis({ data }: VehiculosAnalysisProps) {
               type="date"
               value={filtroFechaDesde}
               onChange={(e) => setFiltroFechaDesde(e.target.value)}
-              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500/50"
+              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50"
             />
           </div>
 
@@ -172,7 +172,7 @@ export default function VehiculosAnalysis({ data }: VehiculosAnalysisProps) {
               type="date"
               value={filtroFechaHasta}
               onChange={(e) => setFiltroFechaHasta(e.target.value)}
-              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500/50"
+              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50"
             />
           </div>
 
@@ -184,7 +184,7 @@ export default function VehiculosAnalysis({ data }: VehiculosAnalysisProps) {
             <select
               value={filtroProyecto}
               onChange={(e) => setFiltroProyecto(e.target.value)}
-              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500/50"
+              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50"
             >
               <option value="">Todos</option>
               {proyectosUnicos.map(p => (
@@ -201,7 +201,7 @@ export default function VehiculosAnalysis({ data }: VehiculosAnalysisProps) {
             <select
               value={filtroUsuario}
               onChange={(e) => setFiltroUsuario(e.target.value)}
-              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500/50"
+              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50"
             >
               <option value="">Todos</option>
               {usuariosUnicos.map(u => (
@@ -218,7 +218,7 @@ export default function VehiculosAnalysis({ data }: VehiculosAnalysisProps) {
             <select
               value={filtroAlerta}
               onChange={(e) => setFiltroAlerta(e.target.value as any)}
-              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500/50"
+              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50"
             >
               <option value="todos">Todos</option>
               <option value="con-alerta">Con Alerta</option>
@@ -232,31 +232,31 @@ export default function VehiculosAnalysis({ data }: VehiculosAnalysisProps) {
       {/* MÉTRICAS PRINCIPALES */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        <div className="glass-panel rounded-2xl p-4">
+        <div className="glass-panel rounded-md p-4">
           <div className="flex items-center justify-between mb-2">
-            <Fuel className="w-5 h-5 text-cyan-400" />
+            <Fuel className="w-5 h-5 text-amber-400" />
             <span className="text-xs font-mono text-slate-500">{metrics.totalViajes} viajes</span>
           </div>
           <p className="text-xs text-slate-400 mb-1">Costo/km Promedio</p>
           <p className="text-2xl font-bold text-white">{formatGuaranies(metrics.promedioCostoPorKm)}</p>
-          <p className="text-xs text-cyan-400 mt-1">
+          <p className="text-xs text-amber-400 mt-1">
             {metrics.promedioCostoPorKm > 0 ? `${formatGuaranies(metrics.promedioCostoPorKm)}/km` : 'Sin datos'}
           </p>
         </div>
 
-        <div className="glass-panel rounded-2xl p-4">
+        <div className="glass-panel rounded-md p-4">
           <div className="flex items-center justify-between mb-2">
-            <DollarSign className="w-5 h-5 text-blue-400" />
+            <DollarSign className="w-5 h-5 text-orange-400" />
             <span className="text-xs font-mono text-slate-500">{metrics.totalViajes} viajes</span>
           </div>
           <p className="text-xs text-slate-400 mb-1">Gasto Total</p>
           <p className="text-2xl font-bold text-white">{formatGuaranies(metrics.totalGasto)}</p>
-          <p className="text-xs text-blue-400 mt-1">
+          <p className="text-xs text-orange-400 mt-1">
             {metrics.promedioCostoPorKm > 0 ? `${formatGuaranies(metrics.promedioCostoPorKm)}/km` : 'Sin datos'}
           </p>
         </div>
 
-        <div className="glass-panel rounded-2xl p-4">
+        <div className="glass-panel rounded-md p-4">
           <div className="flex items-center justify-between mb-2">
             <Gauge className="w-5 h-5 text-pink-400" />
             <span className="text-xs font-mono text-slate-500">{metrics.totalViajes} viajes</span>
@@ -268,7 +268,7 @@ export default function VehiculosAnalysis({ data }: VehiculosAnalysisProps) {
           </p>
         </div>
 
-        <div className="glass-panel rounded-2xl p-4">
+        <div className="glass-panel rounded-md p-4">
           <div className="flex items-center justify-between mb-2">
             <AlertTriangle className={`w-5 h-5 ${metrics.totalAlertas > 0 ? 'text-orange-400' : 'text-emerald-400'}`} />
             <span className="text-xs font-mono text-slate-500">{metrics.totalViajes} viajes</span>
@@ -284,12 +284,12 @@ export default function VehiculosAnalysis({ data }: VehiculosAnalysisProps) {
 
       {/* Mensaje si no hay datos filtrados */}
       {registrosFiltrados.length === 0 && (
-        <div className="glass-panel rounded-2xl p-12 text-center">
+        <div className="glass-panel rounded-md p-12 text-center">
           <Filter className="w-12 h-12 text-slate-600 mx-auto mb-4" />
           <p className="text-slate-400">No hay registros que coincidan con los filtros aplicados</p>
           <button
             onClick={clearFilters}
-            className="mt-4 px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 rounded-lg text-sm transition-all"
+            className="mt-4 px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded-lg text-sm transition-all"
           >
             Limpiar Filtros
           </button>
@@ -298,7 +298,7 @@ export default function VehiculosAnalysis({ data }: VehiculosAnalysisProps) {
 
       {/* TODO: Agregar gráficos en Fase 3 */}
       {registrosFiltrados.length > 0 && (
-        <div className="glass-panel rounded-2xl p-6 text-center text-slate-400">
+        <div className="glass-panel rounded-md p-6 text-center text-slate-400">
           <p>Gráficos y tabla detallada - próximamente en Fase 3</p>
         </div>
       )}

@@ -141,7 +141,7 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
       clienteId: registro.clienteId,
       proyectoId: registro.proyectoId,
       fecha: registro.fecha,
-      concepto: registro.concepto,
+      concepto: (registro.concepto === 'MO' ? 'MO' : 'Insumo') as 'MO' | 'Insumo',
       descripcion: registro.descripcion,
       cantidad: registro.cantidad.toString(),
       cantidadDisplay: cantidadDisplay,
@@ -1048,13 +1048,13 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[700px]">
+        <div className="overflow-x-auto rounded-xl border border-white/10 bg-[#0d0f14]/80 backdrop-blur-sm shadow-xl">
+          <table className="w-full text-left border-collapse min-w-[1150px]">
             <thead>
-              <tr className="border-b border-white/5 text-slate-400 text-xs uppercase font-mono tracking-wider">
+              <tr className="border-b border-white/10 bg-[#090a0f] text-slate-400 text-xs uppercase font-mono tracking-wider">
                 {/* FASE 4: Header Concepto - Ordenable */}
                 <th 
-                  className="pb-3 font-medium cursor-pointer select-none hover:text-slate-200 transition-colors group"
+                  className="px-4 py-3.5 font-medium cursor-pointer select-none hover:text-slate-200 transition-colors group whitespace-nowrap w-[120px]"
                   onClick={() => handleSort('concepto')}
                   aria-sort={sortField === 'concepto' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'}
                 >
@@ -1062,19 +1062,19 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
                     <span>Concepto</span>
                     {sortField === 'concepto' ? (
                       sortOrder === 'asc' ? (
-                        <ArrowUp className="w-3.5 h-3.5 text-blue-400" />
+                        <ArrowUp className="w-3.5 h-3.5 text-orange-400" />
                       ) : (
-                        <ArrowDown className="w-3.5 h-3.5 text-blue-400" />
+                        <ArrowDown className="w-3.5 h-3.5 text-orange-400" />
                       )
                     ) : (
-                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-500 group-hover:text-blue-400 transition-colors" />
+                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-500 group-hover:text-orange-400 transition-colors" />
                     )}
                   </div>
                 </th>
 
                 {/* FASE 4: Header Cliente/Proyecto - Ordenable */}
                 <th 
-                  className="pb-3 font-medium cursor-pointer select-none hover:text-slate-200 transition-colors group"
+                  className="px-4 py-3.5 font-medium cursor-pointer select-none hover:text-slate-200 transition-colors group min-w-[200px]"
                   onClick={() => handleSort('clienteNombre')}
                   aria-sort={sortField === 'clienteNombre' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'}
                 >
@@ -1086,7 +1086,7 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
 
                 {/* FASE 4: Header Fecha - Ordenable */}
                 <th 
-                  className="pb-3 font-medium cursor-pointer select-none hover:text-slate-200 transition-colors group"
+                  className="px-4 py-3.5 font-medium cursor-pointer select-none hover:text-slate-200 transition-colors group whitespace-nowrap w-[130px]"
                   onClick={() => handleSort('fecha')}
                   aria-sort={sortField === 'fecha' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'}
                 >
@@ -1097,11 +1097,11 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
                 </th>
 
                 {/* Header Descripción - NO Ordenable */}
-                <th className="pb-3 font-medium">Descripción / Detalle</th>
+                <th className="px-4 py-3.5 font-medium min-w-[280px]">Descripción / Detalle</th>
 
                 {/* FASE 4: Header Cant/Horas - Ordenable */}
                 <th 
-                  className="pb-3 font-medium text-right cursor-pointer select-none hover:text-slate-200 transition-colors group"
+                  className="px-4 py-3.5 font-medium text-right cursor-pointer select-none hover:text-slate-200 transition-colors group whitespace-nowrap w-[130px]"
                   onClick={() => handleSort('cantidad')}
                   aria-sort={sortField === 'cantidad' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'}
                 >
@@ -1113,7 +1113,7 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
 
                 {/* FASE 4: Header P. Unitario - Ordenable */}
                 <th 
-                  className="pb-3 font-medium text-right cursor-pointer select-none hover:text-slate-200 transition-colors group"
+                  className="px-4 py-3.5 font-medium text-right cursor-pointer select-none hover:text-slate-200 transition-colors group whitespace-nowrap w-[140px]"
                   onClick={() => handleSort('precioUnitario')}
                   aria-sort={sortField === 'precioUnitario' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'}
                 >
@@ -1125,7 +1125,7 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
 
                 {/* FASE 4: Header Total - Ordenable */}
                 <th 
-                  className="pb-3 font-medium text-right cursor-pointer select-none hover:text-slate-200 transition-colors group"
+                  className="px-4 py-3.5 font-medium text-right cursor-pointer select-none hover:text-slate-200 transition-colors group whitespace-nowrap w-[150px]"
                   onClick={() => handleSort('total')}
                   aria-sort={sortField === 'total' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'}
                 >
@@ -1136,16 +1136,16 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
                 </th>
 
                 {/* Header Origen - NO Ordenable */}
-                <th className="pb-3 font-medium text-center">Origen</th>
+                <th className="px-4 py-3.5 font-medium text-center whitespace-nowrap w-[90px]">Origen</th>
 
                 {/* Header Acciones - NO Ordenable */}
-                <th className="pb-3 font-medium text-center">Acciones</th>
+                <th className="px-4 py-3.5 font-medium text-center whitespace-nowrap w-[170px]">Acciones</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-white/5 font-sans">
               {paginatedRegistros.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-slate-500 text-sm font-mono">
+                  <td colSpan={9} className="px-4 py-12 text-center text-slate-500 text-sm font-mono">
                     {hasActiveFilters 
                       ? '🔍 No se encontraron registros con los filtros aplicados. Intenta ajustar los criterios.'
                       : 'Ningún registro en el historial. ¡Importe un archivo Excel o agregue manualmente!'
@@ -1154,35 +1154,38 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
                 </tr>
               ) : (
                 paginatedRegistros.map((reg) => (
-                  <tr key={reg.id} className="border-b border-white/5 hover:bg-white/2 text-sm transition-colors admin-row">
-                    <td className="py-4">
-                      <span className={`inline-block px-2.5 py-1 rounded-md text-xs font-mono font-semibold ${
+                  <tr key={reg.id} className="hover:bg-white/[0.03] text-sm transition-colors admin-row">
+                    <td className="px-4 py-3.5 whitespace-nowrap align-middle">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-mono font-semibold ${
                         reg.concepto === 'MO' 
-                          ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20' 
+                          ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' 
                           : reg.concepto === 'Vehículo'
-                          ? 'bg-pink-500/10 text-pink-300 border border-pink-500/20'
-                          : 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/20'
+                          ? 'bg-pink-500/10 text-pink-400 border border-pink-500/20'
+                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                       }`}>
                         {reg.concepto}
                       </span>
                     </td>
-                    <td className="py-4">
-                      <div className="font-sans font-medium text-white truncate max-w-[200px]" title={reg.clienteNombre}>
+                    <td className="px-4 py-3.5 align-middle min-w-[200px]">
+                      <div className="font-semibold text-white text-xs leading-snug line-clamp-1" title={reg.clienteNombre}>
                         {reg.clienteNombre}
                       </div>
-                      <div className="text-xs text-slate-400 truncate max-w-[200px]" title={reg.proyectoNombre}>
+                      <div className="text-[11px] text-slate-400 leading-snug flex items-center gap-1 mt-0.5 line-clamp-1" title={reg.proyectoNombre}>
+                        <span className="text-slate-600">↳</span>
                         {reg.proyectoNombre}
                       </div>
                     </td>
-                    <td className="py-4 text-xs font-mono text-slate-300">
-                      {reg.fecha ? reg.fecha.split('-').reverse().join('/') : '-'}
+                    <td className="px-4 py-3.5 whitespace-nowrap align-middle">
+                      <span className="inline-block text-xs font-mono text-slate-300 bg-white/[0.03] px-2.5 py-1 rounded border border-white/5">
+                        {reg.fecha ? reg.fecha.split('-').reverse().join('/') : '-'}
+                      </span>
                     </td>
-                    <td className="py-4">
-                      <p className="text-slate-300 font-sans break-all max-w-[280px]" title={reg.descripcion}>
+                    <td className="px-4 py-3.5 align-middle min-w-[280px]">
+                      <p className="text-xs text-slate-200 leading-relaxed break-words line-clamp-2 hover:line-clamp-none transition-all cursor-default" title={reg.descripcion}>
                         {reg.descripcion}
                       </p>
                     </td>
-                    <td className="py-4 text-right font-mono text-slate-300">
+                    <td className="px-4 py-3.5 text-right whitespace-nowrap font-mono text-xs text-slate-300 font-medium align-middle">
                       {reg.concepto === 'MO' && reg.cantidad 
                         ? formatMinutosToHHMM(reg.cantidad)
                         : reg.concepto === 'Vehículo'
@@ -1190,13 +1193,13 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
                         : Number(reg.cantidad).toLocaleString('es-PY', { minimumFractionDigits: 0, maximumFractionDigits: 4 })
                       }
                     </td>
-                    <td className="py-4 text-right font-mono text-slate-300">
+                    <td className="px-4 py-3.5 text-right whitespace-nowrap font-mono text-xs text-slate-300 align-middle">
                       {formatGuaranies(reg.precioUnitario)}
                     </td>
-                    <td className="py-4 text-right font-mono text-white font-semibold">
+                    <td className="px-4 py-3.5 text-right whitespace-nowrap font-mono text-xs text-white font-bold align-middle">
                       {formatGuaranies(reg.total)}
                     </td>
-                    <td className="py-4 text-center">
+                    <td className="px-4 py-3.5 text-center whitespace-nowrap align-middle">
                       <span className={`inline-block text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded-full ${
                         reg.origen === 'Excel' 
                           ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20' 
@@ -1205,8 +1208,8 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
                         {reg.origen}
                       </span>
                     </td>
-                    <td className="py-4 text-center">
-                      <div className="flex items-center justify-center gap-2">
+                    <td className="px-4 py-3.5 text-center whitespace-nowrap align-middle">
+                      <div className="flex items-center justify-center gap-1.5">
                         <button 
                           onClick={() => {
                             if (reg.concepto === 'Vehículo' && onNavigateToVehicleEdit) {
@@ -1215,21 +1218,20 @@ export default function Dashboard({ data, onNavigateImport, onDeleteRegistro, on
                               handleOpenEditModal(reg);
                             }
                           }}
-                          className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-orange-500/30 bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 text-xs font-semibold transition cursor-pointer"
                           title={reg.concepto === 'Vehículo' ? 'Ir al módulo de vehículos para editar' : 'Editar este registro'}
                           aria-label={`Editar registro de ${reg.concepto} - ${reg.proyectoNombre}`}
                         >
-                          <Edit className="w-3 h-3" />
-                          Editar
+                          <Edit className="w-3.5 h-3.5" />
+                          <span>Editar</span>
                         </button>
-                        <span className="text-slate-600">|</span>
                         <button 
                           onClick={() => onDeleteRegistro(reg.id)}
-                          className="text-xs text-rose-400 hover:text-rose-300 hover:underline cursor-pointer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 text-xs font-medium transition cursor-pointer"
                           title="Eliminar este ítem"
                           aria-label={`Eliminar registro de ${reg.concepto} - ${reg.proyectoNombre}`}
                         >
-                          Remover
+                          <span>Remover</span>
                         </button>
                       </div>
                     </td>

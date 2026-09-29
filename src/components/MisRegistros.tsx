@@ -83,9 +83,9 @@ function formatTime(timeStr?: string): string {
 function getConceptoBadge(concepto: string) {
   switch (concepto) {
     case 'MO':
-      return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+      return 'bg-orange-500/20 text-orange-300 border-orange-500/30';
     case 'Insumo':
-      return 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30';
+      return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
     case 'Otros':
       return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
     default:
@@ -266,14 +266,14 @@ function EditModal({
             className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
           >
             <div 
-              className="glass-panel rounded-3xl p-6 max-w-2xl w-full pointer-events-auto border-2 border-white/10 shadow-2xl"
+              className="glass-panel rounded-md p-6 max-w-2xl w-full pointer-events-auto border-2 border-white/10 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-blue-500/20 border border-blue-500/30">
-                    <Edit2 className="w-5 h-5 text-blue-300" />
+                  <div className="p-2.5 rounded-md bg-orange-500/20 border border-orange-500/30">
+                    <Edit2 className="w-5 h-5 text-orange-300" />
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-white">Editar Registro</h2>
@@ -414,7 +414,7 @@ function EditModal({
                   type="button"
                   onClick={onSubmit}
                   disabled={isSubmitting}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/25"
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
                 >
                   {isSubmitting ? (
                     <>
@@ -467,7 +467,7 @@ const RegistroCard = React.memo<RegistroCardProps>(({ registro, onEdit, showPric
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-      className="glass-panel rounded-xl p-5 hover:border-blue-500/30 transition-all group"
+      className="glass-panel rounded-xl p-5 hover:border-orange-500/30 transition-all group"
     >
       {/* Header: Concepto Badge + Edit Button */}
       <div className="flex items-start justify-between mb-4">
@@ -492,7 +492,7 @@ const RegistroCard = React.memo<RegistroCardProps>(({ registro, onEdit, showPric
         <button
           type="button"
           onClick={() => onEdit(registro)}
-          className="p-2 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all opacity-0 group-hover:opacity-100"
+          className="p-2 rounded-lg text-slate-400 hover:text-orange-400 hover:bg-orange-500/10 transition-all opacity-0 group-hover:opacity-100"
           title="Editar registro"
         >
           <Edit2 className="w-4 h-4" />
@@ -572,7 +572,7 @@ const RegistroVehiculoCard = React.memo<RegistroVehiculoCardProps>(({ registro, 
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       className={`glass-panel rounded-xl p-5 transition-all group ${
-        registro.alertaDiscrepancia ? 'border-2 border-amber-500/30 bg-amber-500/5' : 'hover:border-blue-500/30'
+        registro.alertaDiscrepancia ? 'border-2 border-amber-500/30 bg-amber-500/5' : 'hover:border-orange-500/30'
       }`}
     >
       {/* Header: Concepto Badge */}
@@ -580,8 +580,8 @@ const RegistroVehiculoCard = React.memo<RegistroVehiculoCardProps>(({ registro, 
         <div className="flex items-center gap-3">
           <div className={`px-3 py-1.5 rounded-lg border text-xs font-bold uppercase tracking-wide ${
             esParticular 
-              ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
-              : 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+              ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+              : 'bg-orange-500/20 text-orange-300 border-orange-500/30'
           }`}>
             <span className="flex items-center gap-1.5">
               <Car className="w-3.5 h-3.5" />
@@ -887,13 +887,13 @@ export default function MisRegistros({ data, currentUser, onRefresh }: MisRegist
             </p>
           </div>
         </div>
-        <div className="glass-panel rounded-2xl p-12 text-center">
+        <div className="glass-panel rounded-md p-12 text-center">
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
             className="w-12 h-12 mx-auto mb-4"
           >
-            <Clock className="w-12 h-12 text-blue-400" />
+            <Clock className="w-12 h-12 text-orange-400" />
           </motion.div>
           <p className="text-slate-400 text-sm">Cargando tus registros...</p>
         </div>
@@ -912,13 +912,13 @@ export default function MisRegistros({ data, currentUser, onRefresh }: MisRegist
             </h1>
           </div>
         </div>
-        <div className="glass-panel rounded-2xl p-8 text-center">
+        <div className="glass-panel rounded-md p-8 text-center">
           <AlertCircle className="w-12 h-12 text-rose-400 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">Error al cargar registros</h2>
           <p className="text-slate-400 text-sm mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all"
+            className="px-6 py-2 bg-orange-600 hover:bg-orange-500 text-white font-semibold rounded-md transition-all"
           >
             Reintentar
           </button>
@@ -959,9 +959,9 @@ export default function MisRegistros({ data, currentUser, onRefresh }: MisRegist
       </div>
 
       {/* User Info Badge */}
-      <div className="glass-panel rounded-xl p-4 flex items-center gap-3 border-2 border-blue-500/20">
-        <div className="p-3 rounded-xl bg-blue-500/20 border border-blue-500/30">
-          <User className="w-5 h-5 text-blue-300" />
+      <div className="glass-panel rounded-xl p-4 flex items-center gap-3 border-2 border-orange-500/20">
+        <div className="p-3 rounded-xl bg-orange-500/20 border border-orange-500/30">
+          <User className="w-5 h-5 text-orange-300" />
         </div>
         <div>
           <p className="text-white font-semibold">{currentUser.nombre}</p>
@@ -975,10 +975,10 @@ export default function MisRegistros({ data, currentUser, onRefresh }: MisRegist
       </div>
 
       {/* ─── FILTER BAR ─── */}
-      <div className="glass-panel rounded-2xl p-5">
+      <div className="glass-panel rounded-md p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xs font-semibold text-white flex items-center gap-2">
-            <Filter className="w-3.5 h-3.5 text-blue-400" /> Filtros
+            <Filter className="w-3.5 h-3.5 text-orange-400" /> Filtros
           </h3>
           <button
             onClick={clearFilters}
@@ -990,21 +990,21 @@ export default function MisRegistros({ data, currentUser, onRefresh }: MisRegist
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
             <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1 block">Cliente</label>
-            <select value={filterCliente} onChange={e => { setFilterCliente(e.target.value); setFilterProyecto(''); }} className="glass-select w-full rounded-xl px-3 py-2.5 text-xs">
+            <select value={filterCliente} onChange={e => { setFilterCliente(e.target.value); setFilterProyecto(''); }} className="glass-select w-full rounded-md px-3 py-2 text-xs">
               <option value="">Todos los Clientes</option>
               {data.clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </select>
           </div>
           <div>
             <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1 block">Proyecto</label>
-            <select value={filterProyecto} onChange={e => setFilterProyecto(e.target.value)} className="glass-select w-full rounded-xl px-3 py-2.5 text-xs">
+            <select value={filterProyecto} onChange={e => setFilterProyecto(e.target.value)} className="glass-select w-full rounded-md px-3 py-2 text-xs">
               <option value="">Todos los Proyectos</option>
               {data.proyectos.filter(p => !filterCliente || p.clienteId === filterCliente).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
             </select>
           </div>
           <div>
             <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1 block">Concepto</label>
-            <select value={filterConcepto} onChange={e => setFilterConcepto(e.target.value)} className="glass-select w-full rounded-xl px-3 py-2.5 text-xs">
+            <select value={filterConcepto} onChange={e => setFilterConcepto(e.target.value)} className="glass-select w-full rounded-md px-3 py-2 text-xs">
               <option value="">Todos</option>
               <option value="MO">Mano de Obra</option>
               <option value="Insumo">Insumo</option>
@@ -1015,11 +1015,11 @@ export default function MisRegistros({ data, currentUser, onRefresh }: MisRegist
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1 block">Desde</label>
-              <input type="date" value={filterFechaDesde} onChange={e => setFilterFechaDesde(e.target.value)} className="glass-select w-full rounded-xl px-3 py-2.5 text-xs" />
+              <input type="date" value={filterFechaDesde} onChange={e => setFilterFechaDesde(e.target.value)} className="glass-select w-full rounded-md px-3 py-2 text-xs" />
             </div>
             <div>
               <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1 block">Hasta</label>
-              <input type="date" value={filterFechaHasta} onChange={e => setFilterFechaHasta(e.target.value)} className="glass-select w-full rounded-xl px-3 py-2.5 text-xs" />
+              <input type="date" value={filterFechaHasta} onChange={e => setFilterFechaHasta(e.target.value)} className="glass-select w-full rounded-md px-3 py-2 text-xs" />
             </div>
           </div>
         </div>
@@ -1027,7 +1027,7 @@ export default function MisRegistros({ data, currentUser, onRefresh }: MisRegist
 
       {/* Registros agrupados por fecha */}
       {registrosPorFecha.length === 0 ? (
-        <div className="glass-panel rounded-2xl p-12 text-center">
+        <div className="glass-panel rounded-md p-12 text-center">
           <FileText className="w-16 h-16 text-slate-600 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">No tenés registros todavía</h2>
           <p className="text-slate-400 text-sm">
@@ -1110,7 +1110,7 @@ export default function MisRegistros({ data, currentUser, onRefresh }: MisRegist
                   onClick={() => setCurrentPage(page)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
                     page === currentPageSafe
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                      ? 'bg-orange-600 text-white shadow-md shadow-orange-500/20'
                       : 'bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10'
                   }`}
                 >

@@ -201,6 +201,7 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
 
     // Create a deep copy of Database State to populate
     const finalDb: DatabaseState = {
+      ...currentDb,
       clientes: [...importResult.updatedDbState.clientes],
       proyectos: [...importResult.updatedDbState.proyectos],
       colaboradores: [...importResult.updatedDbState.colaboradores],
@@ -257,7 +258,7 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
         </div>
         <button 
           onClick={onCancel}
-          className="text-sm text-slate-400 hover:text-slate-200 border border-white/10 hover:border-white/20 bg-white/5 py-2 px-4 rounded-xl transition-all cursor-pointer"
+          className="text-sm text-slate-400 hover:text-slate-200 border border-white/10 hover:border-white/20 bg-white/5 py-2 px-4 rounded-md transition-all cursor-pointer"
         >
           Volver al Panel
         </button>
@@ -271,7 +272,7 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
             key="upload_module"
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
+            exit={{ scale: 0.98, opacity: 0 }}
             className="space-y-6"
           >
             <div 
@@ -279,10 +280,10 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-3xl p-12 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
+              className={`border-2 border-dashed rounded-md p-12 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
                 isDragging 
-                  ? 'border-blue-500 bg-blue-500/10 shadow-[0_0_40px_rgba(59,130,246,0.15)]' 
-                  : 'border-white/10 bg-white/5 hover:bg-white/8 hover:border-white/25'
+                  ? 'border-orange-500 bg-orange-500/10 shadow-[0_0_40px_rgba(234,88,12,0.15)]' 
+                  : 'border-white/10 bg-[#111318] hover:bg-[#16181f] hover:border-white/25'
               }`}
             >
               <input 
@@ -293,7 +294,7 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
                 className="hidden"
               />
               
-              <div className="p-4 bg-blue-500/10 text-blue-400 rounded-2xl mb-4 border border-blue-500/20">
+              <div className="p-4 bg-orange-500/10 text-orange-400 rounded-md mb-4 border border-orange-500/20">
                 <Upload className="w-8 h-8" />
               </div>
               
@@ -308,27 +309,27 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
                 }
               </p>
               
-              <span className="text-[10px] uppercase tracking-wider font-mono bg-[#0f172a] text-blue-300 border border-blue-500/30 px-3 py-1.5 rounded-lg">
+              <span className="text-[10px] uppercase tracking-wider font-mono bg-[#090a0f] text-orange-300 border border-orange-500/30 px-3 py-1.5 rounded-md">
                 Soporta formato nativo Excel
               </span>
             </div>
 
             {/* Instruction Bento Guide */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="glass-panel p-5 rounded-2xl space-y-2">
-                <div className="text-blue-400 mb-2 font-mono text-xs">COLUMNAS DE ORIGEN</div>
+              <div className="glass-panel p-5 rounded-md space-y-2">
+                <div className="text-orange-400 mb-2 font-mono text-xs">COLUMNAS DE ORIGEN</div>
                 <p className="text-xs text-slate-300">
-                  La planilla mapea automáticamente las columnas de <code className="text-blue-300 bg-white/5 px-1 rounded">Cliente</code>, <code className="text-blue-300 bg-white/5 px-1 rounded">Proyecto</code>, <code className="text-blue-300 bg-white/5 px-1 rounded">Descripción</code>, <code className="text-blue-300 bg-white/5 px-1 rounded">Precio Unitario</code>, y <code className="text-blue-300 bg-white/5 px-1 rounded">Cantidad</code>.
+                  La planilla mapea automáticamente las columnas de <code className="text-orange-300 bg-white/5 px-1 rounded">Cliente</code>, <code className="text-orange-300 bg-white/5 px-1 rounded">Proyecto</code>, <code className="text-orange-300 bg-white/5 px-1 rounded">Descripción</code>, <code className="text-orange-300 bg-white/5 px-1 rounded">Precio Unitario</code>, y <code className="text-orange-300 bg-white/5 px-1 rounded">Cantidad</code>.
                 </p>
               </div>
-              <div className="glass-panel p-5 rounded-2xl space-y-2">
-                <div className="text-cyan-400 mb-2 font-mono text-xs">MAPPING CREACIONAL</div>
+              <div className="glass-panel p-5 rounded-md space-y-2">
+                <div className="text-amber-400 mb-2 font-mono text-xs">MAPPING CREACIONAL</div>
                 <p className="text-xs text-slate-300">
                   Si un cliente o proyecto no figura en el listado histórico principal, el motor lo creará <strong className="text-white">"al vuelo"</strong> de manera relacional.
                 </p>
               </div>
-              <div className="glass-panel p-5 rounded-2xl space-y-2">
-                <div className="text-pink-400 mb-2 font-mono text-xs">DURACIÓN Y CÁLCULOS</div>
+              <div className="glass-panel p-5 rounded-md space-y-2">
+                <div className="text-orange-300 mb-2 font-mono text-xs">DURACIÓN Y CÁLCULOS</div>
                 <p className="text-xs text-slate-300">
                   Mano de obra calcula los minutos a partir de fracciones de horas o cantidades brutas, multiplicándolo por la tarifa/minuto establecida.
                 </p>
@@ -343,7 +344,7 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
                   whileTap={{ scale: 0.98 }}
                   onClick={handleUploadAndParse}
                   disabled={loading}
-                  className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 font-semibold text-white shadow-xl shadow-blue-500/20 shadow-lg cursor-pointer"
+                  className="flex items-center gap-3 px-8 py-4 rounded-md bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 font-semibold text-white shadow-xl shadow-orange-500/20 cursor-pointer"
                 >
                   {loading && <RefreshCw className="w-5 h-5 animate-spin" />}
                   <span>{loading ? 'Analizando Planilla Operativa...' : 'Ejecutar Mapeo y Parseo'}</span>
@@ -355,7 +356,7 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-xl flex items-center gap-3 text-sm"
+                className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-md flex items-center gap-3 text-sm"
               >
                 <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
                 <span>{apiError}</span>
@@ -373,7 +374,7 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
             className="space-y-6"
           >
             {/* Summary Ribbon */}
-            <div className="glass-panel p-6 rounded-2xl grid grid-cols-2 md:grid-cols-5 gap-6">
+            <div className="glass-panel p-6 rounded-md grid grid-cols-2 md:grid-cols-5 gap-6">
               <div className="space-y-1 border-r border-white/5 pr-4">
                 <div className="text-slate-400 text-xs font-mono">FILAS TOTALES</div>
                 <div className="text-2xl font-bold text-white">{importResult.summary.totalRowsRead}</div>
@@ -390,8 +391,8 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
                 </div>
               </div>
               <div className="space-y-1 border-r border-white/5 pr-4">
-                <div className="text-cyan-400 text-xs font-mono">PROYECTOS NUEVOS</div>
-                <div className="text-2xl font-bold text-cyan-300 flex items-center gap-1.5">
+                <div className="text-orange-400 text-xs font-mono">PROYECTOS NUEVOS</div>
+                <div className="text-2xl font-bold text-orange-300 flex items-center gap-1.5">
                   <FolderGit2 className="w-4 h-4 shrink-0" />
                   <span>+{importResult.summary.tempProyectosDetected}</span>
                 </div>
@@ -406,10 +407,10 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
             </div>
 
             {/* AI Assistant Ribbon */}
-            <div className="p-5 rounded-2xl bg-gradient-to-r from-blue-950/40 via-blue-900/10 to-transparent border border-blue-500/25 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="p-5 rounded-md bg-gradient-to-r from-orange-950/40 via-orange-900/10 to-transparent border border-orange-500/25 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div className="space-y-1">
                 <h4 className="font-sans font-semibold text-white flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-blue-400" />
+                  <Sparkles className="w-5 h-5 text-orange-400" />
                   <span>Inteligencia Artificial Gemini AI</span>
                 </h4>
                 <p className="text-xs text-slate-300">
@@ -419,7 +420,7 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
               <button
                 onClick={handleGeminiEnrich}
                 disabled={isAiLoading}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white font-medium text-xs shadow-lg shadow-blue-500/20 cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-md bg-orange-600 hover:bg-orange-500 disabled:bg-orange-800 text-white font-medium text-xs shadow-lg shadow-orange-500/20 cursor-pointer"
               >
                 {isAiLoading ? (
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -431,60 +432,61 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
             </div>
 
             {/* Main Interactive Spreadsheet Grid Table */}
-            <div className="glass-panel rounded-2xl overflow-hidden p-4">
+            {/* Main Interactive Spreadsheet Grid Table */}
+            <div className="overflow-hidden rounded-xl border border-white/10 bg-[#111318]/80 backdrop-blur-sm shadow-xl p-4">
               <div className="mb-4">
                 <h3 className="font-sans font-medium text-white mb-1">Previsualización del Mapeo Relacional</h3>
                 <p className="text-xs text-slate-400">Edita los campos directamente si el mapeador automático malinterpretó alguna celda antes de confirmar.</p>
               </div>
 
-              <div className="overflow-x-auto max-h-[450px]">
-                <table className="w-full text-left text-xs border-collapse min-w-[900px]">
+              <div className="overflow-x-auto max-h-[480px]">
+                <table className="w-full text-left text-xs border-collapse min-w-[1100px]">
                   <thead>
-                    <tr className="border-b border-white/5 text-slate-400 uppercase font-mono tracking-wider">
-                      <th className="py-2.5 font-medium">Concepto</th>
-                      <th className="py-2.5 font-medium">Cliente Extraído</th>
-                      <th className="py-2.5 font-medium">Proyecto Extraído</th>
-                      <th className="py-2.5 font-medium">Descripción Origen</th>
-                      <th className="py-2.5 font-medium">Colaborador</th>
-                      <th className="py-2.5 font-medium text-right">Fórmula Cant. (Min/metros)</th>
-                      <th className="py-2.5 font-medium text-right">Tarifa Unit.</th>
-                      <th className="py-2.5 font-medium text-right">Total</th>
+                    <tr className="border-b border-white/10 bg-white/[0.02] text-slate-400 uppercase font-mono text-[11px] tracking-wider">
+                      <th className="px-4 py-3.5 font-medium">Concepto</th>
+                      <th className="px-4 py-3.5 font-medium">Cliente Extraído</th>
+                      <th className="px-4 py-3.5 font-medium">Proyecto Extraído</th>
+                      <th className="px-4 py-3.5 font-medium">Descripción Origen</th>
+                      <th className="px-4 py-3.5 font-medium">Colaborador</th>
+                      <th className="px-4 py-3.5 font-medium text-right">Fórmula Cant. (Min/metros)</th>
+                      <th className="px-4 py-3.5 font-medium text-right">Tarifa Unit.</th>
+                      <th className="px-4 py-3.5 font-medium text-right">Total</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-white/5">
                     {importResult.parsedItems.map((item, idx) => {
                       // Check if Client is brand new or existing
                       const isNewClient = !currentDb.clientes.some(c => c.nombre.toLowerCase() === item.clienteNombre.toLowerCase());
                       const isNewProject = !currentDb.proyectos.some(p => p.nombre.toLowerCase() === item.proyectoNombre.toLowerCase());
 
                       return (
-                        <tr key={idx} className="border-b border-white/5 hover:bg-white/2">
+                        <tr key={idx} className="hover:bg-white/[0.02] transition-colors">
                           {/* 1. Concept selector */}
-                          <td className="py-3">
+                          <td className="px-4 py-3.5 align-middle">
                             <select
                               value={item.concepto}
                               onChange={(e) => updateParsedItemValue(idx, 'concepto', e.target.value)}
-                              className="glass-select rounded-lg px-2 py-1.5 text-xs font-mono appearance-none cursor-pointer"
+                              className="bg-[#090a0f] border border-white/10 rounded-md px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-orange-500 cursor-pointer"
                             >
-                              <option value="MO">MO</option>
-                              <option value="Insumo">Insumo</option>
-                              <option value="Otros">Otros</option>
+                              <option value="MO" className="bg-[#111318]">MO</option>
+                              <option value="Insumo" className="bg-[#111318]">Insumo</option>
+                              <option value="Otros" className="bg-[#111318]">Otros</option>
                             </select>
                           </td>
 
                           {/* 2. Client Input with New/Existing Indicator */}
-                          <td className="py-3 pr-2">
-                            <div className="flex flex-col gap-1">
+                          <td className="px-4 py-3.5 align-middle min-w-[180px]">
+                            <div className="flex flex-col gap-1.5">
                               <input
                                 type="text"
                                 value={item.clienteNombre}
                                 onChange={(e) => updateParsedItemValue(idx, 'clienteNombre', e.target.value)}
-                                className="bg-[#131930] !text-white text-xs px-2 py-1 rounded border border-white/10 w-full"
+                                className="bg-[#090a0f] text-white text-xs px-2.5 py-1.5 rounded-md border border-white/10 w-full focus:outline-none focus:border-orange-500"
                               />
-                              <span className={`text-[10px] w-fit font-mono font-medium px-1.5 py-0.5 rounded ${
+                              <span className={`text-[10px] w-fit font-mono font-medium px-2 py-0.5 rounded-full ${
                                 isNewClient 
                                   ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
-                                  : 'bg-slate-500/15 text-slate-400'
+                                  : 'bg-slate-500/15 text-slate-400 border border-white/5'
                               }`}>
                                 {isNewClient ? 'Crear al Vuelo' : 'Verificado / BD'}
                               </span>
@@ -492,18 +494,18 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
                           </td>
 
                           {/* 3. Project Input */}
-                          <td className="py-3 pr-2">
-                            <div className="flex flex-col gap-1">
+                          <td className="px-4 py-3.5 align-middle min-w-[180px]">
+                            <div className="flex flex-col gap-1.5">
                               <input
                                 type="text"
                                 value={item.proyectoNombre}
                                 onChange={(e) => updateParsedItemValue(idx, 'proyectoNombre', e.target.value)}
-                                className="bg-[#131930] !text-white text-xs px-2 py-1 rounded border border-white/10 w-full"
+                                className="bg-[#090a0f] text-white text-xs px-2.5 py-1.5 rounded-md border border-white/10 w-full focus:outline-none focus:border-orange-500"
                               />
-                              <span className={`text-[10px] w-fit font-mono font-medium px-1.5 py-0.5 rounded ${
+                              <span className={`text-[10px] w-fit font-mono font-medium px-2 py-0.5 rounded-full ${
                                 isNewProject 
                                   ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/20'
-                                  : 'bg-slate-500/15 text-slate-400'
+                                  : 'bg-slate-500/15 text-slate-400 border border-white/5'
                               }`}>
                                 {isNewProject ? 'Nuevo Proyecto' : 'Asociado / BD'}
                               </span>
@@ -511,53 +513,53 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
                           </td>
 
                           {/* 4. Description Detail */}
-                          <td className="py-3 pr-2">
+                          <td className="px-4 py-3.5 align-middle min-w-[200px]">
                             <input
                               type="text"
                               value={item.descripcion}
                               onChange={(e) => updateParsedItemValue(idx, 'descripcion', e.target.value)}
-                              className="bg-[#131930] text-slate-300 text-xs px-2 py-1 rounded border border-white/10 w-full min-w-[120px]"
+                              className="bg-[#090a0f] text-slate-200 text-xs px-2.5 py-1.5 rounded-md border border-white/10 w-full focus:outline-none focus:border-orange-500"
                             />
                           </td>
 
                           {/* 5. Colaborador name */}
-                          <td className="py-3 pr-2">
+                          <td className="px-4 py-3.5 align-middle min-w-[160px]">
                             <input
                               type="text"
                               value={item.colaboradorNombre || ''}
                               onChange={(e) => updateParsedItemValue(idx, 'colaboradorNombre', e.target.value)}
                               placeholder="No aplica Insumo"
-                              className="bg-[#131930] disabled:opacity-40 text-slate-300 text-xs px-2 py-1 rounded border border-white/10 w-full"
+                              className="bg-[#090a0f] disabled:opacity-40 text-slate-200 text-xs px-2.5 py-1.5 rounded-md border border-white/10 w-full focus:outline-none focus:border-orange-500"
                               disabled={item.concepto !== 'MO'}
                             />
                           </td>
 
                           {/* 6. Quantity */}
-                          <td className="py-3 text-right">
+                          <td className="px-4 py-3.5 align-middle text-right whitespace-nowrap">
                             <input
                               type="number"
                               value={item.cantidad}
                               onChange={(e) => updateParsedItemValue(idx, 'cantidad', parseFloat(e.target.value) || 0)}
-                              className="bg-[#131930] text-right text-xs px-2 py-1 rounded border border-white/10 w-16"
+                              className="bg-[#090a0f] text-right font-mono text-xs px-2.5 py-1.5 rounded-md border border-white/10 w-20 text-white focus:outline-none focus:border-orange-500"
                             />
                           </td>
 
                           {/* 7. Unit price */}
-                          <td className="py-3 text-right">
+                          <td className="px-4 py-3.5 align-middle text-right whitespace-nowrap">
                             <div className="flex items-center justify-end gap-1">
-                              <span className="text-slate-500">$</span>
+                              <span className="text-slate-500 font-mono text-xs">Gs.</span>
                               <input
                                 type="number"
                                 value={item.precioUnitario}
                                 onChange={(e) => updateParsedItemValue(idx, 'precioUnitario', parseFloat(e.target.value) || 0)}
-                                className="bg-[#131930] text-right text-xs px-2 py-1 rounded border border-white/10 w-16"
+                                className="bg-[#090a0f] text-right font-mono text-xs px-2.5 py-1.5 rounded-md border border-white/10 w-24 text-white focus:outline-none focus:border-orange-500"
                               />
                             </div>
                           </td>
 
                           {/* 8. Total price calculated */}
-                          <td className="py-3 text-right font-semibold font-mono text-white pr-2">
-                            ${Math.round(item.total).toLocaleString('es-AR')}
+                          <td className="px-4 py-3.5 align-middle text-right font-bold font-mono text-emerald-400 whitespace-nowrap">
+                            Gs. {Math.round(item.total).toLocaleString('es-PY')}
                           </td>
                         </tr>
                       );
@@ -568,10 +570,10 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
             </div>
 
             {/* Bottom Actions */}
-            <div className="flex justify-between items-center bg-white/2 p-6 rounded-2xl border border-white/5">
+            <div className="flex justify-between items-center bg-[#111318] p-6 rounded-md border border-white/10">
               <button
                 onClick={() => setImportResult(null)}
-                className="text-slate-400 hover:text-slate-200 text-sm py-2 px-5 rounded-xl cursor-pointer"
+                className="text-slate-400 hover:text-slate-200 text-sm py-2 px-5 rounded-md cursor-pointer transition hover:bg-white/5"
               >
                 Cargar otro archivo
               </button>
@@ -579,14 +581,14 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
               <div className="flex gap-4">
                 <button
                   onClick={onCancel}
-                  className="text-slate-400 hover:text-slate-200 text-sm py-2 px-5 rounded-xl cursor-pointer"
+                  className="text-slate-400 hover:text-slate-200 text-sm py-2 px-5 rounded-md cursor-pointer transition hover:bg-white/5"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleFinalProcessAndSave}
                   disabled={isSaving}
-                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 font-semibold text-sm text-white shadow-lg shadow-blue-500/25 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-6 py-3 rounded-md bg-gradient-to-br from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 font-semibold text-sm text-white shadow-lg shadow-orange-500/25 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSaving ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />

@@ -8,13 +8,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { pageVariants, pageTransition, cardVariants, cardTransition } from './src/lib/animations.ts';
-import { 
-  Tv, 
-  ShieldCheck, 
-  FileSpreadsheet, 
+import {
+  Tv,
+  ShieldCheck,
+  FileSpreadsheet,
   HardHat,
-  Infinity,
+  Infinity as InfinityIcon,
   ShieldAlert,
   BarChart2,
   LogOut,
@@ -22,6 +21,11 @@ import {
   ClipboardList,
   Folder,
   ShoppingCart,
+  FileText,
+  Route,
+  CheckSquare,
+  Menu,
+  ChevronLeft,
 } from 'lucide-react';
 import { DatabaseState, Cliente, Proyecto, Colaborador } from './types.ts';
 import { authFetch, authFetchJSON, clearCSRFToken } from './authFetch.ts';
@@ -35,9 +39,13 @@ import MisRegistros from './components/MisRegistros.tsx';
 import MarcacionesUI from './components/MarcacionesUI.tsx';
 import ErrorBoundary from './components/ErrorBoundary.tsx';
 import PedidosAdmin from './components/PedidosAdmin.tsx';
+import PresupuestosAdmin from './components/PresupuestosAdmin.tsx';
+import OrdenesTrabajoAdmin from './components/OrdenesTrabajoAdmin.tsx';
+import HojasRutaAdmin from './components/HojasRutaAdmin.tsx';
+import MisTareas from './components/MisTareas.tsx';
 import { NotifProvider, useNotif } from './context/NotifContext.tsx';
 
-type TabType = 'dashboard' | 'registro' | 'import' | 'admin' | 'reportes' | 'misregistros' | 'pedidos';
+type TabType = 'dashboard' | 'registro' | 'import' | 'admin' | 'reportes' | 'misregistros' | 'pedidos' | 'presupuestos' | 'ordenestrabajo' | 'hojasruta' | 'mistareas';
 
 interface SessionUser {
   nombre: string;
@@ -55,7 +63,7 @@ function AppInner() {
   // Restore last active tab on refresh (F5)
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     const saved = sessionStorage.getItem(ACTIVE_TAB_KEY);
-    if (saved && (['dashboard', 'registro', 'import', 'admin', 'reportes', 'misregistros', 'pedidos'] as TabType[]).includes(saved as TabType)) {
+    if (saved && (['dashboard', 'registro', 'import', 'admin', 'reportes', 'misregistros', 'pedidos', 'presupuestos'] as TabType[]).includes(saved as TabType)) {
       return saved as TabType;
     }
     return 'dashboard';
@@ -71,6 +79,10 @@ function AppInner() {
   // Navigation state for deep-linking to specific records
   const [vehicleEditId, setVehicleEditId] = useState<string | null>(null);
   const [adminSubTab, setAdminSubTab] = useState<string | null>(null);
+
+  // Cache de pedidos para el modulo de presupuestos
+  const [pedidosCache, setPedidosCache] = useState<any[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Persist active tab so F5 stays on the same module
   useEffect(() => {
@@ -113,8 +125,16 @@ function AppInner() {
         credentials: 'include'
       });
 
+      // Solo cerrar sesión si el servidor respondió 401 explícitamente.
+      // Otros errores (red, 500, servidor reiniciándose) NO cierran sesión.
+      if (meResponse.status === 401) {
+        setSession(null);
+        setLoading(false);
+        return;
+      }
+
       if (!meResponse.ok) {
-        // No valid session cookie — show login
+        // Error de red o servidor caído — mantener sesión existente, no cerrar
         setSession(null);
         setLoading(false);
         return;
@@ -143,6 +163,9 @@ function AppInner() {
         // If /api/data fails, session is still valid — user stays logged in
       }
     } catch (error) {
+      // Error de red (servidor reiniciándose, sin conexión, etc.)
+      // NO cerrar sesión — la cookie JWT sigue siendo válida.
+      // Solo mostrar login si no había sesión previa (carga inicial).
       setSession(null);
     } finally {
       setLoading(false);
@@ -161,7 +184,17 @@ function AppInner() {
       });
       
       if (response.status === 401) {
-        // Token invalid/expired - logout
+        // Verificar si el token realmente expiró o es un error transitorio
+        // (servidor reiniciándose, DB caída). Reintentar /api/auth/me una sola vez.
+        const meCheck = await fetch('/api/auth/me', { credentials: 'include' });
+        if (meCheck.ok) {
+          // El token sigue siendo válido — fue un error transitorio.
+          // No cerrar sesión, solo marcar error de carga.
+          setFetchError('Error temporal al cargar datos. Reintentá en un momento.');
+          setLoading(false);
+          return;
+        }
+        // El token realmente expiró — cerrar sesión.
         handleLogout();
         return;
       }
@@ -188,13 +221,22 @@ function AppInner() {
   // RBAC: Redirect non-admin users away from restricted tabs
   useEffect(() => {
     if (session && session.rol !== 'Admin') {
-      // Non-admin users can access 'registro' y 'misregistros'
-      const allowedTabs: TabType[] = ['registro', 'misregistros'];
+      // Non-admin users can access 'registro', 'misregistros' y 'mistareas'
+      const allowedTabs: TabType[] = ['registro', 'misregistros', 'mistareas'];
       if (!allowedTabs.includes(activeTab)) {
         setActiveTab('registro');
       }
     }
   }, [activeTab, session]);
+
+  // Cargar pedidos cuando se entra al tab presupuestos
+  useEffect(() => {
+    if (session && activeTab === 'presupuestos') {
+      authFetchJSON<{ success: boolean; data: any[] }>('/api/admin/pedidos')
+        .then((json) => setPedidosCache(json.data || []))
+        .catch(() => {});
+    }
+  }, [session, activeTab]);
 
   // --- AUTH HANDLERS ---
   const handleLoginSuccess = (user: SessionUser) => {
@@ -223,6 +265,19 @@ function AppInner() {
     setSession(null);
     setDbState(null);
     setActiveTab('dashboard');
+  };
+
+  // Helper: Verifica si la sesión realmente expiró antes de cerrar.
+  // Evita logouts espúreos por errores transitorios (servidor reiniciándose, DB caída).
+  const isSessionExpired = async (): Promise<boolean> => {
+    try {
+      const me = await fetch('/api/auth/me', { credentials: 'include' });
+      // Si /api/auth/me responde OK, el token sigue válido — no cerrar sesión.
+      return !me.ok;
+    } catch {
+      // Si no podemos contactar al servidor, asumir que sigue activa (no cerrar).
+      return false;
+    }
   };
 
   const handleMarkupChange = (rate: number) => {
@@ -290,8 +345,13 @@ function AppInner() {
       console.error(err);
       // Check if it's an auth error
       if (err.message && (err.message.includes('401') || err.message.includes('autenticación'))) {
-        showToast('Sesión expirada. Por favor, vuelve a iniciar sesión.', 'error');
-        handleLogout();
+        const expired = await isSessionExpired();
+        if (expired) {
+          showToast('Sesión expirada. Por favor, vuelve a iniciar sesión.', 'error');
+          handleLogout();
+        } else {
+          showToast('Error temporal del servidor. Reintentá en un momento.', 'warning');
+        }
       } else {
         showToast('Error al actualizar registro: ' + (err.message || ''), 'error');
       }
@@ -307,22 +367,6 @@ function AppInner() {
     } catch (err: any) {
       console.error(err);
       showToast('Error al reiniciar base de datos: ' + (err.message || ''), 'error');
-    }
-  };
-
-  const handleSaveState = async (updatedDb: DatabaseState): Promise<boolean> => {
-    try {
-      await authFetch('/api/save-state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedDb)
-      });
-      setDbState(updatedDb);
-      return true;
-    } catch (err: any) {
-      console.error(err);
-      showToast('Error de sincronización con el servidor: ' + (err.message || ''), 'error');
-      return false;
     }
   };
 
@@ -342,8 +386,13 @@ function AppInner() {
     } catch (err: any) {
       // Check if it's an auth error
       if (err.message && (err.message.includes('401') || err.message.includes('autenticación'))) {
-        showToast('Sesión expirada. Por favor, vuelve a iniciar sesión.', 'error');
-        handleLogout();
+        const expired = await isSessionExpired();
+        if (expired) {
+          showToast('Sesión expirada. Por favor, vuelve a iniciar sesión.', 'error');
+          handleLogout();
+        } else {
+          showToast('Error temporal del servidor. Reintentá en un momento.', 'warning');
+        }
       } else {
         showToast('Error al crear registro: ' + (err.message || ''), 'error');
       }
@@ -542,13 +591,11 @@ function AppInner() {
   // Loading data after login / restoring session on refresh
   if (loading) {
     return (
-      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#020617] text-slate-300 relative overflow-hidden">
-        <div className="glow-orb-primary -top-12 -left-12" />
-        <div className="glow-orb-secondary -bottom-12 -right-12" />
-        <div className="glass-panel p-8 rounded-3xl flex flex-col items-center gap-4 text-center max-w-sm relative z-10">
-          <Infinity className="w-12 h-12 text-blue-500 animate-pulse" />
-          <h1 className="font-sans font-bold text-xl text-white tracking-wide">Sistema aFull</h1>
-          <p className="text-xs text-slate-400 font-mono tracking-wider animate-pulse">Sincronizando base de datos...</p>
+      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#090a0f] text-slate-300 relative">
+        <div className="glass-panel p-8 rounded-xl flex flex-col items-center gap-3 text-center max-w-xs border border-white/10 shadow-lg">
+          <InfinityIcon className="w-10 h-10 text-orange-500 animate-pulse" />
+          <h1 className="font-sans font-semibold text-lg text-white tracking-tight">Sistema aFull</h1>
+          <p className="text-xs text-slate-400 font-mono animate-pulse">Sincronizando base de datos...</p>
         </div>
       </div>
     );
@@ -557,15 +604,14 @@ function AppInner() {
   // Error state
   if (fetchError || !dbState) {
     return (
-      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#020617] text-slate-300 relative overflow-hidden">
-        <div className="glow-orb-primary -top-12 -left-12" />
-        <div className="glass-panel p-8 rounded-3xl text-center max-w-lg space-y-4 relative z-10">
-          <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto" />
-          <h1 className="text-xl font-bold text-white">Error de Conexión</h1>
-          <p className="text-red-300 text-sm">{fetchError || 'Fallo al inicializar base de datos local'}</p>
+      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#090a0f] text-slate-300 relative">
+        <div className="glass-panel p-8 rounded-xl text-center max-w-md space-y-4 border border-rose-500/20">
+          <ShieldAlert className="w-10 h-10 text-rose-500 mx-auto" />
+          <h1 className="text-lg font-semibold text-white">Error de Conexión</h1>
+          <p className="text-red-300 text-xs">{fetchError || 'Fallo al inicializar base de datos local'}</p>
           <button
             onClick={fetchDbState}
-            className="px-6 py-2 bg-blue-600 font-bold hover:bg-blue-500 rounded-xl text-white text-xs cursor-pointer transition-colors"
+            className="px-5 py-2 bg-orange-600 font-medium hover:bg-orange-500 rounded-lg text-white text-xs cursor-pointer transition-colors"
           >
             Re-intentar Sincronización
           </button>
@@ -574,130 +620,214 @@ function AppInner() {
     );
   }
 
+  // Elementos de navegación agrupados para el Sidebar Corporativo
+  const navItems = [
+    {
+      group: 'OPERACIONES',
+      items: [
+        { id: 'registro', label: 'Registro Operativo', icon: ClipboardList, adminOnly: false },
+        { id: 'mistareas', label: 'Mis Tareas', icon: CheckSquare, adminOnly: false, hideForAdmin: true },
+        { 
+          id: 'misregistros', 
+          label: 'Mis Registros', 
+          icon: Folder, 
+          adminOnly: false, 
+          hideForAdmin: true, 
+          badge: (dbState?.registros || []).filter(r => {
+            const user = session;
+            if (!user || !user.nombre) return false;
+            const colaborador = (dbState?.colaboradores || []).find(col => {
+              if (!col || !col.nombre) return false;
+              const colName = col.nombre.toLowerCase();
+              const userName = user.nombre.toLowerCase();
+              return colName.includes(userName) || userName.includes(colName);
+            });
+            return r.concepto === 'MO' && r.colaboradorId === colaborador?.id && r.fecha === new Date().toISOString().substring(0, 10);
+          }).length || 0 
+        },
+      ]
+    },
+    {
+      group: 'GESTIÓN COMERCIAL',
+      items: [
+        { id: 'presupuestos', label: 'Presupuestos', icon: FileText, adminOnly: true },
+        { id: 'ordenestrabajo', label: 'Órdenes de Trabajo', icon: ClipboardList, adminOnly: true },
+        { id: 'pedidos', label: 'Pedidos de Clientes', icon: ShoppingCart, adminOnly: true },
+        { id: 'hojasruta', label: 'Hojas de Ruta', icon: Route, adminOnly: true },
+      ]
+    },
+    {
+      group: 'ADMINISTRACIÓN & MÉTRICAS',
+      items: [
+        { id: 'dashboard', label: 'Panel de Control', icon: Tv, adminOnly: true },
+        { id: 'reportes', label: 'Reportes y Costos', icon: BarChart2, adminOnly: true },
+        { id: 'import', label: 'Importar Excel', icon: FileSpreadsheet, adminOnly: true },
+        { id: 'admin', label: 'Configuración Admin', icon: ShieldCheck, adminOnly: true },
+      ]
+    }
+  ];
+
   // ================================
-  //  MAIN APP SHELL
+  //  MAIN APP SHELL (ENTERPRISE SIDEBAR + TOPBAR)
   // ================================
   return (
-    <div className="min-h-screen w-full bg-[#020617] relative pb-16 overflow-x-hidden">
+    <div className="min-h-screen w-full bg-[#090a0f] flex text-slate-200">
       
-      {/* Ambient Glow Orbs */}
-      <div className="glow-orb-primary -top-32 left-1/4" />
-      <div className="glow-orb-secondary bottom-1/4 -right-1/4" />
-      <div className="glow-orb-primary bottom-0 left-10" />
-
-      {/* TOP HEADER BAR */}
-      <header className="sticky top-0 z-50 backdrop-blur-md bg-[#020617]/65 border-b border-white/5 py-3 px-6 mb-8">
-        <div className="max-w-7xl mx-auto flex justify-between items-center gap-4">
-          
-          {/* Logo */}
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="h-9 w-9 shrink-0 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-              <img src="/Logo-AFULL-_1_.svg" alt="aFull Logo" className="w-6 h-6 object-contain" />
+      {/* SIDEBAR CORPORATIVO */}
+      <aside className={`fixed inset-y-0 left-0 z-40 bg-[#0d0e14] border-r border-white/7 transition-all duration-200 flex flex-col ${
+        sidebarOpen ? 'w-64' : 'w-16'
+      }`}>
+        {/* Sidebar Header / Logo */}
+        <div className="h-14 flex items-center justify-between px-3 border-b border-white/7 shrink-0">
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <div className="h-8 w-8 shrink-0 bg-orange-600 rounded-lg flex items-center justify-center text-white font-bold shadow-sm">
+              <img src="/Logo-AFULL-_1_.svg" alt="aFull Logo" className="w-5 h-5 object-contain" />
             </div>
-            <div className="hidden sm:block">
-              <span className="text-sm uppercase font-mono tracking-widest font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-                Sistema aFull
-              </span>
-              <div className="text-[9px] text-slate-500 font-mono uppercase tracking-widest">
-                Módulo de Automatización Operativa
+            {sidebarOpen && (
+              <div className="truncate">
+                <span className="text-xs font-bold uppercase tracking-wider text-white">Sistema aFull</span>
+                <p className="text-[9px] text-slate-400 font-mono tracking-tight uppercase">Plataforma Operativa</p>
               </div>
-            </div>
+            )}
           </div>
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+            title={sidebarOpen ? "Colapsar menú" : "Expandir menú"}
+          >
+            <ChevronLeft className={`w-4 h-4 transition-transform duration-200 ${!sidebarOpen ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
 
-          {/* Navigation Pills */}
-          <nav className="flex bg-[#0f172a]/50 border border-white/5 p-1 rounded-xl overflow-x-auto">
-            {[
-              { id: 'dashboard', label: 'Panel', icon: Tv, adminOnly: true },
-              { id: 'registro', label: 'Registro', icon: ClipboardList, adminOnly: false },
-              { id: 'misregistros', label: 'Mis Registros', icon: Folder, adminOnly: false, hideForAdmin: true, badge: (dbState?.registros || []).filter(r => {
-                const user = session;
-                if (!user || !user.nombre) return false;
-                const colaborador = (dbState?.colaboradores || []).find(
-                  col => {
-                    if (!col || !col.nombre) return false;
-                    const colName = col.nombre.toLowerCase();
-                    const userName = user.nombre.toLowerCase();
-                    return colName.includes(userName) || userName.includes(colName);
-                  }
-                );
-                return r.concepto === 'MO' && r.colaboradorId === colaborador?.id && r.fecha === new Date().toISOString().substring(0, 10);
-              }).length || 0 },
-              { id: 'import', label: 'Importar', icon: FileSpreadsheet, adminOnly: true },
-              { id: 'pedidos', label: 'Pedidos', icon: ShoppingCart, adminOnly: true },
-              { id: 'reportes', label: 'Reportes', icon: BarChart2, adminOnly: true },
-              { id: 'admin', label: 'Administración', icon: ShieldCheck, adminOnly: true },
-            ]
-            .filter(tab => {
-              // RBAC: Non-admin users only see "Registro" and "Mis Registros" tabs
+        {/* Sidebar Navigation Links */}
+        <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
+          {navItems.map((section, idx) => {
+            // Filtrar items según rol RBAC
+            const visibleItems = section.items.filter(item => {
               if (session.rol !== 'Admin') {
-                return !tab.adminOnly; // Only show tabs where adminOnly is false
+                return !item.adminOnly;
               }
-              // Admin ve todo MENOS los tabs marcados como hideForAdmin
-              // ("Mis Registros" es redundante para el admin, que gestiona todo en Administración)
-              if ('hideForAdmin' in tab && tab.hideForAdmin) {
+              if ('hideForAdmin' in item && item.hideForAdmin) {
                 return false;
               }
-              return true; // Admin sees everything else
-            })
-            .map(tab => {
-              const Icon = tab.icon;
-              const showBadge = tab.badge !== undefined && tab.badge > 0;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as TabType)}
-                  className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap relative ${
-                    activeTab === tab.id
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/10'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                  {showBadge && (
-                    <span className={`ml-1 px-1.5 py-0.5 text-[10px] font-mono font-bold rounded ${
-                      activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-blue-500/20 text-blue-300'
-                    }`}>
-                      {tab.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
+              return true;
+            });
 
-          {/* Marcaciones UI */}
-          <div className="flex items-center">
+            if (visibleItems.length === 0) return null;
+
+            return (
+              <div key={idx} className="space-y-1">
+                {sidebarOpen && (
+                  <div className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-500 font-semibold mb-1">
+                    {section.group}
+                  </div>
+                )}
+                {visibleItems.map(item => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  const showBadge = item.badge !== undefined && item.badge > 0;
+
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => setActiveTab(item.id as TabType)}
+                      title={!sidebarOpen ? item.label : undefined}
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer text-left ${
+                        isActive
+                          ? 'bg-orange-600 text-white font-semibold shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200 hover:bg-white/4'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {sidebarOpen && (
+                        <span className="flex-1 truncate">{item.label}</span>
+                      )}
+                      {sidebarOpen && showBadge && (
+                        <span className={`px-1.5 py-0.5 text-[10px] font-mono font-semibold rounded ${
+                          isActive ? 'bg-white/20 text-white' : 'bg-orange-500/20 text-orange-400'
+                        }`}>
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Sidebar Footer: Usuario & Logout */}
+        <div className="p-2 border-t border-white/7 shrink-0 bg-[#0b0c11]">
+          {sidebarOpen ? (
+            <div className="flex items-center justify-between p-1.5 rounded-lg bg-white/3">
+              <div className="flex items-center gap-2 truncate">
+                <div className="w-7 h-7 rounded-md bg-slate-800 flex items-center justify-center text-slate-300 font-semibold text-xs shrink-0">
+                  {session.nombre ? session.nombre.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <div className="truncate">
+                  <p className="text-xs font-medium text-white truncate">{session.nombre || session.usuario}</p>
+                  <p className="text-[10px] font-mono text-slate-400 uppercase">{session.rol}</p>
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                title="Cerrar Sesión"
+                className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-7 h-7 rounded-md bg-slate-800 flex items-center justify-center text-slate-300 font-semibold text-xs" title={session.nombre || session.usuario}>
+                {session.nombre ? session.nombre.charAt(0).toUpperCase() : 'U'}
+              </div>
+              <button
+                onClick={handleLogout}
+                title="Cerrar Sesión"
+                className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+      </aside>
+
+      {/* CONTENEDOR PRINCIPAL */}
+      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-200 ${
+        sidebarOpen ? 'pl-64' : 'pl-16'
+      }`}>
+        
+        {/* TOPBAR MINIMALISTA */}
+        <header className="sticky top-0 z-30 h-14 bg-[#090a0f]/90 backdrop-blur-md border-b border-white/7 px-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">Módulo:</span>
+            <span className="text-xs font-semibold text-white uppercase tracking-wider">
+              {activeTab === 'dashboard' && 'Panel de Control'}
+              {activeTab === 'registro' && 'Registro Operativo'}
+              {activeTab === 'misregistros' && 'Mis Registros'}
+              {activeTab === 'pedidos' && 'Pedidos de Clientes'}
+              {activeTab === 'presupuestos' && 'Presupuestos Comerciales'}
+              {activeTab === 'hojasruta' && 'Hojas de Ruta'}
+              {activeTab === 'mistareas' && 'Mis Tareas y Montajes'}
+              {activeTab === 'import' && 'Importación de Planillas Excel'}
+              {activeTab === 'reportes' && 'Reportes y Costos'}
+              {activeTab === 'admin' && 'Panel de Administración'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {/* Marcaciones UI con Geocerca */}
             {session.usuario && (
               <MarcacionesUI usuario={session.usuario} showToast={showToast} />
             )}
           </div>
+        </header>
 
-          {/* User Session Badge + Logout */}
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="hidden sm:flex items-center gap-2 bg-white/5 border border-white/8 rounded-xl px-3 py-1.5">
-              <UserIcon className="w-3.5 h-3.5 text-slate-400" />
-              <div>
-                <p className="text-[10px] font-bold text-white leading-none">{session.nombre || session.usuario || 'Usuario'}</p>
-                <p className="text-[8px] font-mono text-slate-500 uppercase tracking-wider">{session.rol || 'Operario'}</p>
-              </div>
-            </div>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleLogout}
-              title="Cerrar Sesión"
-              className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer border border-transparent hover:border-rose-500/20"
-            >
-              <LogOut className="w-4 h-4" />
-            </motion.button>
-          </div>
-
-        </div>
-      </header>
-
-      {/* MAIN CONTENT */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
+        {/* MAIN CONTENT AREA */}
+        <main className="flex-1 p-6 max-w-7xl w-full mx-auto">
         <AnimatePresence mode="wait">
           {activeTab === 'dashboard' && (
             <motion.div
@@ -798,6 +928,59 @@ function AppInner() {
             </motion.div>
           )}
 
+          {activeTab === 'presupuestos' && (
+            <motion.div
+              key="presupuestos_tab"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.22 }}
+            >
+              <PresupuestosAdmin
+                clientes={dbState?.clientes || []}
+                pedidos={pedidosCache}
+                proyectos={dbState?.proyectos || []}
+                onConvertido={fetchDbState}
+              />
+            </motion.div>
+          )}
+
+          {activeTab === 'ordenestrabajo' && (
+            <motion.div
+              key="ordenestrabajo_tab"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.22 }}
+            >
+              <OrdenesTrabajoAdmin />
+            </motion.div>
+          )}
+
+          {activeTab === 'hojasruta' && (
+            <motion.div
+              key="hojasruta_tab"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.22 }}
+            >
+              <HojasRutaAdmin />
+            </motion.div>
+          )}
+
+          {activeTab === 'mistareas' && (
+            <motion.div
+              key="mistareas_tab"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.22 }}
+            >
+              <MisTareas />
+            </motion.div>
+          )}
+
           {activeTab === 'admin' && (
             <motion.div
               key="admin_tab"
@@ -818,7 +1001,6 @@ function AppInner() {
                 onAddColaborador={handleAddColaboradorObj}
                 onEditColaborador={handleEditColaboradorObj}
                 onDeleteColaborador={handleDeleteColaboradorObj}
-                onResetDatabase={handleResetDatabase}
                 onRefresh={fetchDbState}
                 initialVehicleEditId={vehicleEditId}
                 initialSubTab={adminSubTab}
@@ -835,35 +1017,36 @@ function AppInner() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#020617]/85 backdrop-blur-xl select-none"
+            className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#0a0a0a]/85 backdrop-blur-xl select-none"
           >
-            <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/10 via-transparent to-indigo-500/10 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-tr from-orange-500/10 via-transparent to-amber-500/10 pointer-events-none" />
             
             <motion.div 
               initial={{ scale: 0.95, y: 15 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: -15 }}
               transition={{ type: "spring", stiffness: 300, damping: 25 }}
-              className="glass-panel p-8 rounded-3xl flex flex-col items-center gap-6 text-center max-w-sm w-[90%] relative z-10 border border-white/10 shadow-2xl shadow-blue-500/5"
+              className="glass-panel p-8 rounded-md flex flex-col items-center gap-6 text-center max-w-sm w-[90%] relative z-10 border border-white/10 shadow-2xl shadow-orange-500/5"
             >
-              {/* Premium HSL Spinner */}
+              {/* Spinner */}
               <div className="relative w-20 h-20">
-                {/* Glowing Background Ring */}
-                <div className="absolute inset-0 rounded-full border border-blue-500/20 blur-[2px]" />
+                {/* Ring */
+                }
+                <div className="absolute inset-0 rounded-full border border-orange-500/20 blur-[2px]" />
                 
                 {/* Animated Inner Spinner */}
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ repeat: Infinity, duration: 1.2, ease: "linear" }}
-                  className="w-full h-full rounded-full border-2 border-transparent border-t-blue-500 border-r-indigo-500"
+                  className="w-full h-full rounded-full border-2 border-transparent border-t-orange-500 border-r-amber-500"
                   style={{
-                    filter: 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.5))'
+                    filter: 'drop-shadow(0 0 8px rgba(234, 88, 12, 0.5))'
                   }}
                 />
 
                 {/* Center Core */}
-                <div className="absolute inset-[3px] rounded-full bg-[#020617]/90 flex items-center justify-center border border-white/5">
-                  <span className="font-mono text-xs font-bold text-blue-400">{Math.min(100, Math.round(progress))}%</span>
+                <div className="absolute inset-[3px] rounded-full bg-[#0a0a0a]/90 flex items-center justify-center border border-white/5">
+                  <span className="font-mono text-xs font-bold text-orange-400">{Math.min(100, Math.round(progress))}%</span>
                 </div>
               </div>
 
@@ -885,13 +1068,10 @@ function AppInner() {
                 {/* Progress bar */}
                 <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden border border-white/5 relative">
                   <motion.div
-                    className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 rounded-full"
+                    className="h-full bg-orange-500 rounded-full"
                     initial={{ width: '0%' }}
                     animate={{ width: `${progress}%` }}
                     transition={{ type: "tween", ease: "easeInOut" }}
-                    style={{
-                      boxShadow: '0 0 10px rgba(59, 130, 246, 0.4)'
-                    }}
                   />
                 </div>
               </div>
@@ -900,6 +1080,7 @@ function AppInner() {
         )}
       </AnimatePresence>
 
+      </div>
     </div>
   );
 }

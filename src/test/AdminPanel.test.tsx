@@ -176,7 +176,7 @@ describe('AdminPanel', () => {
 
       // Verify the button is now active (has the active styling)
       await waitFor(() => {
-        expect(insumoButton).toHaveClass('bg-violet-600');
+        expect(insumoButton).toHaveClass('bg-amber-600');
       });
     });
 

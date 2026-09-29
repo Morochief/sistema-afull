@@ -27,19 +27,19 @@ export default function ConfirmModal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#020617]/80 backdrop-blur-md">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#0a0a0a]/80 backdrop-blur-md">
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -15 }}
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            className="glass-panel p-6 rounded-3xl max-w-sm w-[90%] border border-white/10 shadow-2xl relative z-10 flex flex-col gap-4 text-center"
+            className="glass-panel p-6 rounded-md max-w-sm w-[90%] border border-white/10 shadow-2xl relative z-10 flex flex-col gap-4 text-center"
           >
             {/* Icon */}
-            <div className="mx-auto p-3 rounded-full bg-white/5 border border-white/10">
+            <div className="mx-auto p-3 rounded-md bg-white/5 border border-white/10">
               {type === 'danger' && <AlertTriangle className="w-6 h-6 text-rose-500 animate-pulse" />}
               {type === 'warning' && <AlertTriangle className="w-6 h-6 text-amber-500" />}
-              {type === 'info' && <Info className="w-6 h-6 text-blue-500" />}
+              {type === 'info' && <Info className="w-6 h-6 text-orange-500" />}
             </div>
 
             {/* Title & Message */}
@@ -63,7 +63,7 @@ export default function ConfirmModal({
                     ? 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/25'
                     : type === 'warning'
                     ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/25'
-                    : 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/25'
+                    : 'bg-orange-600 hover:bg-orange-500 shadow-orange-600/25'
                 }`}
               >
                 {confirmText}

@@ -2,6 +2,7 @@ import {useCallback, useEffect, useState} from 'react';
 import {PortalData} from '../types.ts';
 import PedidoForm from './PedidoForm.tsx';
 import PedidoHistorial from './PedidoHistorial.tsx';
+import PresupuestosPortal from './PresupuestosPortal.tsx';
 
 interface PortalAppState {
   loading: boolean;
@@ -17,16 +18,29 @@ interface PortalAppState {
 export default function PortalApp() {
   const [state, setState] = useState<PortalAppState>({loading: true, error: null, data: null});
   const [page, setPage] = useState(1);
+  const [filtroSearch, setFiltroSearch] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState('');
+  const [filtroSucursal, setFiltroSucursal] = useState('');
 
   const token = window.location.pathname.split('/portal/')[1]?.replace(/\/+$/, '') || '';
 
-  const loadData = useCallback(async (targetPage: number) => {
+  const loadData = useCallback(async (targetPage: number, search?: string, estado?: string, sucursal?: string) => {
     if (!token) {
       setState({loading: false, error: 'Link no válido', data: null});
       return;
     }
     try {
-      const res = await fetch(`/api/portal/${encodeURIComponent(token)}?page=${targetPage}&limit=10`);
+      const params = new URLSearchParams();
+      params.set('page', String(targetPage));
+      params.set('limit', '10');
+      const s = search !== undefined ? search : filtroSearch;
+      const e = estado !== undefined ? estado : filtroEstado;
+      const suc = sucursal !== undefined ? sucursal : filtroSucursal;
+      if (s.trim()) params.set('search', s.trim());
+      if (e) params.set('estado', e);
+      if (suc) params.set('sucursalId', suc);
+
+      const res = await fetch(`/api/portal/${encodeURIComponent(token)}?${params.toString()}`);
       const json = await res.json();
       if (!res.ok || !json.success) {
         setState({loading: false, error: json?.error?.message || 'Link no válido o expirado', data: null});
@@ -36,7 +50,7 @@ export default function PortalApp() {
     } catch {
       setState({loading: false, error: 'Error de conexión. Intentá nuevamente.', data: null});
     }
-  }, [token]);
+  }, [token, filtroSearch, filtroEstado, filtroSucursal]);
 
   useEffect(() => {
     loadData(1);
@@ -48,6 +62,14 @@ export default function PortalApp() {
     window.scrollTo({top: 0, behavior: 'smooth'});
   }, [loadData]);
 
+  const handleFiltrosChange = useCallback((newSearch: string, newEstado: string, newSucursal: string) => {
+    setFiltroSearch(newSearch);
+    setFiltroEstado(newEstado);
+    setFiltroSucursal(newSucursal);
+    setPage(1);
+    loadData(1, newSearch, newEstado, newSucursal);
+  }, [loadData]);
+
   const handlePedidoCreado = useCallback(() => {
     // Volver a la primera página para ver el pedido nuevo al tope
     setPage(1);
@@ -55,11 +77,11 @@ export default function PortalApp() {
   }, [loadData]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <div className="mx-auto max-w-3xl px-4 py-8 sm:py-12">
+    <div className="min-h-screen bg-[#090a0f] text-slate-200">
+      <div className="mx-auto max-w-4xl px-4 py-8 sm:py-12">
         {/* Header */}
         <header className="mb-8 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 text-xl font-extrabold text-white shadow-lg shadow-blue-500/30">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-md bg-gradient-to-br from-orange-600 to-amber-500 text-lg font-bold text-white shadow-lg shadow-orange-500/20">
             aF
           </div>
           <h1 className="text-2xl font-bold sm:text-3xl">
@@ -71,14 +93,14 @@ export default function PortalApp() {
         </header>
 
         {state.loading && (
-          <div className="glass-panel rounded-2xl p-10 text-center">
-            <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+          <div className="glass-panel rounded-md p-10 text-center">
+            <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
             <p className="text-slate-400">Cargando portal...</p>
           </div>
         )}
 
         {!state.loading && state.error && (
-          <div className="glass-panel rounded-2xl border border-red-500/30 p-8 text-center">
+          <div className="glass-panel rounded-md border border-red-500/30 p-8 text-center">
             <div className="mb-3 text-4xl">🔗</div>
             <h2 className="mb-2 text-lg font-semibold text-red-300">Link no válido</h2>
             <p className="text-slate-400">{state.error}</p>
@@ -90,14 +112,20 @@ export default function PortalApp() {
 
         {!state.loading && !state.error && state.data && (
           <>
+            <PresupuestosPortal token={token} />
             <PedidoForm token={token} sucursales={state.data.sucursales} onPedidoCreado={handlePedidoCreado} />
             <PedidoHistorial
               pedidos={state.data.pedidos}
+              sucursales={state.data.sucursales}
               pagina={state.data.paginacion.page}
               totalPaginas={state.data.paginacion.totalPages}
               total={state.data.paginacion.total}
               cargando={state.loading}
+              filtroSearch={filtroSearch}
+              filtroEstado={filtroEstado}
+              filtroSucursal={filtroSucursal}
               onCambioPagina={handleCambioPagina}
+              onFiltrosChange={handleFiltrosChange}
             />
           </>
         )}

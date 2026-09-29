@@ -20,19 +20,21 @@ vi.mock('motion/react', () => ({
 
 const mockData: DatabaseState = {
   clientes: [
-    { id: 'cli1', nombre: 'Cliente A' },
-    { id: 'cli2', nombre: 'Cliente B' }
+    { id: 'cli1', nombre: 'Cliente A', fechaCreacion: '2026-01-01' },
+    { id: 'cli2', nombre: 'Cliente B', fechaCreacion: '2026-01-01' }
   ],
   colaboradores: [],
   proyectos: [
-    { id: 'proj1', nombre: 'Proyecto Alpha', clienteId: 'cli1', clienteNombre: 'Cliente A', estado: 'En Proceso' },
-    { id: 'proj2', nombre: 'Proyecto Beta', clienteId: 'cli2', clienteNombre: 'Cliente B', estado: 'Finalizado' },
-    { id: 'proj3', nombre: 'Proyecto Gamma', clienteId: 'cli1', clienteNombre: 'Cliente A', estado: 'En Proceso' }
+    { id: 'proj1', nombre: 'Proyecto Alpha', clienteId: 'cli1', estado: 'En Proceso', fechaInicio: '2026-01-01' },
+    { id: 'proj2', nombre: 'Proyecto Beta', clienteId: 'cli2', estado: 'Completado', fechaInicio: '2026-01-01' },
+    { id: 'proj3', nombre: 'Proyecto Gamma', clienteId: 'cli1', estado: 'En Proceso', fechaInicio: '2026-01-01' }
   ],
   registros: [],
   registrosVehiculo: [
     {
       id: 'veh1',
+      usuario: 'admin',
+      concepto: 'Vehículo',
       clienteId: 'cli1',
       clienteNombre: 'Cliente A',
       proyectoId: 'proj1',
@@ -45,8 +47,6 @@ const mockData: DatabaseState = {
       combustibleLitros: 5,
       combustibleCosto: 50000,
       total: 50000,
-      fotoKmInicial: '/uploads/km-inicial.jpg',
-      fotoKmFinal: '/uploads/km-final.jpg',
       fotoOdometroInicio: '/uploads/km-inicial.jpg',
       fotoOdometroFin: '/uploads/km-final.jpg',
       descripcion: 'Viaje al cliente',
@@ -63,6 +63,8 @@ const mockData: DatabaseState = {
     },
     {
       id: 'veh2',
+      usuario: 'admin',
+      concepto: 'Vehículo',
       clienteId: 'cli2',
       clienteNombre: 'Cliente B',
       proyectoId: 'proj2',
@@ -75,8 +77,6 @@ const mockData: DatabaseState = {
       combustibleLitros: 10,
       combustibleCosto: 100000,
       total: 100000,
-      fotoKmInicial: '/uploads/km2-inicial.jpg',
-      fotoKmFinal: '/uploads/km2-final.jpg',
       fotoOdometroInicio: '/uploads/km2-inicial.jpg',
       fotoOdometroFin: '/uploads/km2-final.jpg',
       descripcion: 'Viaje de supervisión',
@@ -93,6 +93,8 @@ const mockData: DatabaseState = {
     },
     {
       id: 'veh3',
+      usuario: 'admin',
+      concepto: 'Vehículo',
       clienteId: 'cli1',
       clienteNombre: 'Cliente A',
       proyectoId: 'proj3',
@@ -105,8 +107,6 @@ const mockData: DatabaseState = {
       combustibleLitros: 20,
       combustibleCosto: 200000,
       total: 200000,
-      fotoKmInicial: '/uploads/km3-inicial.jpg',
-      fotoKmFinal: '/uploads/km3-final.jpg',
       fotoOdometroInicio: '/uploads/km3-inicial.jpg',
       fotoOdometroFin: '/uploads/km3-final.jpg',
       descripcion: 'Viaje largo',
@@ -121,7 +121,9 @@ const mockData: DatabaseState = {
       duracionMinutos: 180,
       consumoPorKm: 0.1
     }
-  ]
+  ],
+  timersActivos: [],
+  viajesActivos: []
 };
 
 describe('VehiculosAdminView', () => {
@@ -139,7 +141,7 @@ describe('VehiculosAdminView', () => {
 
     it('displays total records count', () => {
       render(<VehiculosAdminView data={mockData} onRefresh={mockOnRefresh} />);
-      expect(screen.getByText('3')).toBeInTheDocument();
+      expect(screen.getAllByText('3').length).toBeGreaterThan(0);
     });
 
     it('displays all vehicle records in table', () => {
@@ -581,7 +583,7 @@ describe('VehiculosAdminView', () => {
       });
       
       // Click DENTRO del modal - NO debe cerrarse
-      const modalContent = screen.getByText(/Odómetro Inicio/i).closest('div[class*="rounded-2xl"]');
+      const modalContent = screen.getByText(/Odómetro Inicio/i).closest('div[class*="rounded-md"]');
       await user.click(modalContent!);
       
       // Modal sigue abierto

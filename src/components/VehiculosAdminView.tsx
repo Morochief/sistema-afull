@@ -3,6 +3,7 @@
  * Muestra todos los viajes con km, combustible, fotos y alertas
  * CRUD: Editar y Eliminar registros (Admin only)
  * Toggle: Listado (CRUD) vs Dashboard (Análisis)
+ * Enterprise Design: Paleta Black & Orange (#090a0f, #111318, #ea580c), rounded-md
  */
 
 import React, { useState, useCallback } from 'react';
@@ -29,6 +30,8 @@ import {
 import { DatabaseState, RegistroVehiculo } from '../types';
 import { authFetchJSON } from '../authFetch';
 import VehiculosAnalysis from './vehiculos/VehiculosAnalysis';
+import { useSortAndPaginate } from '../lib/tableUtils';
+import Pagination from './Pagination';
 
 interface Props {
   data: DatabaseState;
@@ -98,10 +101,7 @@ function useVehiculoCRUD(onRefresh: () => Promise<void>) {
   }, []);
 
   const submitEdit = useCallback(async () => {
-    if (!editingId || !formData) {
-      console.log('submitEdit aborted: missing data', { editingId, formData });
-      return;
-    }
+    if (!editingId || !formData) return;
 
     setIsSubmitting(true);
     setFeedback(null);
@@ -195,7 +195,7 @@ function useVehiculoCRUD(onRefresh: () => Promise<void>) {
 }
 
 const addCacheBuster = (() => {
-  const version = Date.now(); // generado una vez al cargar la pagina
+  const version = Date.now();
   return (url: string | undefined): string => {
     if (!url) return '';
     if (url.startsWith('data:')) return url;
@@ -208,9 +208,8 @@ export default function VehiculosAdminView({ data, onRefresh, initialEditId }: P
   const [viewMode, setViewMode] = useState<'list' | 'dashboard'>('list');
   const [filtroAlerta, setFiltroAlerta] = useState<'todos' | 'alertas' | 'ok'>('todos');
   const [fotoModal, setFotoModal] = useState<{ url: string; tipo: string } | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-  const hasAutoOpenedRef = React.useRef(false); // Use ref instead of state to persist across re-renders
+
+  const hasAutoOpenedRef = React.useRef(false);
   
   const {
     editingId,
@@ -234,94 +233,92 @@ export default function VehiculosAdminView({ data, onRefresh, initialEditId }: P
       if (registro) {
         startEdit(registro);
         setViewMode('list');
-        hasAutoOpenedRef.current = true; // Set ref to true
+        hasAutoOpenedRef.current = true;
       }
     }
   }, [initialEditId, data.registrosVehiculo, startEdit]);
   
-  const registrosVehiculo = React.useMemo(() => 
-    [...(data.registrosVehiculo || [])].sort((a, b) => 
-      new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
-    ), [data.registrosVehiculo]
+  // Filter first, then sort+paginate via reusable hook
+  const registrosFiltrados = React.useMemo(() => 
+    (data.registrosVehiculo || []).filter(r => {
+      if (filtroAlerta === 'alertas') return r.alertaDiscrepancia;
+      if (filtroAlerta === 'ok') return !r.alertaDiscrepancia;
+      return true;
+    }), [data.registrosVehiculo, filtroAlerta]
   );
 
-  const registrosFiltrados = React.useMemo(() => registrosVehiculo.filter(r => {
-    if (filtroAlerta === 'alertas') return r.alertaDiscrepancia;
-    if (filtroAlerta === 'ok') return !r.alertaDiscrepancia;
-    return true;
-  }), [registrosVehiculo, filtroAlerta]);
+  type VehiculoSortField = 'fecha' | 'distanciaOdometro' | 'total';
+  const table = useSortAndPaginate<RegistroVehiculo, VehiculoSortField>(registrosFiltrados, {
+    defaultSortField: 'fecha',
+    defaultSortOrder: 'desc',
+    defaultItemsPerPage: 10,
+    resetDeps: [filtroAlerta],
+  });
+  const registrosPaginated = table.paginatedData;
 
-  React.useEffect(() => { setCurrentPage(1); }, [filtroAlerta, itemsPerPage]);
-  const totalPages = Math.max(1, Math.ceil(registrosFiltrados.length / itemsPerPage));
-  const safePage = Math.min(currentPage, totalPages);
-  const registrosPaginated = React.useMemo(() => {
-    const start = (safePage - 1) * itemsPerPage;
-    return registrosFiltrados.slice(start, start + itemsPerPage);
-  }, [registrosFiltrados, safePage, itemsPerPage]);
-
-  const totalViajes = registrosVehiculo.length;
+  const totalViajes = (data.registrosVehiculo || []).length;
   const totalAlertas = React.useMemo(() =>
-    registrosVehiculo.filter(r => r.alertaDiscrepancia).length,
-    [registrosVehiculo]
+    (data.registrosVehiculo || []).filter(r => r.alertaDiscrepancia).length,
+    [data.registrosVehiculo]
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header con estadísticas y toggle de vista */}
-      <div className="glass-panel rounded-3xl p-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+      <div className="bg-[#111318] border border-white/10 rounded-md p-5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center">
-              <Car className="w-6 h-6 text-blue-400" />
+            <div className="w-10 h-10 rounded-md bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
+              <Car className="w-5 h-5 text-orange-400" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-white">Registro de Vehículos</h2>
-              <p className="text-sm text-slate-400">Control de viajes, combustible y kilometraje</p>
+              <h2 className="text-base font-bold text-white">Registro de Vehículos</h2>
+              <p className="text-xs text-slate-400">Auditoría de viajes, discrepancias GPS, combustible y odómetro</p>
             </div>
           </div>
 
           {/* Toggle: Listado vs Dashboard */}
-          <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl">
+          <div className="flex items-center gap-1 bg-[#090a0f] p-1 rounded-md border border-white/10">
             <button
               onClick={() => setViewMode('list')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                 viewMode === 'list'
-                  ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                  ? 'bg-orange-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              <List className="w-4 h-4" />
-              Listado
+              <List className="w-3.5 h-3.5" />
+              <span>Listado</span>
             </button>
             <button
               onClick={() => setViewMode('dashboard')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                 viewMode === 'dashboard'
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                  ? 'bg-orange-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              <BarChart3 className="w-4 h-4" />
-              Dashboard
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Dashboard</span>
             </button>
           </div>
         </div>
 
         {/* Filtros */}
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-slate-400 flex items-center gap-2">
-            <Filter className="w-4 h-4" />
-            Filtrar:
+        <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+          <span className="text-xs text-slate-400 flex items-center gap-1.5">
+            <Filter className="w-3.5 h-3.5 text-slate-500" />
+            <span>Filtrar:</span>
           </span>
-          <div className="flex gap-2">
+          <div className="flex gap-1.5">
             {(['todos', 'alertas', 'ok'] as const).map(filtro => (
               <button
                 key={filtro}
                 onClick={() => setFiltroAlerta(filtro)}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors border ${
                   filtroAlerta === filtro
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                    ? 'bg-orange-600 text-white border-orange-500'
+                    : 'bg-[#090a0f] text-slate-400 border-white/10 hover:text-white'
                 }`}
               >
                 {filtro === 'todos' && `Todos (${totalViajes})`}
@@ -337,11 +334,11 @@ export default function VehiculosAdminView({ data, onRefresh, initialEditId }: P
       {viewMode === 'dashboard' ? (
         <VehiculosAnalysis data={data} />
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {registrosFiltrados.length === 0 ? (
-            <div className="glass-panel rounded-2xl p-12 text-center">
-              <Car className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-              <p className="text-slate-400">No hay registros de viajes</p>
+            <div className="bg-[#111318] border border-white/10 rounded-md p-10 text-center">
+              <Car className="w-10 h-10 text-slate-600 mx-auto mb-2" />
+              <p className="text-xs text-slate-400">No hay registros de viajes que coincidan con el filtro.</p>
             </div>
           ) : (
             registrosPaginated.map((registro) => (
@@ -355,25 +352,16 @@ export default function VehiculosAdminView({ data, onRefresh, initialEditId }: P
             ))
           )}
           {registrosFiltrados.length > 0 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
-              <div className="flex items-center gap-2">
-                <select value={itemsPerPage} onChange={e => setItemsPerPage(Number(e.target.value))} className="glass-select rounded-lg px-3 py-1.5 text-xs">
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                </select>
-                <span className="text-xs text-slate-500 font-mono">{registrosFiltrados.length} viajes</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage <= 1}
-                  className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10">‹</button>
-                {(() => { const pages = []; const s = Math.max(1, safePage - 5); const e = Math.min(totalPages, s + 9); for (let p = s; p <= e; p++) pages.push(p); return pages; })().map(page => (
-                  <button key={page} onClick={() => setCurrentPage(page)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold ${page === safePage ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10'}`}>{page}</button>
-                ))}
-                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}
-                  className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10">›</button>
-              </div>
+            <div className="pt-2">
+              <Pagination
+                currentPage={table.currentPage}
+                totalPages={table.totalPages}
+                itemsPerPage={table.itemsPerPage}
+                totalItems={registrosFiltrados.length}
+                pageNumbers={table.pageNumbers}
+                onPageChange={table.setCurrentPage}
+                onItemsPerPageChange={table.setItemsPerPage}
+              />
             </div>
           )}
         </div>
@@ -382,23 +370,31 @@ export default function VehiculosAdminView({ data, onRefresh, initialEditId }: P
       {/* Modal de foto */}
       {fotoModal && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4"
           onClick={() => setFotoModal(null)}
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
+            exit={{ opacity: 0, scale: 0.95 }}
             onClick={(e) => e.stopPropagation()}
-            className="max-w-4xl w-full bg-slate-900 rounded-2xl p-6"
+            className="max-w-3xl w-full bg-[#111318] border border-white/10 rounded-md p-5 shadow-2xl"
           >
-            <h3 className="text-lg font-bold text-white mb-4">
-              Odómetro {fotoModal.tipo}
-            </h3>
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/10">
+              <h3 className="text-sm font-bold text-white">
+                Odómetro {fotoModal.tipo}
+              </h3>
+              <button 
+                onClick={() => setFotoModal(null)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
             <img
               src={addCacheBuster(fotoModal.url)}
               alt={`Odómetro ${fotoModal.tipo}`}
-              className="w-full rounded-lg"
+              className="w-full max-h-[70vh] object-contain rounded-md border border-white/10 bg-black"
             />
           </motion.div>
         </div>
@@ -458,17 +454,17 @@ function compressImage(base64: string, maxWidth = 1200, quality = 0.75): Promise
   });
 }
 
-function ModalShell({ onClose, maxWidth = 'max-w-2xl', borderColor = 'border-white/10', children }: {
+function ModalShell({ onClose, maxWidth = 'max-w-xl', borderColor = 'border-white/10', children }: {
   onClose: () => void; maxWidth?: string; borderColor?: string; children: React.ReactNode;
 }) {
   return (
     <AnimatePresence>
       <motion.div key="backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
-      <motion.div key="modal" initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className="fixed inset-0 bg-black/70 backdrop-blur-xs z-50" onClick={onClose} />
+      <motion.div key="modal" initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }}
         className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-        <div className={`glass-panel rounded-3xl p-6 ${maxWidth} w-full pointer-events-auto border-2 ${borderColor} shadow-2xl`}
+        <div className={`bg-[#111318] rounded-md p-6 ${maxWidth} w-full pointer-events-auto border ${borderColor} shadow-2xl`}
           onClick={e => e.stopPropagation()}>
           {children}
         </div>
@@ -501,209 +497,203 @@ function EditModal({
   const showPreview = dist > 0;
   return (
     <ModalShell onClose={onClose}>
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-blue-500/20 border border-blue-500/30">
-                <Edit2 className="w-5 h-5 text-blue-300" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-white">Editar Registro de Vehículo</h2>
-                <p className="text-xs text-slate-400 font-mono">{registro.proyectoNombre}</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Cerrar"
-              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-all"
-            >
-              <X className="w-5 h-5" />
-            </button>
+      {/* Header */}
+      <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/10">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-md bg-orange-500/10 border border-orange-500/20 text-orange-400">
+            <Edit2 className="w-4 h-4" />
           </div>
+          <div>
+            <h2 className="text-sm font-bold text-white">Editar Registro de Vehículo</h2>
+            <p className="text-[11px] text-slate-400 font-mono">{registro.proyectoNombre}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar"
+          className="text-slate-400 hover:text-white transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
 
-          {/* Form */}
-          <div className="space-y-4">
-            {/* Fecha */}
-            <div>
-              <label className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-2 block">
-                Fecha
-              </label>
-              <input
-                type="date"
-                value={formData.fecha}
-                onChange={(e) => onUpdateField('fecha', e.target.value)}
-                disabled={isSubmitting}
-                className="glass-input w-full rounded-xl px-4 py-3 text-sm"
-              />
-            </div>
+      {/* Form */}
+      <div className="space-y-3.5 text-xs">
+        {/* Fecha */}
+        <div>
+          <label className="text-[11px] font-mono text-slate-400 mb-1 block">
+            Fecha
+          </label>
+          <input
+            type="date"
+            value={formData.fecha}
+            onChange={(e) => onUpdateField('fecha', e.target.value)}
+            disabled={isSubmitting}
+            className="w-full bg-[#090a0f] border border-white/10 rounded-md px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+          />
+        </div>
 
-            {/* Kilometraje */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-2 block">
-                  Km Inicial
+        {/* Kilometraje */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-[11px] font-mono text-slate-400 mb-1 block">
+              Km Inicial
+            </label>
+            <input
+              type="number"
+              value={formData.kmInicial}
+              onChange={(e) => onUpdateField('kmInicial', parseFloat(e.target.value))}
+              disabled={isSubmitting}
+              className="w-full bg-[#090a0f] border border-white/10 rounded-md px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] font-mono text-slate-400 mb-1 block">
+              Km Final
+            </label>
+            <input
+              type="number"
+              value={formData.kmFinal}
+              onChange={(e) => onUpdateField('kmFinal', parseFloat(e.target.value))}
+              disabled={isSubmitting}
+              className="w-full bg-[#090a0f] border border-white/10 rounded-md px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+            />
+          </div>
+        </div>
+
+        {/* Costo por Km */}
+        <div>
+          <label className="text-[11px] font-mono text-slate-400 mb-1 block">
+            Costo por Km (Gs.)
+          </label>
+          <input
+            type="number"
+            step="100"
+            value={formData.costoPorKm}
+            onChange={(e) => onUpdateField('costoPorKm', parseFloat(e.target.value) || 0)}
+            disabled={isSubmitting}
+            className="w-full bg-[#090a0f] border border-white/10 rounded-md px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+          />
+          {showPreview && (
+            <p className="text-[11px] text-emerald-400 mt-1">
+              {dist.toFixed(1)} km × Gs. {formData.costoPorKm.toLocaleString()} ={' '}
+              <strong>Gs. {totalPreview.toLocaleString()}</strong>
+            </p>
+          )}
+        </div>
+
+        {/* Descripción */}
+        <div>
+          <label className="text-[11px] font-mono text-slate-400 mb-1 block">
+            Descripción del Viaje
+          </label>
+          <textarea
+            value={formData.descripcion}
+            onChange={(e) => onUpdateField('descripcion', e.target.value)}
+            disabled={isSubmitting}
+            className="w-full bg-[#090a0f] border border-white/10 rounded-md px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500 min-h-[70px] resize-none"
+            placeholder="Descripción del viaje o trabajo..."
+          />
+        </div>
+
+        {/* Fotos del Odómetro */}
+        <div className="grid grid-cols-2 gap-3">
+          {(['fotoOdometroInicio', 'fotoOdometroFin'] as const).map((field) => {
+            const label = field === 'fotoOdometroInicio' ? 'Foto Inicio' : 'Foto Fin';
+            const current = formData[field];
+            return (
+              <div key={field}>
+                <label className="text-[11px] font-mono text-slate-400 mb-1 block">
+                  {label}
                 </label>
-                <input
-                  type="number"
-                  value={formData.kmInicial}
-                  onChange={(e) => onUpdateField('kmInicial', parseFloat(e.target.value))}
-                  disabled={isSubmitting}
-                  className="glass-input w-full rounded-xl px-4 py-3 text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-2 block">
-                  Km Final
-                </label>
-                <input
-                  type="number"
-                  value={formData.kmFinal}
-                  onChange={(e) => onUpdateField('kmFinal', parseFloat(e.target.value))}
-                  disabled={isSubmitting}
-                  className="glass-input w-full rounded-xl px-4 py-3 text-sm"
-                />
-              </div>
-            </div>
-
-            {/* Costo por Km */}
-            <div className="mb-4">
-              <label className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-2 block">
-                Costo por Km (Gs.)
-              </label>
-              <input
-                type="number"
-                step="100"
-                value={formData.costoPorKm}
-                onChange={(e) => onUpdateField('costoPorKm', parseFloat(e.target.value) || 0)}
-                disabled={isSubmitting}
-                className="glass-input w-full rounded-xl px-4 py-3 text-sm"
-              />
-              {showPreview && (
-                <p className="text-xs text-emerald-400 mt-1">
-                  {dist.toFixed(1)} km × Gs. {formData.costoPorKm.toLocaleString()} ={' '}
-                  <strong>Gs. {totalPreview.toLocaleString()}</strong>
-                </p>
-              )}
-            </div>
-
-            {/* Descripción */}
-            <div>
-              <label className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-2 block">
-                Descripción
-              </label>
-              <textarea
-                value={formData.descripcion}
-                onChange={(e) => onUpdateField('descripcion', e.target.value)}
-                disabled={isSubmitting}
-                className="glass-input w-full rounded-xl px-4 py-3 text-sm min-h-[100px] resize-none"
-                placeholder="Descripción del viaje..."
-              />
-            </div>
-
-            {/* Fotos del Odómetro */}
-            <div className="grid grid-cols-2 gap-4">
-              {(['fotoOdometroInicio', 'fotoOdometroFin'] as const).map((field) => {
-                const label = field === 'fotoOdometroInicio' ? 'Foto Inicio' : 'Foto Fin';
-                const current = formData[field];
-                return (
-                  <div key={field}>
-                    <label className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-2 block">
-                      {label}
-                    </label>
-                    {current && (
-                      <img
-                        src={addCacheBuster(current)}
-                        alt={label}
-                        className="w-full h-24 object-cover rounded-lg mb-2 border border-white/10"
-                      />
-                    )}
-                    <label className="flex items-center gap-2 cursor-pointer px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs text-slate-400 transition">
-                      <Camera className="w-4 h-4" />
-                      <span>Cambiar foto</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        className="hidden"
-                        disabled={isSubmitting}
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          const reader = new FileReader();
-                          reader.onload = async (ev) => {
-                            const raw = ev.target?.result as string;
-                            const compressed = await compressImage(raw);
-                            onUpdateField(field, compressed);
-                          };
-                          reader.readAsDataURL(file);
-                        }}
-                      />
-                    </label>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Feedback */}
-            {feedback && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`p-3 rounded-xl flex items-center gap-2 ${
-                  feedback.type === 'success'
-                    ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-300'
-                    : 'bg-rose-500/20 border border-rose-500/30 text-rose-300'
-                }`}
-              >
-                {feedback.type === 'success' ? (
-                  <CheckCircle className="w-5 h-5" />
-                ) : (
-                  <AlertTriangle className="w-5 h-5" />
+                {current && (
+                  <img
+                    src={addCacheBuster(current)}
+                    alt={label}
+                    className="w-full h-20 object-cover rounded-md mb-1.5 border border-white/10"
+                  />
                 )}
-                <span className="text-sm font-medium">{feedback.message}</span>
-              </motion.div>
+                <label className="flex items-center justify-center gap-1.5 cursor-pointer px-2.5 py-1.5 bg-[#090a0f] hover:bg-white/5 border border-white/10 rounded-md text-[11px] text-slate-300 transition-colors">
+                  <Camera className="w-3.5 h-3.5 text-orange-400" />
+                  <span>Cambiar foto</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    disabled={isSubmitting}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = async (ev) => {
+                        const raw = ev.target?.result as string;
+                        const compressed = await compressImage(raw);
+                        onUpdateField(field, compressed);
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                </label>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Feedback */}
+        {feedback && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`p-2.5 rounded-md flex items-center gap-2 text-xs ${
+              feedback.type === 'success'
+                ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
+                : 'bg-rose-500/10 border border-rose-500/30 text-rose-300'
+            }`}
+          >
+            {feedback.type === 'success' ? (
+              <CheckCircle className="w-4 h-4 text-emerald-400" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-rose-400" />
             )}
+            <span>{feedback.message}</span>
+          </motion.div>
+        )}
 
-            {/* Actions */}
-            <div className="flex items-center gap-3 pt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  onSubmit().catch(err => console.error('Submit error:', err));
-                }}
-                disabled={isSubmitting}
-                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? (
-                  <>
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                    >
-                      <Save className="w-4 h-4" />
-                    </motion.div>
-                    Guardando...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    Guardar Cambios
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={isSubmitting}
-                className="px-6 py-3 text-slate-400 hover:text-white hover:bg-white/10 font-semibold rounded-xl transition-all"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </ModalShell>
+        {/* Actions */}
+        <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/10">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="px-4 py-2 text-slate-400 hover:text-white font-medium rounded-md transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onSubmit().catch(err => console.error('Submit error:', err));
+            }}
+            disabled={isSubmitting}
+            className="flex items-center gap-1.5 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-md transition-colors disabled:opacity-50"
+          >
+            {isSubmitting ? (
+              <>
+                <Save className="w-3.5 h-3.5 animate-spin" />
+                <span>Guardando...</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-3.5 h-3.5" />
+                <span>Guardar Cambios</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </ModalShell>
   );
 }
 
@@ -726,107 +716,95 @@ function DeleteConfirmModal({
 }: DeleteConfirmModalProps) {
   return (
     <ModalShell onClose={onClose} maxWidth="max-w-md" borderColor="border-rose-500/30">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2.5 rounded-xl bg-rose-500/20 border border-rose-500/30">
-              <AlertTriangle className="w-5 h-5 text-rose-300" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white">Confirmar Eliminación</h2>
-              <p className="text-xs text-slate-400">Esta acción no se puede deshacer</p>
-            </div>
-          </div>
+      <div className="flex items-center gap-2.5 pb-3 mb-3 border-b border-white/10">
+        <div className="p-2 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-400">
+          <AlertTriangle className="w-4 h-4" />
+        </div>
+        <div>
+          <h2 className="text-sm font-bold text-white">Confirmar Eliminación</h2>
+          <p className="text-[11px] text-slate-400">Esta acción no se puede deshacer</p>
+        </div>
+      </div>
 
-          {/* Details */}
-          <div className="space-y-3 mb-6">
-            <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-              <p className="text-sm text-slate-400 mb-1">Proyecto:</p>
-              <p className="text-white font-semibold">{registro.proyectoNombre}</p>
-            </div>
-            <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-              <p className="text-sm text-slate-400 mb-1">Distancia:</p>
-              <p className="text-white font-semibold">{registro.distanciaOdometro} km</p>
-            </div>
-            <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-              <p className="text-sm text-slate-400 mb-1">Fecha:</p>
-              <p className="text-white font-semibold">{formatDate(registro.fecha)}</p>
-            </div>
-          </div>
+      {/* Details */}
+      <div className="space-y-2 mb-4 text-xs">
+        <div className="p-2.5 bg-[#090a0f] rounded-md border border-white/5">
+          <p className="text-[10px] text-slate-500 uppercase font-mono">Proyecto</p>
+          <p className="text-white font-semibold">{registro.proyectoNombre}</p>
+        </div>
+        <div className="p-2.5 bg-[#090a0f] rounded-md border border-white/5">
+          <p className="text-[10px] text-slate-500 uppercase font-mono">Distancia</p>
+          <p className="text-white font-semibold">{registro.distanciaOdometro} km</p>
+        </div>
+        <div className="p-2.5 bg-[#090a0f] rounded-md border border-white/5">
+          <p className="text-[10px] text-slate-500 uppercase font-mono">Fecha</p>
+          <p className="text-white font-semibold">{formatDate(registro.fecha)}</p>
+        </div>
+      </div>
 
-          {/* Feedback */}
-          {feedback && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-3 rounded-xl flex items-center gap-2 bg-rose-500/20 border border-rose-500/30 text-rose-300 mb-4"
-            >
-              <AlertTriangle className="w-5 h-5" />
-              <span className="text-sm font-medium">{feedback.message}</span>
-            </motion.div>
-          )}
+      {/* Feedback */}
+      {feedback && (
+        <div className="p-2.5 rounded-md flex items-center gap-2 bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs mb-3">
+          <AlertTriangle className="w-3.5 h-3.5" />
+          <span>{feedback.message}</span>
+        </div>
+      )}
 
-          {/* Actions */}
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onConfirm}
-              disabled={isSubmitting}
-              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? (
-                <>
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </motion.div>
-                  Eliminando...
-                </>
-              ) : (
-                <>
-                  <Trash2 className="w-4 h-4" />
-                  Eliminar
-                </>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="px-6 py-3 text-slate-400 hover:text-white hover:bg-white/10 font-semibold rounded-xl transition-all"
-            >
-              Cancelar
-            </button>
-          </div>
-        </ModalShell>
+      {/* Actions */}
+      <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={isSubmitting}
+          className="px-3.5 py-1.5 text-slate-400 hover:text-white font-medium rounded-md transition-colors text-xs"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={isSubmitting}
+          className="flex items-center gap-1.5 px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-md transition-colors text-xs disabled:opacity-50"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          <span>{isSubmitting ? 'Eliminando...' : 'Eliminar'}</span>
+        </button>
+      </div>
+    </ModalShell>
   );
 }
 
-function UbicacionCard({ label, ubicacion, hora, color }: { label: string; ubicacion: any; hora?: string; color: 'blue' | 'emerald' }) {
-  const colors = { blue: 'bg-blue-500/5 border-blue-500/20 text-blue-400', emerald: 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' };
+function UbicacionCard({ label, ubicacion, hora, color }: { label: string; ubicacion: any; hora?: string; color: 'orange' | 'emerald' }) {
+  const colors = { 
+    orange: 'bg-orange-500/5 border-orange-500/20 text-orange-400', 
+    emerald: 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' 
+  };
   return (
-    <div className={`p-4 ${colors[color]} rounded-xl`}>
-      <div className={`flex items-center gap-2 mb-2 ${colors[color].split(' ')[2]}`}>
-        <MapPin className="w-4 h-4" />
-        <span className="text-xs font-bold uppercase font-mono">{label}</span>
+    <div className={`p-3 ${colors[color]} rounded-md border`}>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <MapPin className="w-3.5 h-3.5" />
+        <span className="text-[10px] font-bold uppercase font-mono">{label}</span>
       </div>
       {ubicacion?.lat != null ? (
-        <><p className="text-xs text-slate-300 font-mono">{ubicacion.lat.toFixed(6)}, {ubicacion.lng.toFixed(6)}</p>
-          {ubicacion.nombre && <p className="text-[10px] text-slate-400 mt-1">{ubicacion.nombre}</p>}</>
-      ) : <p className="text-xs text-slate-500 italic">Sin coordenadas GPS</p>}
-      {hora && <p className="text-[10px] text-slate-500 mt-2">{hora}</p>}
+        <>
+          <p className="text-xs text-slate-300 font-mono">{ubicacion.lat.toFixed(6)}, {ubicacion.lng.toFixed(6)}</p>
+          {ubicacion.nombre && <p className="text-[11px] text-slate-400 mt-0.5">{ubicacion.nombre}</p>}
+        </>
+      ) : <p className="text-[11px] text-slate-500 italic">Sin coordenadas GPS</p>}
+      {hora && <p className="text-[10px] text-slate-500 font-mono mt-1">{hora}</p>}
     </div>
   );
 }
 
 function FotoButton({ src, label, km, onClick }: { src?: string; label: string; km: number | string; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="group relative aspect-video rounded-lg overflow-hidden border border-white/10 hover:border-blue-500/50 transition">
+    <button onClick={onClick} className="group relative aspect-video rounded-md overflow-hidden border border-white/10 hover:border-orange-500/50 transition cursor-pointer bg-black">
       <img src={addCacheBuster(src)} alt={`Odómetro ${label}`} className="w-full h-full object-cover" />
-      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center"><Eye className="w-6 h-6 text-white" /></div>
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-        <p className="text-xs text-white font-bold">{label}: {km} km</p>
+      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+        <Eye className="w-5 h-5 text-white" />
+      </div>
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5">
+        <p className="text-[11px] text-white font-bold">{label}: {km} km</p>
       </div>
     </button>
   );
@@ -840,81 +818,87 @@ function ViajeCard({ registro, onVerFoto, onEdit, onDelete }: ViajeCardProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`glass-panel rounded-2xl p-6 border-2 transition ${
+      className={`bg-[#111318] rounded-md p-4 border transition-colors ${
         registro.alertaDiscrepancia
-          ? 'border-amber-500/30 bg-amber-500/5'
-          : 'border-white/10'
+          ? 'border-amber-500/30 bg-amber-500/[0.02]'
+          : 'border-white/10 hover:border-white/20'
       }`}
     >
       {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2.5 mb-1.5">
+            <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${
               esParticular 
-                ? 'bg-purple-500/10 border border-purple-500/20'
-                : 'bg-blue-500/10 border border-blue-500/20'
+                ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
+                : 'bg-orange-500/10 border border-orange-500/20 text-orange-400'
             }`}>
-              <Car className={`w-5 h-5 ${esParticular ? 'text-purple-400' : 'text-blue-400'}`} />
+              <Car className="w-4 h-4" />
             </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-white">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-bold text-white truncate">
                 {esParticular ? '🏠 Viaje Particular' : registro.proyectoNombre}
               </h3>
-              <p className="text-sm text-slate-400">
+              <p className="text-[11px] text-slate-400 truncate">
                 {!esParticular && `${registro.clienteNombre} • `}
                 {formatDate(registro.fecha)}
               </p>
             </div>
             
             {/* Edit/Delete Buttons */}
-            <div className="flex gap-2">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 onClick={() => onEdit(registro)}
-                className="p-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-400 transition"
+                className="p-1.5 rounded-md bg-white/5 hover:bg-orange-500/10 border border-white/10 hover:border-orange-500/30 text-slate-400 hover:text-orange-400 transition-colors"
                 title="Editar registro"
                 aria-label={`Editar viaje ${esParticular ? 'particular' : registro.proyectoNombre} del ${formatDate(registro.fecha)}`}
               >
-                <Edit2 className="w-4 h-4" />
+                <Edit2 className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => onDelete(registro.id)}
-                className="p-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 transition"
+                className="p-1.5 rounded-md bg-white/5 hover:bg-rose-500/10 border border-white/10 hover:border-rose-500/30 text-slate-400 hover:text-rose-400 transition-colors"
                 title="Eliminar registro"
                 aria-label={`Eliminar viaje ${esParticular ? 'particular' : registro.proyectoNombre} del ${formatDate(registro.fecha)}`}
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
 
           {/* Alerta de discrepancia */}
           {registro.alertaDiscrepancia && (
-            <div className="flex items-center gap-2 p-3 bg-amber-500/20 border border-amber-500/30 rounded-lg mb-3">
-              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-              <div className="flex-1">
-                <p className="text-xs font-bold text-amber-300">Discrepancia Detectada</p>
-                <p className="text-[10px] text-amber-400/80">
+            <div className="flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-md mb-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <div className="flex-1 min-w-0 text-xs">
+                <span className="font-bold text-amber-300">Discrepancia Detectada: </span>
+                <span className="text-amber-400/90 font-mono text-[11px]">
                   {registro.discrepancia?.toFixed(1)}% diferencia entre GPS y odómetro
-                </p>
+                </span>
               </div>
             </div>
           )}
 
           {/* Descripción */}
           {registro.descripcion && (
-            <p className="text-sm text-slate-300 leading-relaxed">{registro.descripcion}</p>
+            <p className="text-xs text-slate-300 leading-relaxed mb-2">{registro.descripcion}</p>
           )}
 
-          {/* Stats grid */}
-          <div className="flex items-center gap-2 text-xs mt-3">
-            <span className="px-2 py-1 bg-slate-800 rounded-lg font-mono text-slate-400">
+          {/* Metrics summary bar */}
+          <div className="flex items-center gap-2 text-xs flex-wrap font-mono">
+            <span className="px-2 py-0.5 bg-[#090a0f] border border-white/10 rounded text-slate-400 text-[11px]">
               {formatDate(registro.fecha)}
             </span>
-            <span className="px-2 py-1 bg-slate-800 rounded-lg font-mono text-slate-400">
+            <span className="px-2 py-0.5 bg-[#090a0f] border border-white/10 rounded text-slate-400 text-[11px]">
               {registro.duracionMinutos} min
+            </span>
+            <span className="px-2 py-0.5 bg-orange-500/10 border border-orange-500/20 rounded text-orange-300 font-bold text-[11px]">
+              {registro.distanciaOdometro} km
+            </span>
+            <span className="px-2 py-0.5 bg-[#090a0f] border border-white/10 rounded text-emerald-400 font-bold text-[11px]">
+              {formatGuaranies(registro.total)}
             </span>
           </div>
         </div>
@@ -922,11 +906,11 @@ function ViajeCard({ registro, onVerFoto, onEdit, onDelete }: ViajeCardProps) {
         {/* Botón expandir */}
         <button
           onClick={() => setExpandido(!expandido)}
-          className="px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-lg text-xs font-semibold text-blue-400 transition ml-4"
+          className="px-3 py-1.5 bg-[#090a0f] hover:bg-orange-500/10 border border-white/10 hover:border-orange-500/30 rounded-md text-xs font-semibold text-slate-300 hover:text-orange-400 transition-colors shrink-0"
           aria-label={expandido ? 'Ocultar detalles del viaje' : 'Ver detalles del viaje'}
           aria-expanded={expandido}
         >
-          {expandido ? 'Ocultar Detalles' : 'Ver Detalles'}
+          {expandido ? 'Ocultar' : 'Detalles'}
         </button>
       </div>
 
@@ -940,91 +924,78 @@ function ViajeCard({ registro, onVerFoto, onEdit, onDelete }: ViajeCardProps) {
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="pt-4 mt-4 border-t border-white/10 space-y-4">
+            <div className="pt-3 mt-3 border-t border-white/10 space-y-3">
               {/* Ubicaciones GPS */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <UbicacionCard label="Ubicación Inicio" ubicacion={registro.ubicacionInicio} hora={registro.horaInicio} color="blue" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <UbicacionCard label="Ubicación Inicio" ubicacion={registro.ubicacionInicio} hora={registro.horaInicio} color="orange" />
                 <UbicacionCard label="Ubicación Fin" ubicacion={registro.ubicacionFin} hora={registro.horaFin} color="emerald" />
               </div>
 
               {/* Distancias y Combustible */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="p-3 bg-white/5 rounded-lg">
-                  <div className="flex items-center gap-1.5 text-blue-400 mb-1">
-                    <MapPin className="w-3.5 h-3.5" />
-                    <span className="text-[10px] uppercase font-mono">GPS</span>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                <div className="p-2.5 bg-[#090a0f] border border-white/5 rounded-md">
+                  <div className="flex items-center gap-1 text-orange-400 mb-0.5 font-mono text-[10px] uppercase">
+                    <MapPin className="w-3 h-3" />
+                    <span>GPS</span>
                   </div>
-                  <p className="text-lg font-bold text-white">{registro.distanciaGPS != null ? registro.distanciaGPS.toFixed(1) : '-'} km</p>
+                  <p className="text-sm font-bold text-white font-mono">{registro.distanciaGPS != null ? registro.distanciaGPS.toFixed(1) : '-'} km</p>
                 </div>
 
-                <div className="p-3 bg-white/5 rounded-lg">
-                  <div className="flex items-center gap-1.5 text-emerald-400 mb-1">
-                    <Gauge className="w-3.5 h-3.5" />
-                    <span className="text-[10px] uppercase font-mono">Odómetro</span>
+                <div className="p-2.5 bg-[#090a0f] border border-white/5 rounded-md">
+                  <div className="flex items-center gap-1 text-emerald-400 mb-0.5 font-mono text-[10px] uppercase">
+                    <Gauge className="w-3 h-3" />
+                    <span>Odómetro</span>
                   </div>
-                  <p className="text-lg font-bold text-white">{registro.distanciaOdometro != null ? registro.distanciaOdometro.toFixed(1) : '-'} km</p>
+                  <p className="text-sm font-bold text-white font-mono">{registro.distanciaOdometro != null ? registro.distanciaOdometro.toFixed(1) : '-'} km</p>
                 </div>
 
-                <div className="p-3 bg-white/5 rounded-lg">
-                  <div className="flex items-center gap-1.5 text-amber-400 mb-1">
-                    <Fuel className="w-3.5 h-3.5" />
-                    <span className="text-[10px] uppercase font-mono">Costo/km</span>
+                <div className="p-2.5 bg-[#090a0f] border border-white/5 rounded-md">
+                  <div className="flex items-center gap-1 text-amber-400 mb-0.5 font-mono text-[10px] uppercase">
+                    <Fuel className="w-3 h-3" />
+                    <span>Costo/km</span>
                   </div>
-                  <p className="text-lg font-bold text-white">
+                  <p className="text-xs font-bold text-white font-mono">
                     {registro.total && registro.distanciaOdometro > 0
                       ? `${formatGuaranies(registro.total / registro.distanciaOdometro)}`
                       : formatGuaranies(registro.total)}
                   </p>
                 </div>
 
-                <div className="p-3 bg-white/5 rounded-lg">
-                  <div className="flex items-center gap-1.5 text-violet-400 mb-1">
-                    <DollarSign className="w-3.5 h-3.5" />
-                    <span className="text-[10px] uppercase font-mono">Costo</span>
+                <div className="p-2.5 bg-[#090a0f] border border-white/5 rounded-md">
+                  <div className="flex items-center gap-1 text-amber-400 mb-0.5 font-mono text-[10px] uppercase">
+                    <DollarSign className="w-3 h-3" />
+                    <span>Total</span>
                   </div>
-                  <p className="text-sm font-bold text-white">{formatGuaranies(registro.total)}</p>
-                </div>
-              </div>
-
-              {/* Costo */}
-              <div className="p-3 bg-violet-500/10 border border-violet-500/20 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-violet-400" />
-                  <span className="text-xs font-bold text-violet-300">
-                    Costo total: {formatGuaranies(registro.total)}
-                    {registro.distanciaOdometro > 0 && (
-                      <> — {formatGuaranies(Math.round(registro.total / registro.distanciaOdometro))}/km</>
-                    )}
-                  </span>
+                  <p className="text-xs font-bold text-white font-mono">{formatGuaranies(registro.total)}</p>
                 </div>
               </div>
 
               {/* Fotos del Odómetro */}
               <div>
-                <div className="flex items-center gap-2 text-slate-300 mb-3">
-                  <Camera className="w-4 h-4" />
-                  <span className="text-sm font-bold">Fotos del Odómetro</span>
+                <div className="flex items-center gap-1.5 text-slate-400 mb-2">
+                  <Camera className="w-3.5 h-3.5 text-orange-400" />
+                  <span className="text-xs font-bold text-white">Fotos del Odómetro</span>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <FotoButton src={registro.fotoOdometroInicio} label="Inicio" km={registro.kmInicial} onClick={() => onVerFoto(registro.fotoOdometroInicio, 'Inicio')} />
                   <FotoButton src={registro.fotoOdometroFin} label="Fin" km={registro.kmFinal} onClick={() => onVerFoto(registro.fotoOdometroFin, 'Fin')} />
                 </div>
               </div>
 
               {/* Kilometraje detallado */}
-              <div className="p-4 bg-slate-900/50 rounded-xl border border-white/5">
-                <div className="grid grid-cols-3 gap-4 text-center">
+              <div className="p-3 bg-[#090a0f] rounded-md border border-white/5">
+                <div className="grid grid-cols-3 gap-3 text-center">
                   <div>
-                    <p className="text-[10px] text-slate-500 uppercase font-mono mb-1">Km Inicial</p>
-                    <p className="text-xl font-bold text-white">{registro.kmInicial}</p>
+                    <p className="text-[10px] text-slate-500 uppercase font-mono mb-0.5">Km Inicial</p>
+                    <p className="text-sm font-bold text-white font-mono">{registro.kmInicial}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-slate-500 uppercase font-mono mb-1">Km Final</p>
-                    <p className="text-xl font-bold text-white">{registro.kmFinal}</p>
+                    <p className="text-[10px] text-slate-500 uppercase font-mono mb-0.5">Km Final</p>
+                    <p className="text-sm font-bold text-white font-mono">{registro.kmFinal}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-slate-500 uppercase font-mono mb-1">Recorrido</p>
-                    <p className="text-xl font-bold text-emerald-400">{registro.distanciaOdometro} km</p>
+                    <p className="text-[10px] text-slate-500 uppercase font-mono mb-0.5">Recorrido</p>
+                    <p className="text-sm font-bold text-emerald-400 font-mono">{registro.distanciaOdometro} km</p>
                   </div>
                 </div>
               </div>

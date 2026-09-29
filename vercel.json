@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "buildCommand": "prisma generate && vite build",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/index.ts": {
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/portal/:token",
+      "destination": "/portal.html"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.ts"
+    },
+    {
+      "source": "/((?!api/|portal/).*)",
+      "destination": "/index.html"
+    }
+  ]
+}

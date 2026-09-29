@@ -41,13 +41,13 @@ beforeEach(() => {
 
 const mockData: DatabaseState = {
   clientes: [
-    { id: 'cli1', nombre: 'Cliente A' },
-    { id: 'cli2', nombre: 'Cliente B' }
+    { id: 'cli1', nombre: 'Cliente A', fechaCreacion: '2026-01-01' },
+    { id: 'cli2', nombre: 'Cliente B', fechaCreacion: '2026-01-01' }
   ],
   proyectos: [
-    { id: 'proj1', nombre: 'Proyecto Alpha', clienteId: 'cli1', clienteNombre: 'Cliente A', estado: 'En Proceso' },
-    { id: 'proj2', nombre: 'Proyecto Beta', clienteId: 'cli2', clienteNombre: 'Cliente B', estado: 'Finalizado' },
-    { id: 'proj3', nombre: 'Proyecto Gamma', clienteId: 'cli1', clienteNombre: 'Cliente A', estado: 'En Proceso' }
+    { id: 'proj1', nombre: 'Proyecto Alpha', clienteId: 'cli1', estado: 'En Proceso', fechaInicio: '2026-01-01' },
+    { id: 'proj2', nombre: 'Proyecto Beta', clienteId: 'cli2', estado: 'Completado', fechaInicio: '2026-01-01' },
+    { id: 'proj3', nombre: 'Proyecto Gamma', clienteId: 'cli1', estado: 'En Proceso', fechaInicio: '2026-01-01' }
   ],
   colaboradores: [],
   registros: [
@@ -63,7 +63,8 @@ const mockData: DatabaseState = {
       cantidad: 120,
       hsTotal: 2,
       precioUnitario: 50000,
-      total: 6000000
+      total: 6000000,
+      origen: 'Manual'
     },
     {
       id: 'reg2',
@@ -76,7 +77,8 @@ const mockData: DatabaseState = {
       descripcion: 'Cables y conectores',
       cantidad: 10,
       precioUnitario: 5000,
-      total: 50000
+      total: 50000,
+      origen: 'Manual'
     },
     {
       id: 'reg3',
@@ -90,29 +92,41 @@ const mockData: DatabaseState = {
       cantidad: 90,
       hsTotal: 1.5,
       precioUnitario: 50000,
-      total: 4500000
+      total: 4500000,
+      origen: 'Manual'
     }
   ],
   registrosVehiculo: [
     {
       id: 'veh1',
+      usuario: 'admin',
       clienteId: 'cli1',
       clienteNombre: 'Cliente A',
       proyectoId: 'proj1',
       proyectoNombre: 'Proyecto Alpha',
       fecha: '2026-06-22',
+      concepto: 'Vehículo',
+      ubicacionInicio: { lat: -25.26, lng: -57.57, nombre: 'Oficina' },
+      ubicacionFin: { lat: -25.28, lng: -57.59, nombre: 'Cliente' },
+      distanciaGPS: 49.5,
       kmInicial: 1000,
       kmFinal: 1050,
       distanciaOdometro: 50,
+      fotoOdometroInicio: '/uploads/km-inicial.jpg',
+      fotoOdometroFin: '/uploads/km-final.jpg',
       combustibleLitros: 5,
       combustibleCosto: 40000,
-      total: 40000,
+      horaInicio: '09:00',
+      horaFin: '10:00',
+      duracionMinutos: 60,
       descripcion: 'Viaje al cliente',
-      alertaDiscrepancia: false,
+      total: 40000,
       origen: 'Manual',
       fechaImportacion: '2026-06-22T10:00:00Z'
     }
-  ]
+  ],
+  timersActivos: [],
+  viajesActivos: []
 };
 
 describe('Dashboard', () => {
@@ -486,7 +500,9 @@ describe('Dashboard', () => {
         proyectos: mockData.proyectos,
         colaboradores: [],
         registros: [], 
-        registrosVehiculo: [] 
+        registrosVehiculo: [],
+        timersActivos: [],
+        viajesActivos: []
       };
       render(<Dashboard data={emptyData} onNavigateImport={mockOnNavigateImport} onDeleteRegistro={mockOnDeleteRegistro} onEditRegistro={mockOnEditRegistro} />);
       // Verificar que "Gs. 0" aparece cuando no hay datos
@@ -539,7 +555,8 @@ describe('Dashboard', () => {
           cantidad: 60,
           hsTotal: 1,
           precioUnitario: 50000,
-          total: 3000000
+          total: 3000000,
+          origen: 'Manual'
         }))
       };
       
@@ -574,7 +591,8 @@ describe('Dashboard', () => {
           cantidad: 60,
           hsTotal: 1,
           precioUnitario: 50000,
-          total: 3000000
+          total: 3000000,
+          origen: 'Manual'
         }))
       };
       render(<Dashboard data={largeData} onNavigateImport={mockOnNavigateImport} onDeleteRegistro={mockOnDeleteRegistro} onEditRegistro={mockOnEditRegistro} />);
@@ -612,7 +630,8 @@ describe('Dashboard', () => {
           cantidad: 60,
           hsTotal: 1,
           precioUnitario: 50000,
-          total: 3000000
+          total: 3000000,
+          origen: 'Manual'
         }))
       };
       render(<Dashboard data={largeData} onNavigateImport={mockOnNavigateImport} onDeleteRegistro={mockOnDeleteRegistro} onEditRegistro={mockOnEditRegistro} />);
@@ -644,7 +663,8 @@ describe('Dashboard', () => {
           cantidad: 60,
           hsTotal: 1,
           precioUnitario: 50000,
-          total: 3000000
+          total: 3000000,
+          origen: 'Manual'
         }))
       };
       
@@ -669,7 +689,9 @@ describe('Dashboard', () => {
         proyectos: mockData.proyectos,
         colaboradores: [],
         registros: [],
-        registrosVehiculo: []
+        registrosVehiculo: [],
+        timersActivos: [],
+        viajesActivos: []
       };
       
       render(<Dashboard data={emptyData} onNavigateImport={mockOnNavigateImport} onDeleteRegistro={mockOnDeleteRegistro} onEditRegistro={mockOnEditRegistro} />);
@@ -683,7 +705,9 @@ describe('Dashboard', () => {
         proyectos: mockData.proyectos,
         colaboradores: [],
         registros: [],
-        registrosVehiculo: []
+        registrosVehiculo: [],
+        timersActivos: [],
+        viajesActivos: []
       };
       
       render(<Dashboard data={emptyData} onNavigateImport={mockOnNavigateImport} onDeleteRegistro={mockOnDeleteRegistro} onEditRegistro={mockOnEditRegistro} />);

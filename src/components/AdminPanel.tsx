@@ -3,37 +3,36 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState } from 'react';
+import { AnimatePresence } from 'motion/react';
 import { 
-  Plus, 
-  Trash2, 
   Building2, 
   FolderGit2, 
   Users, 
   PenTool, 
-  AlertOctagon,
-  FolderPlus,
-  CheckCircle2,
+  Store, 
+  Contact,
   Clock,
-  Calculator,
-  FileText,
   Car,
+  FileText,
+  UsersRound,
   Shield,
-  Key,
-  Edit2,
-  Search,
-  RefreshCw,
-  Link2,
-  ExternalLink,
-  Store,
+  Layers,
 } from 'lucide-react';
-import { DatabaseState, Cliente, Proyecto, Colaborador } from '../types.ts';
+import { DatabaseState, Cliente, Proyecto } from '../types.ts';
 import VehiculosAdminView from './VehiculosAdminView.tsx';
 import SucursalesTab from './SucursalesTab.tsx';
+import CarteraClientesTab from './CarteraClientesTab.tsx';
 import { useNotif } from '../context/NotifContext.tsx';
 import TimelineMarcaciones from './TimelineMarcaciones.tsx';
+import HojasRutaMarcacionAdmin from './HojasRutaMarcacionAdmin.tsx';
 import AuditLogTab from './AuditLogTab.tsx';
+import RegistroManualForm from './RegistroManualForm.tsx';
+import ClientesTab from './ClientesTab.tsx';
+import ProyectosTab from './ProyectosTab.tsx';
+import ColaboradoresTab from './ColaboradoresTab.tsx';
+import PermisosTab from './PermisosTab.tsx';
+import InsumosAdmin from './InsumosAdmin.tsx';
 
 interface AdminPanelProps {
   data: DatabaseState;
@@ -44,1398 +43,35 @@ interface AdminPanelProps {
   onAddProyecto: (proyecto: Proyecto) => Promise<void>;
   onEditProyecto: (id: string, data: Partial<Proyecto>) => Promise<void>;
   onDeleteProyecto: (id: string) => Promise<void>;
-  onAddColaborador: (colaborador: Colaborador) => void;
-  onEditColaborador: (id: string, data: Partial<Colaborador>) => Promise<void>;
+  onAddColaborador: (data: any) => Promise<void>;
+  onEditColaborador: (id: string, data: any) => Promise<void>;
   onDeleteColaborador: (id: string) => Promise<void>;
-  onResetDatabase: () => void;
   onRefresh?: () => Promise<void>;
   initialVehicleEditId?: string | null;
   initialSubTab?: string;
 }
 
-// ============================================================================
-// REUSABLE COMPONENTS - Compound Components Pattern
-// ============================================================================
+type AdminSubTab =
+  | 'registro'
+  | 'insumos'
+  | 'clientes'
+  | 'proyectos'
+  | 'colaboradores'
+  | 'permisos'
+  | 'vehiculos'
+  | 'marcaciones'
+  | 'grupos-marcacion'
+  | 'auditlog'
+  | 'sucursales'
+  | 'cartera';
 
-interface AdminSectionProps {
-  title: string;
+interface NavItem {
+  id: AdminSubTab;
+  label: string;
   icon: React.ReactNode;
-  description?: string;
-  children: React.ReactNode;
-  variant?: 'default' | 'highlighted';
+  badge?: number;
+  activeClass: string;
 }
-
-function AdminSection({ title, icon, description, children, variant = 'default' }: AdminSectionProps) {
-  const isHighlighted = variant === 'highlighted';
-  
-  return (
-    <div className={`glass-panel rounded-3xl p-6 space-y-4 ${
-      isHighlighted ? 'border-2 border-blue-500/30 bg-blue-500/5' : ''
-    }`}>
-      <div className="space-y-1">
-        <h3 className="text-base font-bold text-white flex items-center gap-2">
-          {icon}
-          <span>{title}</span>
-        </h3>
-        {description && (
-          <p className="text-xs text-slate-400 leading-relaxed">{description}</p>
-        )}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-interface DataCardProps {
-  title: string;
-  subtitle?: string;
-  badge?: { label: string; color: 'emerald' | 'cyan' | 'pink' | 'blue' | 'rose' };
-  icon?: React.ReactNode;
-  children?: React.ReactNode;
-}
-
-function DataCard({ title, subtitle, badge, icon, children }: DataCardProps) {
-  const colorClasses = {
-    emerald: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
-    cyan: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20',
-    pink: 'bg-pink-500/10 text-pink-300 border-pink-500/20',
-    blue: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
-    rose: 'bg-rose-500/10 text-rose-300 border-rose-500/20',
-    slate: 'bg-slate-500/10 text-slate-300 border-slate-500/20'
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-      className="p-4 rounded-2xl bg-white/3 border border-white/5 hover:bg-white/5 transition-all"
-    >
-      <div className="flex justify-between items-start gap-3">
-        <div className="flex-1 space-y-1">
-          <div className="flex items-center gap-2">
-            {icon && <span className="text-slate-400">{icon}</span>}
-            <h5 className="font-semibold text-white text-sm">{title}</h5>
-          </div>
-          {subtitle && (
-            <p className="text-xs text-slate-400 font-mono">{subtitle}</p>
-          )}
-          {children}
-        </div>
-        {badge && (
-          <span className={`text-[9px] leading-tight font-mono tracking-wider px-2 py-1.5 rounded-lg border ${colorClasses[badge.color]} max-w-[130px] sm:max-w-[180px] text-right truncate overflow-hidden`}>
-            {badge.label}
-          </span>
-        )}
-      </div>
-    </motion.div>
-  );
-}
-
-interface FormSectionHeaderProps {
-  step: number;
-  title: string;
-  icon: React.ReactNode;
-  required?: boolean;
-}
-
-function FormSectionHeader({ step, title, icon, required }: FormSectionHeaderProps) {
-  return (
-    <div className="flex items-center gap-3 pb-3 border-b border-white/5">
-      <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 font-bold text-sm border border-blue-500/20">
-        {step}
-      </div>
-      <div className="flex items-center gap-2 flex-1">
-        <span className="text-blue-400">{icon}</span>
-        <h4 className="text-sm font-bold text-white uppercase tracking-wide">
-          {title}
-        </h4>
-        {required && (
-          <span className="text-[10px] bg-rose-500/10 text-rose-300 px-2 py-0.5 rounded border border-rose-500/20 font-mono">
-            REQUERIDO *
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// REGISTRO MANUAL FORM - Structured with clear sections
-// ============================================================================
-
-interface RegistroManualFormProps {
-  data: DatabaseState;
-  onSubmit: (e: React.FormEvent) => void;
-  isSubmitPending: boolean;
-  formError: string | null;
-  selectedClienteId: string;
-  setSelectedClienteId: (id: string) => void;
-  selectedProyectoId: string;
-  setSelectedProyectoId: (id: string) => void;
-  concepto: 'MO' | 'Insumo' | 'Otros';
-  setConcepto: (c: 'MO' | 'Insumo' | 'Otros') => void;
-  fecha: string;
-  setFecha: (f: string) => void;
-  descripcion: string;
-  setDescripcion: (d: string) => void;
-  selectedColaboradorId: string;
-  handleColaboradorSelect: (id: string) => void;
-  hours: string;
-  setHours: (h: string) => void;
-  quantity: string;
-  setQuantity: (q: string) => void;
-  precioUnitario: string;
-  setPrecioUnitario: (p: string) => void;
-}
-
-function RegistroManualForm({
-  data,
-  onSubmit,
-  isSubmitPending,
-  formError,
-  selectedClienteId,
-  setSelectedClienteId,
-  selectedProyectoId,
-  setSelectedProyectoId,
-  concepto,
-  setConcepto,
-  fecha,
-  setFecha,
-  descripcion,
-  setDescripcion,
-  selectedColaboradorId,
-  handleColaboradorSelect,
-  hours,
-  setHours,
-  quantity,
-  setQuantity,
-  precioUnitario,
-  setPrecioUnitario
-}: RegistroManualFormProps) {
-
-  const filteredProjects = useMemo(() => {
-    if (!selectedClienteId) return [];
-    return data.proyectos.filter(p => p.clienteId === selectedClienteId);
-  }, [selectedClienteId, data.proyectos]);
-
-  // Real-time calculation
-  const totalLiquidacion = useMemo(() => {
-    const finalCantidad = concepto === 'MO' ? parseFloat(hours) * 60 : parseFloat(quantity);
-    const finalPrecio = parseFloat(precioUnitario) || 0;
-    return Math.round(finalCantidad * finalPrecio);
-  }, [concepto, hours, quantity, precioUnitario]);
-
-  return (
-    <motion.div 
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-6"
-    >
-      <AdminSection
-        title="Registrar Parte Diario / Gasto Manual"
-        icon={<PenTool className="w-5 h-5 text-blue-400" />}
-        description="Inserta información individual alternativamente al cargador de Excel."
-      >
-        <form onSubmit={onSubmit} className="space-y-6">
-          
-          {/* SECTION 1: Contexto del Registro */}
-          <div className="space-y-4">
-            <FormSectionHeader 
-              step={1} 
-              title="Contexto del Registro" 
-              icon={<Building2 className="w-4 h-4" />}
-              required
-            />
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-11">
-              {/* Cliente */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-mono text-slate-300 flex items-center gap-1.5">
-                  Cliente Mapeado
-                  <span className="text-rose-400">*</span>
-                </label>
-                <select
-                  required
-                  value={selectedClienteId}
-                  onChange={(e) => {
-                    setSelectedClienteId(e.target.value);
-                    setSelectedProyectoId('');
-                  }}
-                  className="w-full glass-select rounded-xl px-4 py-2.5 text-sm"
-                >
-                  <option value="">-- Seleccionar --</option>
-                  {data.clientes.map(c => (
-                    <option key={c.id} value={c.id}>{c.nombre}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Proyecto */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-mono text-slate-300 flex items-center gap-1.5">
-                  Proyecto Asociado
-                  <span className="text-rose-400">*</span>
-                </label>
-                <select
-                  required
-                  disabled={!selectedClienteId}
-                  value={selectedProyectoId}
-                  onChange={(e) => setSelectedProyectoId(e.target.value)}
-                  className="w-full glass-select rounded-xl px-4 py-2.5 text-sm"
-                >
-                  <option value="">-- {selectedClienteId ? 'Seleccionar' : 'Falta marcar cliente'} --</option>
-                  {filteredProjects.map(p => (
-                    <option key={p.id} value={p.id}>{p.nombre}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Fecha */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-mono text-slate-300 flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-slate-400" />
-                  Fecha del Registro
-                  <span className="text-rose-400">*</span>
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={fecha}
-                  onChange={(e) => setFecha(e.target.value)}
-                  className="w-full glass-input rounded-xl px-4 py-2 text-sm"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* SECTION 2: Tipo de Operación */}
-          <div className="space-y-4">
-            <FormSectionHeader 
-              step={2} 
-              title="Tipo de Operación" 
-              icon={<Calculator className="w-4 h-4" />}
-              required
-            />
-            
-            <div className="pl-11">
-              <label className="text-xs font-mono text-slate-300 mb-2 block">Concepto del Gasto</label>
-              <div className="grid grid-cols-3 gap-3">
-                {(['MO', 'Insumo', 'Otros'] as const).map(option => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => {
-                      setConcepto(option);
-                      if(option !== 'MO') {
-                        setPrecioUnitario('12500');
-                      } else {
-                        setPrecioUnitario('350');
-                      }
-                    }}
-                    className={`text-sm font-bold py-3 px-4 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                      concepto === option 
-                        ? 'bg-violet-600 text-white border-2 border-violet-400 shadow-lg shadow-violet-500/20' 
-                        : 'bg-white/5 text-slate-400 hover:bg-white/8 border border-white/10'
-                    }`}
-                  >
-                    {concepto === option && <CheckCircle2 className="w-4 h-4" />}
-                    {option === 'MO' ? 'Mano Obra' : option === 'Insumo' ? 'Insumos / Mat.' : 'Otros'}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* SECTION 3: Detalles Específicos */}
-          <div className="space-y-4">
-            <FormSectionHeader 
-              step={3} 
-              title="Detalles Específicos" 
-              icon={<FileText className="w-4 h-4" />}
-              required
-            />
-            
-            <AnimatePresence mode="wait">
-              <motion.div 
-                key={concepto}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-                className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-11"
-              >
-                {concepto === 'MO' ? (
-                  <>
-                    {/* Colaborador */}
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-mono text-slate-300">Colaborador Técnico</label>
-                      <select
-                        value={selectedColaboradorId}
-                        onChange={(e) => handleColaboradorSelect(e.target.value)}
-                        className="w-full glass-select rounded-xl px-4 py-2.5 text-sm"
-                      >
-                        <option value="">-- Operario no clasificado --</option>
-                        {data.colaboradores.map(col => (
-                          <option key={col.id} value={col.id}>{col.nombre} ({col.rol})</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Horas */}
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-mono text-slate-300">Tiempo de Dedicación (Horas)</label>
-                      <div className="flex gap-2 items-center">
-                        <input
-                          type="number"
-                          step="0.5"
-                          required
-                          value={hours}
-                          onChange={(e) => setHours(e.target.value)}
-                          className="w-full glass-input rounded-xl px-4 py-2 text-sm text-right"
-                        />
-                        <span className="text-slate-400 font-mono text-xs select-none shrink-0">hs</span>
-                      </div>
-                    </div>
-
-                    {/* Precio por Minuto */}
-                    <div className="space-y-1.5 md:col-span-2">
-                      <label className="text-xs font-mono text-slate-300">Precio por Minuto (Tarifa Gs.)</label>
-                      <div className="flex gap-2 items-center">
-                        <span className="text-slate-500 font-mono text-xs font-semibold shrink-0">Gs.</span>
-                        <input
-                          type="number"
-                          required
-                          value={precioUnitario}
-                          onChange={(e) => setPrecioUnitario(e.target.value)}
-                          className="w-full glass-input rounded-xl px-4 py-2 text-sm text-right"
-                        />
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    {/* Cantidad */}
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-mono text-slate-300">Cantidad (Metros / Unidades / Kilos)</label>
-                      <input
-                        type="number"
-                        required
-                        value={quantity}
-                        onChange={(e) => setQuantity(e.target.value)}
-                        className="w-full glass-input rounded-xl px-4 py-2 text-sm text-right"
-                      />
-                    </div>
-
-                    {/* Precio Unitario */}
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-mono text-slate-300">Precio Unitario de Venta (Gs.)</label>
-                      <div className="flex gap-2 items-center">
-                        <span className="text-slate-500 font-mono text-xs font-semibold shrink-0">Gs.</span>
-                        <input
-                          type="number"
-                          required
-                          value={precioUnitario}
-                          onChange={(e) => setPrecioUnitario(e.target.value)}
-                          className="w-full glass-input rounded-xl px-4 py-2 text-sm text-right"
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-
-          {/* SECTION 4: Resumen y Confirmación */}
-          <div className="space-y-4">
-            <FormSectionHeader 
-              step={4} 
-              title="Resumen y Confirmación" 
-              icon={<CheckCircle2 className="w-4 h-4" />}
-              required
-            />
-            
-            <div className="space-y-4 pl-11">
-              {/* Total Liquidación - DESTACADO */}
-              <div className="bg-gradient-to-r from-blue-500/10 to-violet-500/10 p-5 rounded-2xl border-2 border-blue-500/20 shadow-lg">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Calculator className="w-4 h-4 text-blue-400" />
-                      <span className="text-[10px] uppercase font-mono tracking-wider text-blue-300 font-bold">Total Liquidación Estimado</span>
-                    </div>
-                    <p className="text-xs text-slate-400 leading-tight">
-                      {concepto === 'MO' 
-                        ? `Cálculo: ${hours} hs × 60 min × Gs. ${precioUnitario}/min`
-                        : `Cálculo: ${quantity} unidades × Gs. ${precioUnitario} c/u`
-                      }
-                    </p>
-                  </div>
-                  <div className="text-2xl font-mono font-bold text-white">
-                    Gs. {totalLiquidacion.toLocaleString('es-PY')}
-                  </div>
-                </div>
-              </div>
-
-              {/* Descripción */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-mono text-slate-300 font-medium flex items-center gap-1.5">
-                  Descripción detallada del Trabajo
-                  <span className="text-rose-400">*</span>
-                </label>
-                <textarea
-                  required
-                  placeholder="Ej: Rodrigo retiro vinilos y procedió con el ploteado del freezer delantero derecho del cliente..."
-                  rows={3}
-                  value={descripcion}
-                  onChange={(e) => setDescripcion(e.target.value)}
-                  className="w-full glass-input rounded-2xl px-4 py-3 text-sm resize-none"
-                />
-              </div>
-            </div>
-          </div>
-
-          {formError && (
-            <motion.div 
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-3 text-xs bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl flex items-center gap-2"
-            >
-              <AlertOctagon className="w-4 h-4 shrink-0" />
-              <span>{formError}</span>
-            </motion.div>
-          )}
-
-          <button
-            type="submit"
-            disabled={isSubmitPending}
-            className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 font-bold text-sm text-white rounded-xl shadow-lg shadow-blue-500/20 cursor-pointer flex justify-center items-center gap-2 border border-white/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSubmitPending ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                Cargando en Servidor...
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="w-4 h-4" />
-                Confirmar y Guardar en Historial
-              </>
-            )}
-          </button>
-        </form>
-      </AdminSection>
-    </motion.div>
-  );
-}
-
-// ============================================================================
-// CLIENTES TAB - Simplified management interface
-// ============================================================================
-
-interface ClientesTabProps {
-  data: DatabaseState;
-  newClientName: string;
-  setNewClientName: (name: string) => void;
-  newClientCode: string;
-  setNewClientCode: (code: string) => void;
-  onCreateClient: (e: React.FormEvent) => void;
-  onEditCliente: (id: string, data: Partial<Cliente>) => Promise<void>;
-  onDeleteCliente: (id: string) => Promise<void>;
-}
-
-function ClientesTab({
-  data,
-  newClientName,
-  setNewClientName,
-  newClientCode,
-  setNewClientCode,
-  onCreateClient,
-  onEditCliente,
-  onDeleteCliente,
-}: ClientesTabProps) {
-  const { requestConfirm } = useNotif();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editNombre, setEditNombre] = useState('');
-  const [editCodigo, setEditCodigo] = useState('');
-  const [searchText, setSearchText] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-
-  useEffect(() => { setCurrentPage(1); }, [searchText, itemsPerPage]);
-
-  const filteredClientes = useMemo(() => {
-    if (!searchText) return data.clientes;
-    const q = searchText.toLowerCase();
-    return data.clientes.filter(c =>
-      c.nombre.toLowerCase().includes(q) ||
-      (c.codigo || '').toLowerCase().includes(q) ||
-      c.id.toLowerCase().includes(q)
-    );
-  }, [data.clientes, searchText]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredClientes.length / itemsPerPage));
-  const safePage = Math.min(currentPage, totalPages);
-  const paginatedClientes = useMemo(() => {
-    const start = (safePage - 1) * itemsPerPage;
-    return filteredClientes.slice(start, start + itemsPerPage);
-  }, [filteredClientes, safePage, itemsPerPage]);
-
-  const startEdit = (c: Cliente) => {
-    setEditingId(c.id);
-    setEditNombre(c.nombre);
-    setEditCodigo(c.codigo || '');
-  };
-  const cancelEdit = () => setEditingId(null);
-  const submitEdit = async () => {
-    if (!editNombre.trim()) return;
-    await onEditCliente(editingId!, { nombre: editNombre.trim(), codigo: editCodigo.trim() });
-    setEditingId(null);
-  };
-
-  const portalLink = (c: Cliente) => c.tokenPortal ? `${window.location.origin}/portal/${c.tokenPortal}` : null;
-
-  const copiarPortalLink = async (c: Cliente) => {
-    const link = portalLink(c);
-    if (!link) return;
-    try {
-      await navigator.clipboard.writeText(link);
-    } catch {
-      // fallback: mostrar el link en un prompt
-      window.prompt('Link del portal del cliente:', link);
-    }
-  };
-  return (
-    <motion.div 
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-6"
-    >
-      {/* Creation Form */}
-      <AdminSection
-        title="Registrar Nuevo Cliente Frecuente"
-        icon={<FolderPlus className="w-5 h-5 text-emerald-400" />}
-        description="Agrega una nueva razón social a tu cartera de clientes"
-        variant="highlighted"
-      >
-        <form onSubmit={onCreateClient} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400 font-mono">Razón Social / Nombre *</label>
-            <input
-              type="text"
-              required
-              placeholder="Ej: Unilever Argentina"
-              value={newClientName}
-              onChange={(e) => setNewClientName(e.target.value)}
-              className="w-full glass-input rounded-xl px-3 py-2 text-sm"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400 font-mono">Código Identificador</label>
-            <input
-              type="text"
-              placeholder="Ej: UNIL"
-              value={newClientCode}
-              onChange={(e) => setNewClientCode(e.target.value)}
-              className="w-full glass-input rounded-xl px-3 py-2 text-sm"
-            />
-          </div>
-          <div className="flex items-end">
-            <button
-              type="submit"
-              className="w-full py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:bg-emerald-500 font-bold text-xs text-white rounded-xl cursor-pointer transition-all flex items-center justify-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Agregar Cliente
-            </button>
-          </div>
-        </form>
-      </AdminSection>
-
-      {/* List */}
-      <AdminSection
-        title={`Base de Clientes Disponibles (${filteredClientes.length})`}
-        icon={<Building2 className="w-5 h-5 text-emerald-400" />}
-      >
-        {/* Search */}
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-          <input
-            type="text"
-            placeholder="Buscar cliente por nombre, código o ID..."
-            value={searchText}
-            onChange={e => setSearchText(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50"
-          />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {paginatedClientes.map(c => (
-            <div key={c.id}>
-              {editingId === c.id ? (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 rounded-2xl bg-white/5 border border-emerald-500/30 space-y-3">
-                  <input value={editNombre} onChange={e => setEditNombre(e.target.value)} placeholder="Nombre" className="w-full glass-input rounded-xl px-3 py-2 text-sm" />
-                  <input value={editCodigo} onChange={e => setEditCodigo(e.target.value)} placeholder="Código" className="w-full glass-input rounded-xl px-3 py-2 text-sm" />
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
-                    <p className="text-[10px] font-mono uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                      <Link2 className="w-3 h-3" /> Portal de Pedidos
-                    </p>
-                    {c.tokenPortal ? (
-                      <div className="space-y-2">
-                        <p className="text-[10px] text-slate-500 font-mono break-all">{portalLink(c)}</p>
-                        <div className="flex gap-2 flex-wrap">
-                          <button onClick={() => copiarPortalLink(c)} className="text-[10px] px-2 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 rounded-lg border border-cyan-500/20 transition-all flex items-center gap-1">
-                            <ExternalLink className="w-3 h-3" /> Copiar Link
-                          </button>
-                          <button onClick={async () => {
-                            await onEditCliente(c.id, { nombre: editNombre.trim() || c.nombre, revocarPortal: true });
-                            setEditingId(null);
-                          }} className="text-[10px] px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-lg border border-rose-500/20 transition-all">
-                            Revocar Portal
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button onClick={async () => {
-                        await onEditCliente(c.id, { nombre: editNombre.trim() || c.nombre, activarPortal: true });
-                        setEditingId(null);
-                      }} className="text-[10px] px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 rounded-lg border border-emerald-500/20 transition-all">
-                        Activar Portal (generar link)
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={submitEdit} className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-all">Guardar</button>
-                    <button onClick={cancelEdit} className="flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-slate-400 text-xs rounded-lg transition-all">Cancelar</button>
-                  </div>
-                </motion.div>
-              ) : (
-                <DataCard
-                  title={c.nombre}
-                  subtitle={`ID: ${c.id} | Código: ${c.codigo || 'S/N'}`}
-                  badge={{ label: c.tokenPortal ? 'Portal ON' : 'Vigente', color: c.tokenPortal ? 'blue' : 'emerald' }}
-                  icon={<Building2 className="w-4 h-4" />}
-                >
-                  <div className="flex gap-2 mt-2 flex-wrap">
-                    <button onClick={() => startEdit(c)} className="text-[10px] px-2 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 rounded-lg border border-blue-500/20 transition-all">Editar</button>
-                    {c.tokenPortal && (
-                      <button onClick={() => copiarPortalLink(c)} className="text-[10px] px-2 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 rounded-lg border border-cyan-500/20 transition-all flex items-center gap-1">
-                        <Link2 className="w-3 h-3" /> Copiar Link
-                      </button>
-                    )}
-                    <button onClick={() => requestConfirm(`¿Eliminar cliente?`, `Se eliminarán todos los proyectos y registros de "${c.nombre}".`, 'danger', () => onDeleteCliente(c.id), 'Eliminar')} className="text-[10px] px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-lg border border-rose-500/20 transition-all">Eliminar</button>
-                  </div>
-                </DataCard>
-              )}
-            </div>
-          ))}
-        </div>
-        {/* Pagination */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 font-mono">Items por página:</span>
-            <select value={itemsPerPage} onChange={e => setItemsPerPage(Number(e.target.value))} className="glass-select rounded-lg px-3 py-1.5 text-xs">
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-            </select>
-            <span className="text-xs text-slate-500 font-mono ml-2">{filteredClientes.length} clientes</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage <= 1}
-              className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10">‹</button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-              <button key={page} onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold ${page === safePage ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10'}`}>{page}</button>
-            ))}
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}
-              className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10">›</button>
-          </div>
-        </div>
-      </AdminSection>
-    </motion.div>
-  );
-}
-
-// ============================================================================
-// PROYECTOS TAB - Simplified management interface
-// ============================================================================
-
-interface ProyectosTabProps {
-  data: DatabaseState;
-  newProjClientId: string;
-  setNewProjClientId: (id: string) => void;
-  newProjName: string;
-  setNewProjName: (name: string) => void;
-  onCreateProject: (e: React.FormEvent) => void;
-  onEditProyecto: (id: string, data: Partial<Proyecto>) => Promise<void>;
-  onDeleteProyecto: (id: string) => Promise<void>;
-}
-
-function ProyectosTab({
-  data,
-  newProjClientId,
-  setNewProjClientId,
-  newProjName,
-  setNewProjName,
-  onCreateProject,
-  onEditProyecto,
-  onDeleteProyecto,
-}: ProyectosTabProps) {
-  const { requestConfirm } = useNotif();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editNombre, setEditNombre] = useState('');
-  const [editEstado, setEditEstado] = useState<'Pendiente' | 'En Proceso' | 'Completado'>('En Proceso');
-  const [editActivo, setEditActivo] = useState(true);
-  const [searchText, setSearchText] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-
-  useEffect(() => { setCurrentPage(1); }, [searchText, filterStatus, itemsPerPage]);
-
-  const filteredProyectos = useMemo(() => {
-    let items = data.proyectos;
-    if (searchText) {
-      const q = searchText.toLowerCase();
-      const clientes = data.clientes;
-      items = items.filter(p =>
-        p.nombre.toLowerCase().includes(q) ||
-        p.id.toLowerCase().includes(q) ||
-        clientes.find(c => c.id === p.clienteId)?.nombre.toLowerCase().includes(q)
-      );
-    }
-    if (filterStatus) {
-      items = items.filter(p => p.estado === filterStatus);
-    }
-    return items;
-  }, [data.proyectos, data.clientes, searchText, filterStatus]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredProyectos.length / itemsPerPage));
-  const safePage = Math.min(currentPage, totalPages);
-  const paginatedProyectos = useMemo(() => {
-    const start = (safePage - 1) * itemsPerPage;
-    return filteredProyectos.slice(start, start + itemsPerPage);
-  }, [filteredProyectos, safePage, itemsPerPage]);
-
-  const startEdit = (p: Proyecto) => { 
-    setEditingId(p.id); 
-    setEditNombre(p.nombre); 
-    setEditEstado(p.estado); 
-    setEditActivo(p.activo !== false);
-  };
-  const cancelEdit = () => setEditingId(null);
-  const submitEdit = async () => {
-    if (!editNombre.trim()) return;
-    await onEditProyecto(editingId!, { nombre: editNombre.trim(), estado: editEstado, activo: editActivo });
-    setEditingId(null);
-  };
-  return (
-    <motion.div 
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-6"
-    >
-      {/* Creation Form */}
-      <AdminSection
-        title="Registrar Nuevo Proyecto Operativo"
-        icon={<FolderPlus className="w-5 h-5 text-cyan-400" />}
-        description="Crea un proyecto y asócialo a un cliente existente"
-        variant="highlighted"
-      >
-        <form onSubmit={onCreateProject} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400 font-mono">Razón Social Mapeada *</label>
-            <select
-              required
-              value={newProjClientId}
-              onChange={(e) => setNewProjClientId(e.target.value)}
-              className="w-full glass-select rounded-xl px-3 py-2.5 text-sm"
-            >
-              <option value="">-- Seleccionar --</option>
-              {data.clientes.map(c => (
-                <option key={c.id} value={c.id}>{c.nombre}</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs text-slate-400 font-mono">Nombre exacto del Proyecto *</label>
-            <input
-              type="text"
-              required
-              placeholder="Ej: Campaña Supermercados 2026"
-              value={newProjName}
-              onChange={(e) => setNewProjName(e.target.value)}
-              className="w-full glass-input rounded-xl px-3 py-2 text-sm"
-            />
-          </div>
-          <div className="flex items-end">
-            <button
-              type="submit"
-              className="w-full py-2 bg-gradient-to-r from-cyan-600 to-teal-600 hover:bg-cyan-500 font-bold text-xs text-white rounded-xl cursor-pointer transition-all flex items-center justify-center gap-2"
-            >
-              <FolderGit2 className="w-4 h-4" />
-              Abrir Proyecto
-            </button>
-          </div>
-        </form>
-      </AdminSection>
-
-      {/* List */}
-      <AdminSection
-        title={`Proyectos en Cartera (${filteredProyectos.length})`}
-        icon={<FolderGit2 className="w-5 h-5 text-cyan-400" />}
-      >
-        {/* Search + Filter */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Buscar proyecto por nombre, cliente o ID..."
-              value={searchText}
-              onChange={e => setSearchText(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50"
-            />
-          </div>
-          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-            className="glass-select rounded-xl px-3 py-2.5 text-sm w-full sm:w-44">
-            <option value="">Todos los estados</option>
-            <option value="Pendiente">Pendiente</option>
-            <option value="En Proceso">En Proceso</option>
-            <option value="Completado">Completado</option>
-          </select>
-        </div>
-        <div className="space-y-3">
-          {paginatedProyectos.map(p => {
-            const client = data.clientes.find(c => c.id === p.clienteId);
-            return (
-              <div key={p.id}>
-                {editingId === p.id ? (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 rounded-2xl bg-white/5 border border-cyan-500/30 space-y-3">
-                    <input value={editNombre} onChange={e => setEditNombre(e.target.value)} placeholder="Nombre del proyecto" className="w-full glass-input rounded-xl px-3 py-2 text-sm" />
-                    <select value={editEstado} onChange={e => setEditEstado(e.target.value as any)} className="w-full glass-select rounded-xl px-3 py-2 text-sm">
-                      <option value="Pendiente">Pendiente</option>
-                      <option value="En Proceso">En Proceso</option>
-                      <option value="Completado">Completado</option>
-                    </select>
-                    <div className="flex items-center gap-2 py-1">
-                      <input 
-                        type="checkbox" 
-                        id="editActivo" 
-                        checked={editActivo} 
-                        onChange={e => setEditActivo(e.target.checked)} 
-                        className="rounded border-white/10 bg-slate-800 text-cyan-600 focus:ring-cyan-500" 
-                      />
-                      <label htmlFor="editActivo" className="text-xs text-slate-300 font-mono cursor-pointer select-none">Proyecto Activo (mostrar en registros)</label>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={submitEdit} className="flex-1 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-lg transition-all">Guardar</button>
-                      <button onClick={cancelEdit} className="flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-slate-400 text-xs rounded-lg transition-all">Cancelar</button>
-                    </div>
-                  </motion.div>
-                ) : (
-                  <DataCard
-                    title={p.nombre}
-                    subtitle={`Cliente: ${client ? client.nombre : 'Desconocido'}`}
-                    badge={{ 
-                      label: p.activo === false ? 'Finalizado' : p.estado, 
-                      color: p.activo === false ? 'rose' : 'cyan' 
-                    }}
-                    icon={<FolderGit2 className="w-4 h-4" />}
-                  >
-                    <div className="flex gap-2 mt-2">
-                      <button onClick={() => startEdit(p)} className="text-[10px] px-2 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 rounded-lg border border-blue-500/20 transition-all">Editar</button>
-                      <button onClick={() => requestConfirm(`¿Eliminar proyecto?`, `Se eliminarán todos los registros asociados a "${p.nombre}".`, 'danger', () => onDeleteProyecto(p.id), 'Eliminar')} className="text-[10px] px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-lg border border-rose-500/20 transition-all">Eliminar</button>
-                    </div>
-                  </DataCard>
-                )}
-              </div>
-            );
-          })}
-        </div>
-        {/* Pagination */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 font-mono">Items por página:</span>
-            <select value={itemsPerPage} onChange={e => setItemsPerPage(Number(e.target.value))} className="glass-select rounded-lg px-3 py-1.5 text-xs">
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-            </select>
-            <span className="text-xs text-slate-500 font-mono ml-2">{filteredProyectos.length} proyectos</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage <= 1}
-              className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10">‹</button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-              <button key={page} onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold ${page === safePage ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10'}`}>{page}</button>
-            ))}
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}
-              className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10">›</button>
-          </div>
-        </div>
-      </AdminSection>
-    </motion.div>
-  );
-}
-
-// ============================================================================
-// COLABORADORES TAB - Simplified management interface
-// ============================================================================
-
-interface ColaboradoresTabProps {
-  data: DatabaseState;
-  onAddColaborador: (data: any) => Promise<void>;
-  onEditColaborador: (id: string, data: any) => Promise<void>;
-  onDeleteColaborador: (id: string) => Promise<void>;
-}
-
-function ColaboradoresTab({
-  data,
-  onAddColaborador,
-  onEditColaborador,
-  onDeleteColaborador,
-}: ColaboradoresTabProps) {
-  const { requestConfirm } = useNotif();
-  
-  // Creation local states
-  const [nombre, setNombre] = useState('');
-  const [rol, setRol] = useState('Operario');
-  const [tarifaSugerida, setTarifaSugerida] = useState('350');
-  const [crearAcceso, setCrearAcceso] = useState(false);
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [rolAcceso, setRolAcceso] = useState<'Admin' | 'Operario' | 'Visor'>('Operario');
-  const [email, setEmail] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Editing local states
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editNombre, setEditNombre] = useState('');
-  const [editRol, setEditRol] = useState('');
-  const [editTarifa, setEditTarifa] = useState('');
-  const [editHasAcceso, setEditHasAcceso] = useState(false);
-  const [editUsername, setEditUsername] = useState('');
-  const [editPassword, setEditPassword] = useState('');
-  const [editRolAcceso, setEditRolAcceso] = useState<'Admin' | 'Operario' | 'Visor'>('Operario');
-  const [editEmail, setEditEmail] = useState('');
-  const [editActivoAcceso, setEditActivoAcceso] = useState(true);
-  const [searchText, setSearchText] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-
-  useEffect(() => { setCurrentPage(1); }, [searchText, itemsPerPage]);
-
-  const filteredColaboradores = useMemo(() => {
-    if (!searchText) return data.colaboradores;
-    const q = searchText.toLowerCase();
-    return data.colaboradores.filter(c =>
-      c.nombre.toLowerCase().includes(q) ||
-      (c.rol || '').toLowerCase().includes(q) ||
-      (c.usuario?.username || '').toLowerCase().includes(q)
-    );
-  }, [data.colaboradores, searchText]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredColaboradores.length / itemsPerPage));
-  const safePage = Math.min(currentPage, totalPages);
-  const paginatedColaboradores = useMemo(() => {
-    const start = (safePage - 1) * itemsPerPage;
-    return filteredColaboradores.slice(start, start + itemsPerPage);
-  }, [filteredColaboradores, safePage, itemsPerPage]);
-
-  const startEdit = (c: Colaborador) => { 
-    setEditingId(c.id); 
-    setEditNombre(c.nombre); 
-    setEditRol(c.rol || ''); 
-    setEditTarifa(String(c.tarifaSugerida || 350)); 
-    if (c.usuario) {
-      setEditHasAcceso(true);
-      setEditUsername(c.usuario.username);
-      setEditRolAcceso(c.usuario.rol);
-      setEditEmail(c.usuario.email || '');
-      setEditActivoAcceso(c.usuario.activo);
-    } else {
-      setEditHasAcceso(false);
-      setEditUsername('');
-      setEditRolAcceso('Operario');
-      setEditEmail('');
-      setEditActivoAcceso(true);
-    }
-    setEditPassword('');
-  };
-  
-  const cancelEdit = () => setEditingId(null);
-  
-  const submitEdit = async () => {
-    if (!editNombre.trim()) return;
-    setIsSubmitting(true);
-    try {
-      const payload: any = {
-        nombre: editNombre.trim(),
-        rol: editRol.trim(),
-        tarifaSugerida: parseFloat(editTarifa) || 350,
-        hasAcceso: editHasAcceso,
-        username: editUsername.trim(),
-        rolAcceso: editRolAcceso,
-        email: editEmail.trim() || null,
-        activoAcceso: editActivoAcceso
-      };
-      if (editPassword) {
-        payload.password = editPassword;
-      }
-      await onEditColaborador(editingId!, payload);
-      setEditingId(null);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!nombre.trim()) return;
-    setIsSubmitting(true);
-    try {
-      const payload: any = {
-        nombre: nombre.trim(),
-        rol: rol.trim(),
-        tarifaSugerida: parseFloat(tarifaSugerida) || 350,
-        crearAcceso,
-        username: username.trim(),
-        password,
-        rolAcceso,
-        email: email.trim() || null
-      };
-      await onAddColaborador(payload);
-      // Reset creation state
-      setNombre('');
-      setRol('Operario');
-      setTarifaSugerida('350');
-      setCrearAcceso(false);
-      setUsername('');
-      setPassword('');
-      setRolAcceso('Operario');
-      setEmail('');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <motion.div 
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-6"
-    >
-      {/* Creation Form */}
-      <AdminSection
-        title="Agregar Colaborador y Acceso"
-        icon={<Plus className="w-5 h-5 text-pink-400" />}
-        description="Registra un nuevo trabajador y opcionalmente define sus credenciales de ingreso"
-        variant="highlighted"
-      >
-        <form onSubmit={handleCreate} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-1">
-              <label className="text-xs text-slate-400 font-mono">Nombre Completo *</label>
-              <input
-                type="text"
-                required
-                placeholder="Ej: Marcelo Spósito"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                className="w-full glass-input rounded-xl px-3 py-2 text-sm text-white bg-slate-900/50 border border-white/10"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-slate-400 font-mono">Rol / Especialización</label>
-              <input
-                type="text"
-                placeholder="Ej: Montador de Estructuras"
-                value={rol}
-                onChange={(e) => setRol(e.target.value)}
-                className="w-full glass-input rounded-xl px-3 py-2 text-sm text-white bg-slate-900/50 border border-white/10"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-slate-400 font-mono">Tarifa por Minuto *</label>
-              <input
-                type="number"
-                required
-                value={tarifaSugerida}
-                onChange={(e) => setTarifaSugerida(e.target.value)}
-                className="w-full glass-input rounded-xl px-3 py-2 text-sm text-white bg-slate-900/50 border border-white/10"
-              />
-            </div>
-          </div>
-
-          {/* Credentials Toggle Section */}
-          <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-3">
-            <label className="flex items-center gap-2.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={crearAcceso}
-                onChange={(e) => setCrearAcceso(e.target.checked)}
-                className="rounded border-white/10 text-pink-600 focus:ring-pink-500 focus:ring-offset-slate-900"
-              />
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wide">Habilitar Acceso de Inicio de Sesión (Login)</span>
-            </label>
-
-            {crearAcceso && (
-              <motion.div 
-                initial={{ opacity: 0, y: -10 }} 
-                animate={{ opacity: 1, y: 0 }} 
-                className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2 border-t border-white/5"
-              >
-                <div className="space-y-1">
-                  <label className="text-xs text-slate-400 font-mono">Usuario / Cédula *</label>
-                  <input
-                    type="text"
-                    required={crearAcceso}
-                    placeholder="Ej: 4888986"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="w-full glass-input rounded-xl px-3 py-2 text-sm text-white bg-slate-900/50 border border-white/10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-slate-400 font-mono">Contraseña *</label>
-                  <input
-                    type="password"
-                    required={crearAcceso}
-                    placeholder="Contraseña"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full glass-input rounded-xl px-3 py-2 text-sm text-white bg-slate-900/50 border border-white/10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-slate-400 font-mono">Rol del Sistema *</label>
-                  <select
-                    value={rolAcceso}
-                    onChange={(e) => setRolAcceso(e.target.value as any)}
-                    className="w-full glass-select rounded-xl px-3 py-2 text-sm text-white bg-slate-900/50 border border-white/10"
-                  >
-                    <option value="Operario">Operario</option>
-                    <option value="Admin">Administrador</option>
-                    <option value="Visor">Visor</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-slate-400 font-mono">Email (Opcional)</label>
-                  <input
-                    type="email"
-                    placeholder="correo@ejemplo.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full glass-input rounded-xl px-3 py-2 text-sm text-white bg-slate-900/50 border border-white/10"
-                  />
-                </div>
-              </motion.div>
-            )}
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="py-2.5 px-6 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 disabled:opacity-50 disabled:cursor-not-allowed font-bold text-xs text-white rounded-xl cursor-pointer transition-all flex items-center justify-center gap-2 shadow-lg shadow-pink-500/10"
-            >
-              <Plus className="w-4 h-4" />
-              Guardar Colaborador
-            </button>
-          </div>
-        </form>
-      </AdminSection>
-
-      {/* List */}
-      <AdminSection
-        title={`Listado de Contratistas (${filteredColaboradores.length})`}
-        icon={<Users className="w-5 h-5 text-pink-400" />}
-      >
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-          <input
-            type="text"
-            placeholder="Buscar colaborador por nombre, rol o usuario..."
-            value={searchText}
-            onChange={e => setSearchText(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50"
-          />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fadeIn">
-          {paginatedColaboradores.map(c => (
-            <div key={c.id}>
-              {editingId === c.id ? (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 rounded-2xl bg-white/5 border border-pink-500/30 space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-slate-400 font-mono">Nombre Completo</label>
-                    <input value={editNombre} onChange={e => setEditNombre(e.target.value)} placeholder="Nombre" className="w-full glass-input rounded-xl px-3 py-1.5 text-sm text-white bg-slate-900/50" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-slate-400 font-mono">Rol de Trabajo</label>
-                    <input value={editRol} onChange={e => setEditRol(e.target.value)} placeholder="Rol de Trabajo" className="w-full glass-input rounded-xl px-3 py-1.5 text-sm text-white bg-slate-900/50" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-slate-400 font-mono">Tarifa</label>
-                    <input type="number" value={editTarifa} onChange={e => setEditTarifa(e.target.value)} placeholder="Tarifa/min" className="w-full glass-input rounded-xl px-3 py-1.5 text-sm text-white bg-slate-900/50" />
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-white/5 border border-white/5 space-y-2 mt-2">
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={editHasAcceso}
-                        onChange={(e) => setEditHasAcceso(e.target.checked)}
-                        className="rounded border-white/10 text-pink-600 focus:ring-pink-500 focus:ring-offset-slate-900"
-                      />
-                      <span className="text-[11px] font-bold text-slate-300 uppercase font-mono">Habilitar Login</span>
-                    </label>
-
-                    {editHasAcceso && (
-                      <div className="space-y-2 pt-2 border-t border-white/5">
-                        <div className="space-y-1">
-                          <label className="text-[9px] text-slate-400 font-mono">Usuario / Cédula</label>
-                          <input value={editUsername} onChange={e => setEditUsername(e.target.value)} placeholder="Usuario" className="w-full glass-input rounded-xl px-3 py-1.5 text-xs text-white bg-slate-900/50" />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] text-slate-400 font-mono">Contraseña (Blanco = No Cambiar)</label>
-                          <input type="password" value={editPassword} onChange={e => setEditPassword(e.target.value)} placeholder="Nueva Contraseña" className="w-full glass-input rounded-xl px-3 py-1.5 text-xs text-white bg-slate-900/50" />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] text-slate-400 font-mono">Rol de Sistema</label>
-                          <select
-                            value={editRolAcceso}
-                            onChange={(e) => setEditRolAcceso(e.target.value as any)}
-                            className="w-full glass-select rounded-xl px-3 py-1.5 text-xs text-white bg-slate-900/50"
-                          >
-                            <option value="Operario">Operario</option>
-                            <option value="Admin">Administrador</option>
-                            <option value="Visor">Visor</option>
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] text-slate-400 font-mono">Email</label>
-                          <input value={editEmail} onChange={e => setEditEmail(e.target.value)} placeholder="Email" className="w-full glass-input rounded-xl px-3 py-1.5 text-xs text-white bg-slate-900/50" />
-                        </div>
-                        <label className="flex items-center gap-2 cursor-pointer select-none pt-1">
-                          <input
-                            type="checkbox"
-                            checked={editActivoAcceso}
-                            onChange={(e) => setEditActivoAcceso(e.target.checked)}
-                            className="rounded border-white/10 text-pink-600 focus:ring-pink-500 focus:ring-offset-slate-900"
-                          />
-                          <span className="text-[10px] text-slate-300">Cuenta de Acceso Activa</span>
-                        </label>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex gap-2 pt-2">
-                    <button onClick={submitEdit} disabled={isSubmitting} className="flex-1 py-1.5 bg-pink-600 hover:bg-pink-500 text-white text-xs font-bold rounded-lg transition-all disabled:opacity-50">Guardar</button>
-                    <button onClick={cancelEdit} className="flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-slate-400 text-xs rounded-lg transition-all">Cancelar</button>
-                  </div>
-                </motion.div>
-              ) : (
-                <DataCard
-                  title={c.nombre}
-                  subtitle={c.rol || 'Operario'}
-                  badge={
-                    c.usuario 
-                      ? { label: `@${c.usuario.username}`, color: c.usuario.activo ? 'pink' : 'slate' } 
-                      : { label: 'Sin Login', color: 'slate' }
-                  }
-                  icon={c.usuario ? (c.usuario.rol === 'Admin' ? <Shield className="w-4 h-4 text-rose-400" /> : <Key className="w-4 h-4 text-blue-400" />) : <Users className="w-4 h-4 text-slate-400" />}
-                >
-                  <div className="text-[10px] text-pink-300 font-mono mt-2">
-                    Tarifa: Gs. {c.tarifaSugerida || 350}/min (~Gs. {((c.tarifaSugerida || 350) * 60).toLocaleString('es-PY')}/hora)
-                  </div>
-                  {c.usuario && (
-                    <div className="text-[9px] text-slate-400 font-mono mt-1 flex flex-col">
-                      <span>Email: {c.usuario.email || 'No asignado'}</span>
-                      <span>Acceso: {c.usuario.activo ? 'Activo' : 'Suspendido'}</span>
-                    </div>
-                  )}
-                  <div className="flex gap-2 mt-3 pt-2 border-t border-white/5">
-                    <button onClick={() => startEdit(c)} className="text-[10px] px-2 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 rounded-lg border border-blue-500/20 transition-all flex items-center gap-1 cursor-pointer">
-                      <Edit2 className="w-3 h-3" /> Editar
-                    </button>
-                    <button onClick={() => requestConfirm(`¿Eliminar colaborador?`, `Se eliminará a "${c.nombre}" y su acceso permanentemente.`, 'danger', () => onDeleteColaborador(c.id), 'Eliminar')} className="text-[10px] px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-lg border border-rose-500/20 transition-all flex items-center gap-1 cursor-pointer">
-                      <Trash2 className="w-3 h-3" /> Eliminar
-                    </button>
-                  </div>
-                </DataCard>
-              )}
-            </div>
-          ))}
-        </div>
-        {/* Pagination */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 font-mono">Items por página:</span>
-            <select value={itemsPerPage} onChange={e => setItemsPerPage(Number(e.target.value))} className="glass-select rounded-lg px-3 py-1.5 text-xs">
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-            </select>
-            <span className="text-xs text-slate-500 font-mono ml-2">{filteredColaboradores.length} contratistas</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage <= 1}
-              className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10">‹</button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-              <button key={page} onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold ${page === safePage ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10'}`}>{page}</button>
-            ))}
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}
-              className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10">›</button>
-          </div>
-        </div>
-      </AdminSection>
-
-      {/* System Users without Collaborator (e.g. Administrative) */}
-      {data.usuariosSinColaborador && data.usuariosSinColaborador.length > 0 && (
-        <AdminSection
-          title="Usuarios de Sistema (Administración)"
-          icon={<Shield className="w-5 h-5 text-blue-400" />}
-          description="Usuarios que tienen acceso administrativo al sistema sin ser colaboradores en campo"
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {data.usuariosSinColaborador.map(u => (
-              <DataCard
-                key={u.id}
-                title={u.nombre}
-                subtitle={`@${u.username}`}
-                badge={{ label: u.rol, color: u.rol === 'Admin' ? 'rose' : u.rol === 'Visor' ? 'amber' : 'blue' }}
-                icon={<Shield className="w-4 h-4" />}
-              >
-                <div className="text-[10px] text-slate-400 font-mono mt-2">
-                  Email: {u.email || 'No asignado'}
-                </div>
-                <div className="text-[10px] text-slate-400 font-mono">
-                  Estado: {u.activo ? 'Activo' : 'Suspendido'}
-                </div>
-              </DataCard>
-            ))}
-          </div>
-        </AdminSection>
-      )}
-    </motion.div>
-  );
-}
-
-// ============================================================================
-// MAIN COMPONENT - AdminPanel with improved state management
-// ============================================================================
 
 export default function AdminPanel({
   data,
@@ -1449,15 +85,13 @@ export default function AdminPanel({
   onAddColaborador,
   onEditColaborador,
   onDeleteColaborador,
-  onResetDatabase,
   onRefresh,
   initialVehicleEditId,
   initialSubTab
 }: AdminPanelProps) {
-  const { showToast, requestConfirm } = useNotif();
-  // Tabs for the administration panel - usar initialSubTab si existe
-  const [activeSubTab, setActiveSubTab] = useState<'registro' | 'clientes' | 'proyectos' | 'colaboradores' | 'vehiculos' | 'marcaciones' | 'auditlog' | 'sucursales'>(
-    (initialSubTab as any) || 'registro'
+  const { showToast } = useNotif();
+  const [activeSubTab, setActiveSubTab] = useState<AdminSubTab>(
+    (initialSubTab as AdminSubTab) || 'registro'
   );
 
   // --- 1. Manual Recording Form State ---
@@ -1571,119 +205,104 @@ export default function AdminPanel({
     }
   };
 
+  interface NavCategory {
+    category: string;
+    items: {
+      id: AdminSubTab;
+      label: string;
+      icon: React.ReactNode;
+      badge?: number;
+    }[];
+  }
+
+  const navCategories: NavCategory[] = [
+    {
+      category: 'Taller & Producción',
+      items: [
+        { id: 'insumos', label: 'Catálogo Insumos & Taller', icon: <Layers className="w-4 h-4" /> },
+      ]
+    },
+    {
+      category: 'Entidades & Cartera',
+      items: [
+        { id: 'clientes', label: 'Clientes', icon: <Building2 className="w-4 h-4" />, badge: data.clientes.length },
+        { id: 'sucursales', label: 'Sucursales / Locales', icon: <Store className="w-4 h-4" /> },
+        { id: 'proyectos', label: 'Proyectos', icon: <FolderGit2 className="w-4 h-4" />, badge: data.proyectos.length },
+        { id: 'cartera', label: 'Cartera CRM', icon: <Contact className="w-4 h-4" /> },
+      ]
+    },
+    {
+      category: 'Personal & RR.HH.',
+      items: [
+        { id: 'colaboradores', label: 'Colaboradores', icon: <Users className="w-4 h-4" />, badge: data.colaboradores.length },
+        { id: 'permisos', label: 'Permisos (RR.HH.)', icon: <Shield className="w-4 h-4" /> },
+      ]
+    },
+    {
+      category: 'Flota & Asistencia',
+      items: [
+        { id: 'vehiculos', label: 'Control de Vehículos', icon: <Car className="w-4 h-4" />, badge: (data.registrosVehiculo || []).length },
+        { id: 'marcaciones', label: 'Timeline Marcaciones', icon: <Clock className="w-4 h-4" /> },
+        { id: 'grupos-marcacion', label: 'Grupos de Marcación', icon: <UsersRound className="w-4 h-4" /> },
+      ]
+    },
+    {
+      category: 'Sistema & Contingencia',
+      items: [
+        { id: 'registro', label: 'Carga Manual Directa', icon: <PenTool className="w-4 h-4" /> },
+        { id: 'auditlog', label: 'Auditoría de Accesos', icon: <FileText className="w-4 h-4" /> },
+      ]
+    }
+  ];
+
   return (
-    <div id="admin_control_view" className="grid grid-cols-1 lg:grid-cols-4 gap-8 relative z-10">
+    <div id="admin_control_view" className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
       
-      {/* Sidebar navigation tabs for admin view */}
-      <div className="space-y-4">
-        <h3 className="text-sm font-semibold tracking-wider uppercase text-slate-400 font-mono">Bases del Sistema</h3>
-        <nav className="flex flex-row lg:flex-col gap-2 overflow-x-auto pb-2 lg:pb-0">
-          
-          <button
-            onClick={() => setActiveSubTab('registro')}
-            className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-semibold shrink-0 cursor-pointer transition-all ${
-              activeSubTab === 'registro' 
-                ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30 font-bold' 
-                : 'text-slate-400 hover:bg-white/5'
-            }`}
-          >
-            <PenTool className="w-4 h-4" />
-            <span>Nueva Carga Directa</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('clientes')}
-            className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-semibold shrink-0 cursor-pointer transition-all ${
-              activeSubTab === 'clientes' 
-                ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 font-bold' 
-                : 'text-slate-400 hover:bg-white/5'
-            }`}
-          >
-            <Building2 className="w-4 h-4" />
-            <span>Clientes de Cartera ({data.clientes.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('proyectos')}
-            className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-semibold shrink-0 cursor-pointer transition-all ${
-              activeSubTab === 'proyectos' 
-                ? 'bg-cyan-600/20 text-cyan-300 border border-cyan-500/30 font-bold' 
-                : 'text-slate-400 hover:bg-white/5'
-            }`}
-          >
-            <FolderGit2 className="w-4 h-4" />
-            <span>Proyectos Registrados ({data.proyectos.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('sucursales')}
-            className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-semibold shrink-0 cursor-pointer transition-all ${
-              activeSubTab === 'sucursales' 
-                ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30 font-bold' 
-                : 'text-slate-400 hover:bg-white/5'
-            }`}
-          >
-            <Store className="w-4 h-4" />
-            <span>Sucursales / Locales</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('colaboradores')}
-            className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-semibold shrink-0 cursor-pointer transition-all ${
-              activeSubTab === 'colaboradores' 
-                ? 'bg-pink-600/20 text-pink-300 border border-pink-500/30' 
-                : 'text-slate-400 hover:bg-white/5'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Colaboradores ({data.colaboradores.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('vehiculos')}
-            className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-semibold shrink-0 cursor-pointer transition-all ${
-              activeSubTab === 'vehiculos' 
-                ? 'bg-violet-600/20 text-violet-300 border border-violet-500/30 font-bold' 
-                : 'text-slate-400 hover:bg-white/5'
-            }`}
-          >
-            <Car className="w-4 h-4" />
-            <span>Vehículos ({(data.registrosVehiculo || []).length})</span>
-          </button>
-
-
-
-          <button
-            onClick={() => setActiveSubTab('marcaciones')}
-            className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-semibold shrink-0 cursor-pointer transition-all ${
-              activeSubTab === 'marcaciones' 
-                ? 'bg-amber-600/20 text-amber-300 border border-amber-500/30 font-bold' 
-                : 'text-slate-400 hover:bg-white/5'
-            }`}
-          >
-            <Clock className="w-4 h-4" />
-            <span>Marcaciones</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('auditlog')}
-            className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-semibold shrink-0 cursor-pointer transition-all ${
-              activeSubTab === 'auditlog' 
-                ? 'bg-rose-600/20 text-rose-300 border border-rose-500/30 font-bold' 
-                : 'text-slate-400 hover:bg-white/5'
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            <span>Accesos</span>
-          </button>
-
-        </nav>
-
-        {/* Global actions - Reset dataset (hidden for safety, accessible via API only) */}
+      {/* Sidebar navigation tabs for admin view - Categorized Enterprise */}
+      <div className="lg:col-span-3 space-y-5">
+        {navCategories.map((group, gIdx) => (
+          <div key={gIdx} className="space-y-1.5">
+            <h4 className="text-[11px] font-bold tracking-wider uppercase text-slate-500 font-mono px-3">
+              {group.category}
+            </h4>
+            <div className="space-y-0.5">
+              {group.items.map(item => {
+                const isActive = activeSubTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveSubTab(item.id)}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium cursor-pointer transition-all ${
+                      isActive 
+                        ? 'bg-orange-500/15 text-orange-300 font-semibold border border-orange-500/30 shadow-xs' 
+                        : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 truncate">
+                      <span className={isActive ? 'text-orange-400' : 'text-slate-400'}>
+                        {item.icon}
+                      </span>
+                      <span className="truncate">{item.label}</span>
+                    </div>
+                    {item.badge !== undefined && item.badge > 0 && (
+                      <span className={`px-1.5 py-0.5 rounded-sm text-[10px] font-mono ${
+                        isActive 
+                          ? 'bg-orange-500/30 text-orange-200' 
+                          : 'bg-white/10 text-slate-400'
+                      }`}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Main Form/Administration Body */}
-      <div className="lg:col-span-3">
+      <div className="lg:col-span-9">
         <AnimatePresence mode="wait">
           {activeSubTab === 'registro' && (
             <RegistroManualForm
@@ -1710,6 +329,15 @@ export default function AdminPanel({
               setQuantity={setQuantity}
               precioUnitario={precioUnitario}
               setPrecioUnitario={setPrecioUnitario}
+            />
+          )}
+
+          {activeSubTab === 'insumos' && (
+            <InsumosAdmin
+              key="insumos"
+              data={data}
+              onAddRegistro={onAddRegistro}
+              onRefresh={onRefresh}
             />
           )}
 
@@ -1748,14 +376,24 @@ export default function AdminPanel({
             />
           )}
 
+          {activeSubTab === 'cartera' && (
+            <CarteraClientesTab
+              key="cartera"
+            />
+          )}
+
           {activeSubTab === 'colaboradores' && (
             <ColaboradoresTab
               key="colaboradores"
               data={data}
-              onAddColaborador={onAddColaborador!}
-              onEditColaborador={onEditColaborador!}
-              onDeleteColaborador={onDeleteColaborador!}
+              onAddColaborador={onAddColaborador}
+              onEditColaborador={onEditColaborador}
+              onDeleteColaborador={onDeleteColaborador}
             />
+          )}
+
+          {activeSubTab === 'permisos' && (
+            <PermisosTab key="permisos" data={data} />
           )}
 
           {activeSubTab === 'vehiculos' && (
@@ -1769,6 +407,10 @@ export default function AdminPanel({
 
           {activeSubTab === 'marcaciones' && (
             <TimelineMarcaciones key="marcaciones" />
+          )}
+
+          {activeSubTab === 'grupos-marcacion' && (
+            <HojasRutaMarcacionAdmin key="grupos-marcacion" />
           )}
 
           {activeSubTab === 'auditlog' && (
