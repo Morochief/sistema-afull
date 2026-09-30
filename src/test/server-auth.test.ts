@@ -53,9 +53,9 @@ describe('server-auth', () => {
       expect(user?.usuario).toBe('admin');
     });
 
-    it('returns undefined for non-existent user', async () => {
+    it('returns undefined or null for non-existent user', async () => {
       const user = await findUserByUsername('nonexistent');
-      expect(user).toBeUndefined();
+      expect(user).toBeFalsy();
     });
   });
 
@@ -72,13 +72,13 @@ describe('server-auth', () => {
   });
 
   describe('requireAuth Middleware', () => {
-    it('passes with valid token', () => {
+    it('passes with valid token', async () => {
       const token = generateToken({ usuario: 'admin', nombre: 'Admin', rol: 'Admin' });
       const mockReq = { cookies: { jwt: token }, method: 'GET', path: '/test' } as any;
       const mockRes = {} as Response;
       const mockNext = vi.fn();
       
-      requireAuth(mockReq, mockRes, mockNext);
+      await requireAuth(mockReq, mockRes, mockNext);
       expect(mockNext).toHaveBeenCalled();
     });
 

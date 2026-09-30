@@ -14,7 +14,7 @@ export const csrfTokens = new Map<string, { token: string; createdAt: number }>(
 export const CSRF_TOKEN_EXPIRY = 3600000; // 1 hour
 
 // Clean up expired CSRF tokens every 10 minutes
-setInterval(() => {
+const csrfCleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [sessionId, data] of csrfTokens.entries()) {
     if (now - data.createdAt > CSRF_TOKEN_EXPIRY) {
@@ -22,6 +22,9 @@ setInterval(() => {
     }
   }
 }, 600000);
+if (csrfCleanupTimer && typeof csrfCleanupTimer.unref === 'function') {
+  csrfCleanupTimer.unref();
+}
 
 // ─── Excel helpers ───
 export function parseExcelDate(excelDate: any): string {

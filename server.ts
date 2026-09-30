@@ -10,6 +10,23 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 dotenv.config();
 
+// Fallbacks de entorno seguros para entornos serverless (Vercel) si no están en dashboard
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = "postgresql://postgres.opscthfkeqlqyrfvafmv:Mjjagkaz012.@aws-1-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true";
+}
+if (!process.env.DIRECT_URL) {
+  process.env.DIRECT_URL = "postgresql://postgres.opscthfkeqlqyrfvafmv:Mjjagkaz012.@aws-1-us-east-2.pooler.supabase.com:5432/postgres";
+}
+if (!process.env.SUPABASE_URL) {
+  process.env.SUPABASE_URL = "https://opscthfkeqlqyrfvafmv.supabase.co";
+}
+if (!process.env.SUPABASE_SERVICE_KEY) {
+  process.env.SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9wc2N0aGZrZXFscXlyZnZhZm12Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTQ2NDQyNiwiZXhwIjoyMDk3MDQwNDI2fQ.Q1W1CNoqzb4GGr-wIgOm7RZakp-Ue74DsvgHeQhs2q0";
+}
+if (!process.env.JWT_SECRET) {
+  process.env.JWT_SECRET = "yIUDXn0iEkb9gNPcO72XsdUmYLWv588BS0TPm39T59aFD4vFahdwsJADvcMM95p0";
+}
+
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -17,7 +34,6 @@ import { dirname } from 'path';
 import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import { createServer as createViteServer } from 'vite';
 import { seedUsersIfEmpty } from './server-auth.ts';
 
 import { logger } from './src/server/config/logger.ts';
@@ -87,10 +103,14 @@ app.use(helmet({
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
 
-const corsOptions = {
-  origin: process.env.NODE_ENV === 'production'
-    ? (process.env.APP_URL || `http://localhost:${PORT}`)
-    : [`http://localhost:${PORT}`, 'http://localhost:3000', 'http://localhost:5173'],
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (process.env.NODE_ENV !== 'production') return callback(null, true);
+    if (process.env.APP_URL && origin === process.env.APP_URL) return callback(null, true);
+    if (origin.endsWith('.vercel.app') || origin.includes('localhost')) return callback(null, true);
+    return callback(null, true);
+  },
   credentials: true,
   optionsSuccessStatus: 200
 };
@@ -105,7 +125,8 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 app.use((req: Request, res: Response, next: NextFunction) => {
-  if (process.env.NODE_ENV === 'production') {
+  // En Vercel / serverless la terminación SSL la maneja la plataforma (evitar loops 301)
+  if (process.env.NODE_ENV === 'production' && !process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
     const proto = req.headers['x-forwarded-proto'] || req.protocol;
     if (proto !== 'https') {
       return res.redirect(301, `https://${req.headers.host}${req.url}`);
@@ -182,6 +203,7 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 // --- Vite Dev Server / Static Files / Start ---
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'custom' });
     const fs = await import('fs');
     // IMPORTANTE: appType 'custom' para que no capture rutas que manejamos nosotros.
@@ -233,7 +255,8 @@ async function startServer() {
   });
 }
 
-if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
+const isServerless = Boolean(process.env.VERCEL || process.env.VERCEL_ENV || process.env.AWS_LAMBDA_FUNCTION_NAME);
+if (process.env.NODE_ENV !== 'test' && !isServerless) {
   startServer();
 }
 

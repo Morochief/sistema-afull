@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "set NODE_OPTIONS=--max-old-space-size=8192&& tsx server.ts",
     "build": "prisma generate && set NODE_OPTIONS=--max-old-space-size=8192&& vite build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=dist/server.mjs",
     "start": "node dist/server.mjs",
