@@ -1,4 +1,4 @@
-const CACHE_NAME = 'afull-cache-v1';
+const CACHE_NAME = 'afull-cache-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -33,8 +33,10 @@ self.addEventListener('activate', (event) => {
 
 // Fetch Event
 self.addEventListener('fetch', (event) => {
-  // Only cache GET requests and bypass browser extensions or external APIs (Supabase/Google AI)
-  if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) {
+  // Bypass API requests, non-GET methods, and external domains
+  if (event.request.method !== 'GET' || 
+      !event.request.url.startsWith(self.location.origin) ||
+      event.request.url.includes('/api/')) {
     return;
   }
 
