@@ -1,22 +1,33 @@
-export default function handler(req: any, res: any) {
-  res.status(200).json({
-    status: 'ok',
-    message: 'Sistema aFull Vercel Lambda is running',
-    timestamp: new Date().toISOString(),
+export default async function handler(req: any, res: any) {
+  const info: any = {
+    status: 'testing',
     nodeVersion: process.version,
-    url: req.url,
-    headers: {
-      'x-matched-path': req.headers['x-matched-path'],
-      'x-forwarded-proto': req.headers['x-forwarded-proto'],
-      host: req.headers.host,
-    },
     env: {
       hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
       hasDirectUrl: Boolean(process.env.DIRECT_URL),
-      hasJwtSecret: Boolean(process.env.JWT_SECRET),
-      hasSupabaseUrl: Boolean(process.env.SUPABASE_URL),
-      hasSupabaseKey: Boolean(process.env.SUPABASE_SERVICE_KEY),
-      nodeEnv: process.env.NODE_ENV,
     }
-  });
+  };
+
+  try {
+    const { PrismaClient } = await import('@prisma/client');
+    info.prismaModuleLoaded = true;
+    try {
+      const prisma = new PrismaClient();
+      info.prismaClientInstantiated = true;
+      try {
+        await prisma.$queryRaw`SELECT 1`;
+        info.prismaQuery = 'SUCCESS';
+      } catch (qErr: any) {
+        info.prismaQuery = { message: qErr.message, stack: qErr.stack };
+      }
+    } catch (iErr: any) {
+      info.prismaClientInstantiated = false;
+      info.instantiationError = { message: iErr.message, stack: iErr.stack };
+    }
+  } catch (mErr: any) {
+    info.prismaModuleLoaded = false;
+    info.moduleError = { message: mErr.message, stack: mErr.stack };
+  }
+
+  res.status(200).json(info);
 }
