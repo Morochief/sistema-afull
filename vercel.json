@@ -3,7 +3,7 @@
   "buildCommand": "prisma generate && vite build",
   "outputDirectory": "dist",
   "functions": {
-    "api/index.ts": {
+    "api/**/*.ts": {
       "memory": 1024,
       "maxDuration": 30,
       "includeFiles": "node_modules/.prisma/client/**"
@@ -15,8 +15,12 @@
       "destination": "/portal.html"
     },
     {
+      "source": "/api/ping",
+      "destination": "/api/ping"
+    },
+    {
       "source": "/api/(.*)",
-      "destination": "/api/index.ts"
+      "destination": "/api"
     },
     {
       "source": "/((?!api/|portal/).*)",
