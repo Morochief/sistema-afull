@@ -1,15 +1,7 @@
-export default async function handler(req: any, res: any) {
-  let indexImportStatus = 'NOT_TESTED';
-  try {
-    await import('./index.js');
-    indexImportStatus = 'INDEX_JS_LOADED_OK';
-  } catch (e: any) {
-    indexImportStatus = 'INDEX_JS_FAILED: ' + e.message + '\n' + e.stack;
-  }
-
+export default function handler(req: any, res: any) {
   res.status(200).json({
-    status: 'ping_ok',
-    indexImportStatus,
+    status: 'ok',
+    message: 'Sistema aFull Serverless API is online',
     timestamp: new Date().toISOString()
   });
 }
