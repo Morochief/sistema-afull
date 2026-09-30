@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "prisma generate && vite build && esbuild src/server/vercel-entry.ts --bundle --platform=node --format=esm --packages=external --outfile=api/index.js",
+  "buildCommand": "npx prisma generate && npx vite build && npx esbuild src/server/vercel-entry.ts --bundle --platform=node --format=esm --packages=external --outfile=api/index.js",
   "outputDirectory": "dist",
   "functions": {
     "api/**/*": {
