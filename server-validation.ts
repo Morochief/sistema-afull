@@ -6,7 +6,6 @@
  */
 
 import { z } from 'zod';
-import DOMPurify from 'isomorphic-dompurify';
 
 /**
  * Login Schema
@@ -34,12 +33,17 @@ export const PasswordComplexitySchema = z.string()
 
 /**
  * Helper: Sanitize HTML from user input (SECURITY Phase 2 Fix #4)
+ * Pure JS implementation avoiding heavy jsdom/DOMPurify CJS/ESM incompatibilities in serverless
  */
 function sanitizeHTML(input: string): string {
-  return DOMPurify.sanitize(input, { 
-    ALLOWED_TAGS: [], // Strip ALL HTML tags
-    ALLOWED_ATTR: [] // Strip ALL attributes
-  });
+  if (typeof input !== 'string') return input;
+  return input
+    .replace(/<[^>]*>/g, '') // Strip all HTML tags
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 /**

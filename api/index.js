@@ -972,19 +972,14 @@ init_server_auth();
 
 // server-validation.ts
 import { z } from "zod";
-import DOMPurify from "isomorphic-dompurify";
 var LoginSchema = z.object({
   usuario: z.string().min(1, "Usuario requerido").max(50),
   password: z.string().min(1, "Contrase\xF1a requerida")
 });
 var PasswordComplexitySchema = z.string().min(3, "La contrase\xF1a debe tener al menos 3 caracteres");
 function sanitizeHTML(input) {
-  return DOMPurify.sanitize(input, {
-    ALLOWED_TAGS: [],
-    // Strip ALL HTML tags
-    ALLOWED_ATTR: []
-    // Strip ALL attributes
-  });
+  if (typeof input !== "string") return input;
+  return input.replace(/<[^>]*>/g, "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 var RegistroItemSchema = z.object({
   clienteId: z.string().min(1, "Cliente requerido"),
