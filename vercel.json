@@ -1,9 +1,9 @@
 {
   "version": 2,
-  "buildCommand": "prisma generate && vite build",
+  "buildCommand": "prisma generate && vite build && esbuild src/server/vercel-entry.ts --bundle --platform=node --format=esm --packages=external --outfile=api/index.js",
   "outputDirectory": "dist",
   "functions": {
-    "api/**/*.ts": {
+    "api/**/*": {
       "memory": 1024,
       "maxDuration": 30,
       "includeFiles": "node_modules/.prisma/client/**"
@@ -17,10 +17,6 @@
     {
       "source": "/api/ping",
       "destination": "/api/ping"
-    },
-    {
-      "source": "/api/diag",
-      "destination": "/api/diag"
     },
     {
       "source": "/api/(.*)",
