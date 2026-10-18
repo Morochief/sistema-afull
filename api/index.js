@@ -578,6 +578,13 @@ function convertPrismaToFrontend(prismaData) {
       email: u.email,
       rol: mapDbRolToUi(u.rol),
       activo: u.activo
+    })),
+    insumos: (prismaData.insumos || []).map((ins) => ({
+      id: ins.id,
+      nombre: ins.nombre,
+      costo: ins.costo ? parseFloat(ins.costo.toString()) : 0,
+      unidad: ins.unidad || "m2",
+      categoria: ins.categoria || "General"
     }))
   };
 }
@@ -1845,16 +1852,19 @@ portalRouter.post("/:token/sucursal", portalLimiter, async (req, res) => {
 portalRouter.post("/:token/pedido", portalLimiter, async (req, res) => {
   const { token } = req.params;
   if (!token || typeof token !== "string" || token.length < 8) return res.status(404).json({ success: false, error: { code: "PORTAL_NOT_FOUND", message: "Link no v\xE1lido" } });
-  const { sucursalId, descripcion, cantidad, foto } = req.body || {};
-  if (!sucursalId || !descripcion?.trim()) return res.status(400).json({ success: false, error: { code: "VALIDATION_ERROR", message: "Local y descripci\xF3n son requeridos" } });
+  const { sucursalId, sucursalIds, descripcion, cantidad, foto } = req.body || {};
+  const targetSucursalIds = Array.isArray(sucursalIds) && sucursalIds.length > 0 ? sucursalIds : sucursalId ? [sucursalId] : [];
+  if (targetSucursalIds.length === 0 || !descripcion?.trim()) return res.status(400).json({ success: false, error: { code: "VALIDATION_ERROR", message: "Al menos un local y una descripci\xF3n son requeridos" } });
   const cantNum = Number(cantidad);
   if (isNaN(cantNum) || cantNum <= 0) return res.status(400).json({ success: false, error: { code: "VALIDATION_ERROR", message: "La cantidad debe ser mayor a 0" } });
   const descripcionLimpia = String(descripcion).trim().slice(0, 1e3);
   try {
     const cliente = await prisma.cliente.findUnique({ where: { tokenPortal: token } });
     if (!cliente) return res.status(404).json({ success: false, error: { code: "PORTAL_NOT_FOUND", message: "Link no v\xE1lido o expirado" } });
-    const sucursal = await prisma.sucursal.findFirst({ where: { id: sucursalId, clienteId: cliente.id, activo: true } });
-    if (!sucursal) return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Local no v\xE1lido para este cliente" } });
+    const sucursales = await prisma.sucursal.findMany({
+      where: { id: { in: targetSucursalIds }, clienteId: cliente.id, activo: true }
+    });
+    if (sucursales.length === 0) return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Locales no v\xE1lidos para este cliente" } });
     let fotoUrl;
     if (foto && typeof foto === "string" && foto.startsWith("data:image")) {
       const pedidoId = generateId("ped");
@@ -1873,9 +1883,24 @@ portalRouter.post("/:token/pedido", portalLimiter, async (req, res) => {
         }
       }
     }
-    const pedido = await prisma.pedido.create({ data: { id: generateId("ped"), clienteId: cliente.id, sucursalId: sucursal.id, sucursalNombre: sucursal.nombre, descripcion: descripcionLimpia, cantidad: new Decimal3(cantNum), estado: "Pendiente", fotoUrl } });
-    auditLog({ usuario: "portal:" + cliente.nombre, accion: "create_pedido", recurso: `/api/portal/${token}/pedido`, resultado: "success", ip: getClientIp(req) });
-    res.status(201).json({ success: true, data: { id: pedido.id, local: pedido.sucursalNombre, descripcion: pedido.descripcion, cantidad: Number(pedido.cantidad), estado: pedido.estado }, message: "Pedido creado correctamente" });
+    const pedidosCreados = [];
+    for (const suc of sucursales) {
+      const p = await prisma.pedido.create({
+        data: {
+          id: generateId("ped"),
+          clienteId: cliente.id,
+          sucursalId: suc.id,
+          sucursalNombre: suc.nombre,
+          descripcion: descripcionLimpia,
+          cantidad: new Decimal3(cantNum),
+          estado: "Pendiente",
+          fotoUrl
+        }
+      });
+      pedidosCreados.push(p);
+    }
+    auditLog({ usuario: "portal:" + cliente.nombre, accion: "create_pedidos_multi", recurso: `/api/portal/${token}/pedido`, resultado: "success", ip: getClientIp(req), detalle: `${pedidosCreados.length} pedidos creados para ${sucursales.map((s) => s.nombre).join(", ")}` });
+    res.status(201).json({ success: true, data: pedidosCreados.map((p) => ({ id: p.id, local: p.sucursalNombre, descripcion: p.descripcion, cantidad: Number(p.cantidad), estado: p.estado })), message: `${pedidosCreados.length} pedido(s) creado(s) correctamente` });
   } catch (error) {
     logger2.error("[PORTAL] Error creating pedido:", error);
     res.status(500).json({ success: false, error: { code: "PORTAL_ERROR", message: "Error al crear el pedido" } });
@@ -2081,6 +2106,40 @@ timerRouter.post("/sync", requireAuth, async (req, res) => {
   } catch (error) {
     logger2.error("Error syncing timer", error);
     res.status(500).json({ success: false, error: { code: "TIMER_SYNC_ERROR", message: "No se pudo sincronizar el timer: " + error.message } });
+  }
+});
+timerRouter.get("/activos", requireAuth, async (req, res) => {
+  try {
+    const [timers, clientes, proyectos, colaboradores] = await Promise.all([
+      prisma.timerActivo.findMany({
+        where: { activo: true },
+        orderBy: { inicio: "desc" }
+      }),
+      prisma.cliente.findMany({ select: { id: true, nombre: true } }),
+      prisma.proyecto.findMany({ select: { id: true, nombre: true } }),
+      prisma.colaborador.findMany({ select: { id: true, nombre: true } })
+    ]);
+    const clienteMap = new Map(clientes.map((c) => [c.id, c.nombre]));
+    const proyectoMap = new Map(proyectos.map((p) => [p.id, p.nombre]));
+    const colabMap = new Map(colaboradores.map((c) => [c.id, c.nombre]));
+    res.json({
+      success: true,
+      data: timers.map((t) => ({
+        id: t.id,
+        usuario: t.usuario,
+        colaboradorNombre: (t.colaboradorId ? colabMap.get(t.colaboradorId) : null) || t.usuario,
+        clienteNombre: clienteMap.get(t.clienteId) || "Sin cliente",
+        proyectoNombre: proyectoMap.get(t.proyectoId) || "Sin proyecto",
+        descripcion: t.descripcion,
+        inicio: t.inicio.toISOString(),
+        isPaused: t.isPaused,
+        currentPauseType: t.currentPauseType,
+        pausedTime: t.pausedTime
+      }))
+    });
+  } catch (error) {
+    logger2.error("Error fetching all active timers", error);
+    res.status(500).json({ success: false, error: { code: "TIMERS_FETCH_ERROR", message: "Error al listar timers activos" } });
   }
 });
 
@@ -2835,10 +2894,55 @@ importRouter.post("/import/confirm", requireAuth, requireWriteAccess, async (req
       const validRegistrosData = [];
       let errores = 0;
       for (const r of registros) {
-        const realClienteId = clienteIdMap.get(r.clienteId) || r.clienteId;
-        const realProyectoId = proyectoIdMap.get(r.proyectoId) || r.proyectoId;
-        const realClienteNombre = clienteNombreMap.get(realClienteId);
-        const realProyectoNombre = proyectoNombreMap.get(realProyectoId);
+        let realClienteId = clienteIdMap.get(r.clienteId) || (dbClientes.some((c) => c.id === r.clienteId) ? r.clienteId : null);
+        let realClienteNombre = realClienteId ? clienteNombreMap.get(realClienteId) : null;
+        if (!realClienteId || !realClienteNombre) {
+          const rawClientName = (r.clienteNombre || "").trim();
+          const normNombre = rawClientName.toLowerCase();
+          if (normNombre && clientesPorNombre.has(normNombre)) {
+            realClienteId = clientesPorNombre.get(normNombre);
+            realClienteNombre = clienteNombreMap.get(realClienteId) || rawClientName;
+          } else if (rawClientName) {
+            const created = await tx.cliente.create({
+              data: {
+                id: generateId("cli"),
+                nombre: rawClientName,
+                codigo: rawClientName.substring(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, "C") || generateId("cli").substring(0, 8).toUpperCase()
+              }
+            });
+            realClienteId = created.id;
+            realClienteNombre = created.nombre;
+            clientesPorNombre.set(normNombre, created.id);
+            clienteNombreMap.set(created.id, created.nombre);
+            if (r.clienteId) clienteIdMap.set(r.clienteId, created.id);
+          }
+        }
+        let realProyectoId = proyectoIdMap.get(r.proyectoId) || (dbProyectos.some((p) => p.id === r.proyectoId) ? r.proyectoId : null);
+        let realProyectoNombre = realProyectoId ? proyectoNombreMap.get(realProyectoId) : null;
+        if (realClienteId && (!realProyectoId || !realProyectoNombre)) {
+          const rawProjName = (r.proyectoNombre || "Proyecto General").trim();
+          const normProj = rawProjName.toLowerCase();
+          const key = `${realClienteId}::${normProj}`;
+          if (proyectosPorNombre.has(key)) {
+            realProyectoId = proyectosPorNombre.get(key);
+            realProyectoNombre = proyectoNombreMap.get(realProyectoId) || rawProjName;
+          } else if (rawProjName) {
+            const created = await tx.proyecto.create({
+              data: {
+                id: generateId("pro"),
+                clienteId: realClienteId,
+                nombre: rawProjName,
+                estado: "EN_PROCESO",
+                fechaInicio: /* @__PURE__ */ new Date()
+              }
+            });
+            realProyectoId = created.id;
+            realProyectoNombre = created.nombre;
+            proyectosPorNombre.set(key, created.id);
+            proyectoNombreMap.set(created.id, created.nombre);
+            if (r.proyectoId) proyectoIdMap.set(r.proyectoId, created.id);
+          }
+        }
         if (!realClienteId || !realProyectoId || !realClienteNombre || !realProyectoNombre) {
           errores++;
           continue;
@@ -2851,12 +2955,10 @@ importRouter.post("/import/confirm", requireAuth, requireWriteAccess, async (req
         } else {
           parsedFecha = /* @__PURE__ */ new Date();
         }
-        const cantidad = Number(r.cantidad) || 0;
-        const precioUnitario = Number(r.precioUnitario) || 0;
-        if (cantidad <= 0 || precioUnitario <= 0) {
-          errores++;
-          continue;
-        }
+        const rawCant = typeof r.cantidad === "string" ? parseFloat(r.cantidad.replace(",", ".")) : Number(r.cantidad);
+        const rawPu = typeof r.precioUnitario === "string" ? parseFloat(r.precioUnitario.replace(",", ".")) : Number(r.precioUnitario);
+        const cantidad = isNaN(rawCant) || rawCant <= 0 ? 1 : rawCant;
+        const precioUnitario = isNaN(rawPu) || rawPu < 0 ? 0 : rawPu;
         const total = Number(r.total) > 0 ? Number(r.total) : cantidad * precioUnitario;
         const conceptoRaw = (r.concepto || "").trim().toLowerCase();
         let conceptoValido;
@@ -2872,8 +2974,8 @@ importRouter.post("/import/confirm", requireAuth, requireWriteAccess, async (req
           proyectoNombre: realProyectoNombre,
           fecha: parsedFecha,
           concepto: conceptoValido,
-          descripcion: r.descripcion || null,
-          colaboradorId: null,
+          descripcion: r.descripcion || (conceptoValido === "MO" ? "Mano de obra" : "Insumo"),
+          colaboradorId: r.colaboradorId || null,
           hsInicio: r.hsInicio ? String(r.hsInicio).substring(0, 5) : null,
           hsFin: r.hsFin ? String(r.hsFin).substring(0, 5) : null,
           hsTotal: r.hsTotal ? Number(r.hsTotal) : null,
@@ -4118,9 +4220,58 @@ hojasRutaRouter.get("/:id", requireAuth, requireProduccionOrAdmin, async (req, r
 });
 hojasRutaRouter.post("/", requireAuth, requireProduccionOrAdmin, requireWriteAccess, async (req, res) => {
   try {
-    const { ordenTrabajoId } = req.body;
+    const { ordenTrabajoId, clienteId, clienteNombre, proyecto, notas } = req.body;
+    if (!ordenTrabajoId && clienteId && proyecto) {
+      let finalClienteNombre = clienteNombre;
+      if (!finalClienteNombre) {
+        const c = await prisma.cliente.findUnique({ where: { id: clienteId } });
+        finalClienteNombre = c?.nombre || "Cliente";
+      }
+      const hoja2 = await prisma.hojaRuta.create({
+        data: {
+          id: crypto4.randomUUID(),
+          ordenTrabajoId: null,
+          clienteId,
+          clienteNombre: finalClienteNombre,
+          proyecto,
+          fecha: /* @__PURE__ */ new Date(),
+          estado: "Borrador",
+          notas: notas || null
+        }
+      });
+      await prisma.hojaRutaTarea.create({
+        data: {
+          id: crypto4.randomUUID(),
+          hojaRutaId: hoja2.id,
+          operarioNombre: "Sin asignar",
+          orden: 0,
+          descripcion: "Tarea inicial",
+          categoria: "Montaje",
+          estado: "Pendiente",
+          fechaAsignada: /* @__PURE__ */ new Date()
+        }
+      });
+      const hojaCompleta2 = await prisma.hojaRuta.findUnique({
+        where: { id: hoja2.id },
+        include: {
+          tareas: {
+            orderBy: { orden: "asc" },
+            include: { colaborador: { select: { id: true, nombre: true, rol: true } } }
+          }
+        }
+      });
+      auditLog({
+        usuario: req.user.usuario,
+        accion: "CREAR_HOJA_RUTA_DIRECTA",
+        recurso: `hojas_ruta/${hoja2.id}`,
+        resultado: "success",
+        ip: req.ip,
+        detalle: `Hoja de ruta creada directo para ${finalClienteNombre} - ${proyecto}`
+      });
+      return res.status(201).json({ success: true, data: hojaCompleta2 });
+    }
     if (!ordenTrabajoId) {
-      return res.status(400).json({ success: false, error: { code: "MISSING_OT", message: "Falta el id de la Orden de Trabajo" } });
+      return res.status(400).json({ success: false, error: { code: "MISSING_PARAMS", message: "Debe especificar una Orden de Trabajo o bien Cliente y Proyecto" } });
     }
     const ot = await prisma.ordenTrabajo.findUnique({
       where: { id: ordenTrabajoId },
@@ -4152,7 +4303,12 @@ hojasRutaRouter.post("/", requireAuth, requireProduccionOrAdmin, requireWriteAcc
       }
     });
     if (ot.presupuesto?.items && ot.presupuesto.items.length > 0) {
-      const tareas = ot.presupuesto.items.map((item, index) => ({
+      const itemsOperativos = ot.presupuesto.items.filter((item) => {
+        const cat = (item.categoria || "").toLowerCase().trim();
+        return cat !== "insumo" && cat !== "material";
+      });
+      const itemsParaTareas = itemsOperativos.length > 0 ? itemsOperativos : ot.presupuesto.items;
+      const tareas = itemsParaTareas.map((item, index) => ({
         id: crypto4.randomUUID(),
         hojaRutaId: hoja.id,
         colaboradorId: null,
@@ -4732,7 +4888,7 @@ import { Router as Router17 } from "express";
 var dataRouter = Router17();
 dataRouter.get("/data", requireAuth, async (req, res) => {
   try {
-    const [clientes, proyectos, colaboradores, registros, registrosVehiculo, timersActivos, viajesActivos, usuarios] = await Promise.all([
+    const [clientes, proyectos, colaboradores, registros, registrosVehiculo, timersActivos, viajesActivos, usuarios, insumos] = await Promise.all([
       prisma.cliente.findMany({ orderBy: { fechaCreacion: "desc" } }),
       prisma.proyecto.findMany({ orderBy: { fechaInicio: "desc" } }),
       prisma.colaborador.findMany({ orderBy: { nombre: "asc" } }),
@@ -4740,7 +4896,8 @@ dataRouter.get("/data", requireAuth, async (req, res) => {
       prisma.registroVehiculo.findMany({ orderBy: { fecha: "desc" } }),
       prisma.timerActivo.findMany({ where: { activo: true } }),
       prisma.viajeActivo.findMany({ where: { activo: true } }),
-      prisma.usuario.findMany()
+      prisma.usuario.findMany(),
+      prisma.insumo.findMany({ where: { activo: true }, select: { id: true, nombre: true, costo: true, unidad: true, categoria: true }, orderBy: { nombre: "asc" } })
     ]);
     const data = convertPrismaToFrontend({
       clientes,
@@ -4750,7 +4907,8 @@ dataRouter.get("/data", requireAuth, async (req, res) => {
       registrosVehiculo,
       timersActivos,
       viajesActivos,
-      usuarios
+      usuarios,
+      insumos
     });
     res.json({ success: true, data });
   } catch (error) {
@@ -5003,39 +5161,99 @@ registrosRouter.post("/", requireAuth, requireWriteAccess, async (req, res) => {
         const desc = rawItem.descripcion.trim();
         const baseNombre = desc.includes("\u2014") ? desc.split("\u2014")[0].trim() : desc;
         const esMerma = /merma|desperdicio/i.test(desc);
-        const insumoDb = await prisma.insumo.findFirst({
+        const palabras = baseNombre.split(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]+/).filter((w) => w.length >= 2);
+        const searchConditions = [
+          { nombre: { equals: baseNombre, mode: "insensitive" } },
+          { nombre: { contains: baseNombre, mode: "insensitive" } }
+        ];
+        if (palabras.length > 0) {
+          searchConditions.push(...palabras.map((w) => ({ nombre: { contains: w, mode: "insensitive" } })));
+        }
+        const candidatos = await prisma.insumo.findMany({
           where: {
             activo: true,
-            OR: [
-              { nombre: { equals: baseNombre, mode: "insensitive" } },
-              { nombre: { contains: baseNombre, mode: "insensitive" } }
-            ]
+            OR: searchConditions
           },
-          orderBy: { nombre: "asc" }
+          take: 50
         });
-        if (insumoDb) {
-          const costoUnit = esMerma && insumoDb.costoDesperdicio != null && Number(insumoDb.costoDesperdicio) > 0 ? Number(insumoDb.costoDesperdicio) : Number(insumoDb.costo);
-          precioUnitarioCalculado = costoUnit;
-          totalCalculado = Math.round(rawItem.cantidad * costoUnit);
-        } else if (isOperario && (!precioUnitarioCalculado || precioUnitarioCalculado === 0)) {
-          const palabras = baseNombre.split(" ").filter((w) => w.length > 3);
-          if (palabras.length > 0) {
-            const fallbackInsumo = await prisma.insumo.findFirst({
-              where: {
-                activo: true,
-                OR: palabras.map((w) => ({ nombre: { contains: w, mode: "insensitive" } }))
-              }
-            });
-            if (fallbackInsumo) {
-              const costoUnit = esMerma && fallbackInsumo.costoDesperdicio != null && Number(fallbackInsumo.costoDesperdicio) > 0 ? Number(fallbackInsumo.costoDesperdicio) : Number(fallbackInsumo.costo);
-              precioUnitarioCalculado = costoUnit;
-              totalCalculado = Math.round(rawItem.cantidad * costoUnit);
+        if (candidatos.length > 0) {
+          const normQuery = baseNombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          const tokensQuery = normQuery.split(/[^a-z0-9]+/).filter(Boolean);
+          const dimMatch = normQuery.match(/\b\d+\s*x\s*\d+\b/g);
+          const dimensionesQuery = dimMatch ? dimMatch.map((d) => d.replace(/\s+/g, "")) : [];
+          let mejorCandidato = null;
+          let maxPuntaje = -999;
+          for (const c of candidatos) {
+            const normNombre = c.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            if (normNombre === normQuery) {
+              mejorCandidato = c;
+              maxPuntaje = 9999;
+              break;
             }
+            let puntaje = 0;
+            const tokensCandidato = new Set(normNombre.split(/[^a-z0-9]+/).filter(Boolean));
+            for (const t of tokensQuery) {
+              if (tokensCandidato.has(t)) {
+                puntaje += /^\d+$/.test(t) ? 25 : 10;
+              }
+            }
+            const dimCand = normNombre.replace(/\s+/g, "");
+            for (const dim of dimensionesQuery) {
+              if (dimCand.includes(dim)) {
+                puntaje += 120;
+              } else if (/\d+x\d+/.test(dimCand)) {
+                puntaje -= 80;
+              }
+            }
+            puntaje -= Math.abs(normNombre.length - normQuery.length) * 0.1;
+            if (puntaje > maxPuntaje) {
+              maxPuntaje = puntaje;
+              mejorCandidato = c;
+            }
+          }
+          if (mejorCandidato && maxPuntaje > 15) {
+            const costoUnit = esMerma && mejorCandidato.costoDesperdicio != null && Number(mejorCandidato.costoDesperdicio) > 0 ? Number(mejorCandidato.costoDesperdicio) : Number(mejorCandidato.costo);
+            precioUnitarioCalculado = costoUnit;
+            totalCalculado = Math.round(rawItem.cantidad * costoUnit);
           }
         }
       } catch (lookupErr) {
         logger2.warn("[REGISTROS] Error al resolver costo de insumo desde cat\xE1logo:", lookupErr);
       }
+    }
+    const fifteenSecondsAgo = new Date(Date.now() - 15e3);
+    const duplicadoReciente = await prisma.registro.findFirst({
+      where: {
+        clienteId: rawItem.clienteId,
+        proyectoId: rawItem.proyectoId,
+        colaboradorId: rawItem.colaboradorId || null,
+        concepto: conceptoEnum,
+        descripcion: rawItem.descripcion,
+        fechaImportacion: { gte: fifteenSecondsAgo }
+      }
+    });
+    if (duplicadoReciente) {
+      logger2.info(`[REGISTROS] Registro duplicado prevenido para colaborador ${rawItem.colaboradorId || "N/A"}`);
+      const itemDuplicado = {
+        id: duplicadoReciente.id,
+        clienteId: duplicadoReciente.clienteId,
+        clienteNombre: duplicadoReciente.clienteNombre,
+        proyectoId: duplicadoReciente.proyectoId,
+        proyectoNombre: duplicadoReciente.proyectoNombre,
+        fecha: duplicadoReciente.fecha.toISOString().substring(0, 10),
+        concepto: duplicadoReciente.concepto === "MO" ? "MO" : duplicadoReciente.concepto === "INSUMO" ? "Insumo" : "Veh\xEDculo",
+        descripcion: duplicadoReciente.descripcion,
+        colaboradorId: duplicadoReciente.colaboradorId || void 0,
+        hsInicio: duplicadoReciente.hsInicio || void 0,
+        hsFin: duplicadoReciente.hsFin || void 0,
+        hsTotal: duplicadoReciente.hsTotal ? parseFloat(duplicadoReciente.hsTotal.toString()) : void 0,
+        cantidad: parseFloat(duplicadoReciente.cantidad.toString()),
+        precioUnitario: isOperario ? 0 : parseFloat(duplicadoReciente.precioUnitario.toString()),
+        total: isOperario ? 0 : parseFloat(duplicadoReciente.total.toString()),
+        origen: duplicadoReciente.origen === "MANUAL" ? "Manual" : "Excel",
+        fechaImportacion: duplicadoReciente.fechaImportacion?.toISOString().substring(0, 10)
+      };
+      return res.json({ success: true, data: itemDuplicado, message: "Registro ya procesado" });
     }
     const newRegistro = await prisma.registro.create({
       data: {
@@ -5678,6 +5896,105 @@ marcacionRouter.get("/admin/timeline", requireAuth, requireAdmin, async (req, re
     res.json({ success: true, data: ms.map((m) => ({ id: m.id, usuario: m.usuario, tipo: m.tipo, timestamp: m.timestamp, lat: m.lat ? Number(m.lat) : null, lng: m.lng ? Number(m.lng) : null, ip: m.ip, dispositivoHash: m.dispositivoHash, origen: m.origen, motivoRemoto: m.motivoRemoto, hojaRutaId: m.hojaRutaId, marcadoPor: m.marcadoPor, alertas: [...ips[m.usuario]?.size > 1 ? ["MULTIPLES_IPS"] : [], ...ds[m.usuario]?.size > 1 ? ["MULTIPLES_DISPOSITIVOS"] : []] })) });
   } catch (e) {
     res.status(500).json({ success: false, error: { code: "READ_ERROR", message: "Error" } });
+  }
+});
+marcacionRouter.get("/estado-actual", requireAuth, async (req, res) => {
+  const up = req.user;
+  try {
+    const ult = await prisma.marcacion.findFirst({
+      where: { usuario: up.usuario },
+      orderBy: { timestamp: "desc" }
+    });
+    const hoy = /* @__PURE__ */ new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const tieneEntradaActiva = ult?.tipo === "ENTRADA";
+    const esDeHoy = ult ? new Date(ult.timestamp) >= hoy : false;
+    const tieneEntradaHoy = tieneEntradaActiva && esDeHoy;
+    const tieneEntradaAbiertaDiaAnterior = tieneEntradaActiva && !esDeHoy;
+    res.json({
+      success: true,
+      data: {
+        tieneEntradaActiva,
+        tieneEntradaHoy,
+        tieneEntradaAbiertaDiaAnterior,
+        ultimaMarcacion: ult ? {
+          id: ult.id,
+          tipo: ult.tipo,
+          timestamp: ult.timestamp,
+          origen: ult.origen
+        } : null
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: { code: "STATUS_ERROR", message: "Error al verificar estado de asistencia" } });
+  }
+});
+marcacionRouter.post("/admin/manual", requireAuth, async (req, res) => {
+  const up = req.user;
+  const esAdminOGerardo = up.rol === "Admin" || up.usuario.toLowerCase().includes("gerardo");
+  if (!esAdminOGerardo) {
+    return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Solo Admin o Supervisor pueden registrar marcaciones manuales" } });
+  }
+  const { usuario, tipo, timestamp, motivo } = req.body;
+  if (!usuario || !tipo || !["ENTRADA", "SALIDA"].includes(tipo)) {
+    return res.status(400).json({ success: false, error: { code: "INVALID_DATA", message: "Usuario y tipo (ENTRADA o SALIDA) requeridos" } });
+  }
+  try {
+    const fechaTimestamp = timestamp ? new Date(timestamp) : /* @__PURE__ */ new Date();
+    const m = await prisma.marcacion.create({
+      data: {
+        id: genMarcacionId(),
+        usuario,
+        tipo,
+        timestamp: fechaTimestamp,
+        origen: "MANUAL",
+        motivoRemoto: motivo ? `Manual por ${up.usuario}: ${motivo}` : `Manual por ${up.usuario}`,
+        marcadoPor: up.usuario,
+        ip: getClientIp(req)
+      }
+    });
+    auditLog({
+      usuario: up.usuario,
+      accion: "MARCACION_MANUAL_CREADA",
+      recurso: `/api/marcacion/admin/manual`,
+      resultado: "success",
+      ip: getClientIp(req),
+      detalle: `${tipo} para ${usuario} a las ${fechaTimestamp.toISOString()}`
+    });
+    res.status(201).json({ success: true, data: m });
+  } catch (e) {
+    res.status(500).json({ success: false, error: { code: "CREATE_ERROR", message: e.message || "Error al crear marcaci\xF3n manual" } });
+  }
+});
+marcacionRouter.put("/admin/:id", requireAuth, async (req, res) => {
+  const up = req.user;
+  const esAdminOGerardo = up.rol === "Admin" || up.usuario.toLowerCase().includes("gerardo");
+  if (!esAdminOGerardo) {
+    return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Solo Admin o Supervisor pueden editar marcaciones" } });
+  }
+  const { id } = req.params;
+  const { tipo, timestamp, motivo } = req.body;
+  try {
+    const updateData = {};
+    if (tipo && ["ENTRADA", "SALIDA"].includes(tipo)) updateData.tipo = tipo;
+    if (timestamp) updateData.timestamp = new Date(timestamp);
+    if (motivo) updateData.motivoRemoto = `Modificado por ${up.usuario}: ${motivo}`;
+    updateData.marcadoPor = up.usuario;
+    const m = await prisma.marcacion.update({
+      where: { id },
+      data: updateData
+    });
+    auditLog({
+      usuario: up.usuario,
+      accion: "MARCACION_EDITADA",
+      recurso: `/api/marcacion/admin/${id}`,
+      resultado: "success",
+      ip: getClientIp(req),
+      detalle: `Modificada marcaci\xF3n ${id} de ${m.usuario}`
+    });
+    res.json({ success: true, data: m });
+  } catch (e) {
+    res.status(500).json({ success: false, error: { code: "UPDATE_ERROR", message: e.message || "Error al editar marcaci\xF3n" } });
   }
 });
 marcacionRouter.get("/hojas-ruta", requireAuth, async (req, res) => {

@@ -70,6 +70,7 @@ describe('App Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    sessionStorage.clear();
     (global.fetch as any).mockResolvedValue({
       ok: true,
       json: async () => ({

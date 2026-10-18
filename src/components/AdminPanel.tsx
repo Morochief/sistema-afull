@@ -33,6 +33,7 @@ import ProyectosTab from './ProyectosTab.tsx';
 import ColaboradoresTab from './ColaboradoresTab.tsx';
 import PermisosTab from './PermisosTab.tsx';
 import InsumosAdmin from './InsumosAdmin.tsx';
+import PanelTrabajosActivos from './PanelTrabajosActivos.tsx';
 
 interface AdminPanelProps {
   data: DatabaseState;
@@ -52,6 +53,7 @@ interface AdminPanelProps {
 }
 
 type AdminSubTab =
+  | 'trabajos-activos'
   | 'registro'
   | 'insumos'
   | 'clientes'
@@ -241,6 +243,7 @@ export default function AdminPanel({
     {
       category: 'Flota & Asistencia',
       items: [
+        { id: 'trabajos-activos', label: '⚡ Control en Vivo (Operarios)', icon: <Users className="w-4 h-4 text-emerald-400" /> },
         { id: 'vehiculos', label: 'Control de Vehículos', icon: <Car className="w-4 h-4" />, badge: (data.registrosVehiculo || []).length },
         { id: 'marcaciones', label: 'Timeline Marcaciones', icon: <Clock className="w-4 h-4" /> },
         { id: 'grupos-marcacion', label: 'Grupos de Marcación', icon: <UsersRound className="w-4 h-4" /> },
@@ -394,6 +397,10 @@ export default function AdminPanel({
 
           {activeSubTab === 'permisos' && (
             <PermisosTab key="permisos" data={data} />
+          )}
+
+          {activeSubTab === 'trabajos-activos' && (
+            <PanelTrabajosActivos key="trabajos-activos" />
           )}
 
           {activeSubTab === 'vehiculos' && (

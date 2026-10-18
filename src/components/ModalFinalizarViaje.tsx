@@ -8,6 +8,7 @@ interface Props {
   onFinish: (data: any) => Promise<any>;
   kmInicio: number;
   duracionSegundos: number;
+  currentUser?: { rol?: string } | null;
 }
 
 function formatDuration(seconds: number): string {
@@ -51,7 +52,7 @@ function useCameraCapture() {
   return { photo, capturePhoto, reset };
 }
 
-export default function ModalFinalizarViaje({ onClose, onFinish, kmInicio, duracionSegundos }: Props) {
+export default function ModalFinalizarViaje({ onClose, onFinish, kmInicio, duracionSegundos, currentUser }: Props) {
   const { showToast } = useNotif();
   const [kmFinal, setKmFinal] = useState('');
   const [costoPorKm, setCostoPorKm] = useState('1400');
@@ -59,6 +60,7 @@ export default function ModalFinalizarViaje({ onClose, onFinish, kmInicio, durac
   const { photo, capturePhoto, reset } = useCameraCapture();
   const inputFileRef = useRef<HTMLInputElement>(null);
   
+  const isAdmin = currentUser?.rol === 'Admin';
   const distanciaOdometro = kmFinal ? parseFloat(kmFinal) - kmInicio : 0;
   const costoTotal = distanciaOdometro > 0 && costoPorKm
     ? Math.round(distanciaOdometro * parseFloat(costoPorKm))
@@ -70,8 +72,8 @@ export default function ModalFinalizarViaje({ onClose, onFinish, kmInicio, durac
       return;
     }
     
-    if (!kmFinal || !costoPorKm) {
-      showToast('Completá todos los campos obligatorios', 'warning');
+    if (!kmFinal) {
+      showToast('Completá el kilometraje final', 'warning');
       return;
     }
     
@@ -96,7 +98,7 @@ export default function ModalFinalizarViaje({ onClose, onFinish, kmInicio, durac
   };
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0a0a0a]/80 backdrop-blur-md p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#090a0f]/80 backdrop-blur-md p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -106,7 +108,7 @@ export default function ModalFinalizarViaje({ onClose, onFinish, kmInicio, durac
       >
         <h3 className="text-xl font-bold text-white mb-4">Finalizar Viaje</h3>
         
-        <div className="mb-4 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg text-sm">
+        <div className="mb-4 p-3 bg-orange-500/10 border border-orange-500/30 rounded-md text-sm">
           <div className="grid grid-cols-2 gap-2 text-slate-300">
             <div><span className="text-slate-400">Duración:</span> {formatDuration(duracionSegundos)}</div>
             <div><span className="text-slate-400">Km inicial:</span> {kmInicio.toLocaleString()}</div>
@@ -132,15 +134,15 @@ export default function ModalFinalizarViaje({ onClose, onFinish, kmInicio, durac
             <button
               type="button"
               onClick={() => inputFileRef.current?.click()}
-              className="w-full h-40 border-2 border-dashed border-slate-600 rounded-lg flex flex-col items-center justify-center gap-2 hover:border-orange-500 transition"
+              className="w-full h-40 border-2 border-dashed border-white/10 rounded-md flex flex-col items-center justify-center gap-2 hover:border-orange-500 transition cursor-pointer"
             >
               <Camera className="w-8 h-8 text-slate-500" />
               <span className="text-sm text-slate-400">Tomar foto</span>
             </button>
           ) : (
             <div className="relative">
-              <img src={photo} alt="Odómetro final" className="w-full h-40 object-cover rounded-lg" />
-              <button type="button" onClick={() => { reset(); inputFileRef.current?.click(); }} aria-label="Cambiar foto" className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full">
+              <img src={photo} alt="Odómetro final" className="w-full h-40 object-cover rounded-md" />
+              <button type="button" onClick={() => { reset(); inputFileRef.current?.click(); }} aria-label="Cambiar foto" className="absolute top-2 right-2 bg-rose-500 text-white p-2 rounded-full cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -149,38 +151,41 @@ export default function ModalFinalizarViaje({ onClose, onFinish, kmInicio, durac
         
         <div className="mb-4">
           <label className="block text-sm text-slate-400 mb-2">Kilometraje final *</label>
-          <input type="number" step="0.1" value={kmFinal} onChange={(e) => setKmFinal(e.target.value)} placeholder="Ej: 45668.7" className="glass-input w-full px-4 py-2.5 rounded-xl text-sm" />
+          <input type="number" step="0.1" value={kmFinal} onChange={(e) => setKmFinal(e.target.value)} placeholder="Ej: 45668.7" className="glass-input w-full px-4 py-2.5 rounded-md text-sm" />
           {distanciaOdometro > 0 && (
-            <p className="text-xs text-emerald-400 mt-1">Distancia: {distanciaOdometro.toFixed(1)} km</p>
+            <p className="text-xs text-orange-400 mt-1 font-mono">Distancia: {distanciaOdometro.toFixed(1)} km</p>
           )}
         </div>
         
-        <div className="mb-4">
-          <label className="block text-sm text-slate-400 mb-2">Costo por Km (Gs) *</label>
-          <input
-            type="number"
-            step="100"
-            value={costoPorKm}
-            onChange={(e) => setCostoPorKm(e.target.value)}
-            placeholder="1400"
-            className="glass-input w-full px-4 py-2.5 rounded-xl text-sm"
-          />
-          {distanciaOdometro > 0 && (
-            <div className="mt-2 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
-              <p className="text-sm text-emerald-300">
-                <span className="text-slate-400">Distancia:</span> {distanciaOdometro.toFixed(1)} km ×{' '}
-                <span className="text-slate-400">Gs.</span> {parseFloat(costoPorKm || '0').toLocaleString()}
-              </p>
-              <p className="text-lg font-bold text-emerald-400 mt-1">
-                Costo Total Estimado: Gs. {costoTotal.toLocaleString()}
-              </p>
-            </div>
-          )}
-        </div>
+        {/* Costo de combustible (solo visible para administradores) */}
+        {isAdmin && (
+          <div className="mb-4">
+            <label className="block text-sm text-slate-400 mb-2">Costo por Km (Gs) *</label>
+            <input
+              type="number"
+              step="100"
+              value={costoPorKm}
+              onChange={(e) => setCostoPorKm(e.target.value)}
+              placeholder="1400"
+              className="glass-input w-full px-4 py-2.5 rounded-md text-sm"
+            />
+            {distanciaOdometro > 0 && (
+              <div className="mt-2 p-3 bg-white/5 border border-white/10 rounded-md">
+                <p className="text-sm text-slate-300">
+                  <span className="text-slate-400">Distancia:</span> {distanciaOdometro.toFixed(1)} km ×{' '}
+                  <span className="text-slate-400">Gs.</span> {parseFloat(costoPorKm || '0').toLocaleString()}
+                </p>
+                <p className="text-base font-bold text-orange-400 mt-1 font-mono">
+                  Costo Total Estimado: Gs. {costoTotal.toLocaleString()}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
         
         <div className="flex gap-2">
-          <button type="button" onClick={onClose} className="flex-1 py-2.5 px-4 border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl text-sm font-semibold transition-all cursor-pointer">Cancelar</button>
-          <button type="button" onClick={handleSubmit} disabled={!photo || !kmFinal || !costoPorKm || submitting} className="flex-1 py-2.5 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/25 border border-white/10 transition-all cursor-pointer">
+          <button type="button" onClick={onClose} className="flex-1 py-2.5 px-4 border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 rounded-md text-sm font-semibold transition-all cursor-pointer">Cancelar</button>
+          <button type="button" onClick={handleSubmit} disabled={!photo || !kmFinal || submitting} className="flex-1 py-2.5 px-4 bg-orange-600 hover:bg-orange-500 text-white rounded-md text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border border-white/10 transition-all cursor-pointer">
             <CheckCircle className="w-4 h-4" /> Guardar
           </button>
         </div>

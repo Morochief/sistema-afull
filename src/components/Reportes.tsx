@@ -17,6 +17,7 @@ import {
   DollarSign,
   Percent,
   Package,
+  User,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { DatabaseState, RegistroItem } from '../types.ts';
@@ -45,42 +46,54 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
   // Filtros
   const [filterCliente, setFilterCliente] = useState('');
   const [filterProyecto, setFilterProyecto] = useState('');
+  const [filterColaborador, setFilterColaborador] = useState('');
   const [filterFechaDesde, setFilterFechaDesde] = useState('');
   const [filterFechaHasta, setFilterFechaHasta] = useState('');
   const [filterConcepto, setFilterConcepto] = useState('');
 
-  // Pre-factura
+  // Pre-factura (Items 13 y 14)
   const [filterClienteFactura, setFilterClienteFactura] = useState('');
   const [selectedProyectoFactura, setSelectedProyectoFactura] = useState('');
   const [customMarkup, setCustomMarkup] = useState(markupRate * 100);
+  const [solicitanteFactura, setSolicitanteFactura] = useState('');
+  const [rucFactura, setRucFactura] = useState('');
 
   // --- UNIFIED DATA: MO/Insumos + Vehículos ---
   const unifiedRegistros = useMemo(() => {
-    const vehicleAsRegistros: RegistroItem[] = (data.registrosVehiculo || []).map(v => ({
-      id: v.id,
-      clienteId: v.clienteId,
-      clienteNombre: v.clienteNombre,
-      proyectoId: v.proyectoId,
-      proyectoNombre: v.proyectoNombre,
-      fecha: v.fecha,
-      concepto: 'Vehículo',
-      descripcion: `Viaje: ${v.proyectoNombre} - ${v.distanciaOdometro}km`,
-      cantidad: v.distanciaOdometro,
-      precioUnitario: v.distanciaOdometro > 0 ? Math.round(v.total / v.distanciaOdometro) : 0,
-      total: v.total,
-      hsInicio: undefined,
-      hsFin: undefined,
-      hsTotal: undefined,
-      origen: v.origen,
-      fechaImportacion: v.fechaImportacion,
-    }));
+    const vehicleAsRegistros: RegistroItem[] = (data.registrosVehiculo || []).map(v => {
+      const colabMatch = (data.colaboradores || []).find(c =>
+        c.usuario?.username === v.usuario ||
+        c.nombre.toLowerCase().includes(v.usuario.toLowerCase()) ||
+        v.usuario.toLowerCase().includes(c.nombre.toLowerCase())
+      );
+      return {
+        id: v.id,
+        clienteId: v.clienteId,
+        clienteNombre: v.clienteNombre,
+        proyectoId: v.proyectoId,
+        proyectoNombre: v.proyectoNombre,
+        fecha: typeof v.fecha === 'string' ? v.fecha.substring(0, 10) : new Date(v.fecha).toISOString().substring(0, 10),
+        concepto: 'Vehículo',
+        descripcion: `Viaje (${v.usuario || 'Operario'}): ${v.proyectoNombre} - ${v.distanciaOdometro}km`,
+        cantidad: v.distanciaOdometro,
+        precioUnitario: v.distanciaOdometro > 0 ? Math.round(v.total / v.distanciaOdometro) : 0,
+        total: v.total,
+        hsInicio: undefined,
+        hsFin: undefined,
+        hsTotal: undefined,
+        origen: v.origen,
+        fechaImportacion: v.fechaImportacion ? (typeof v.fechaImportacion === 'string' ? v.fechaImportacion : new Date(v.fechaImportacion).toISOString()) : undefined,
+        colaboradorId: colabMatch?.id,
+      };
+    });
     return [...data.registros, ...vehicleAsRegistros];
-  }, [data.registros, data.registrosVehiculo]);
+  }, [data.registros, data.registrosVehiculo, data.colaboradores]);
 
-  // --- FILTER LOGIC (ITEM 15: Sincronización robusta ID y Nombre) ---
+  // --- FILTER LOGIC (ITEM 15: Filtrar por empleado MO + Insumos + Viajes) ---
   const filteredRegistros = useMemo(() => {
     const selectedClienteObj = data.clientes.find(c => c.id === filterCliente);
     const selectedProyectoObj = data.proyectos.find(p => p.id === filterProyecto);
+    const selectedColaboradorObj = (data.colaboradores || []).find(c => c.id === filterColaborador);
 
     return unifiedRegistros.filter(r => {
       if (filterCliente) {
@@ -93,12 +106,21 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
         const matchesName = selectedProyectoObj && r.proyectoNombre.trim().toLowerCase() === selectedProyectoObj.nombre.trim().toLowerCase();
         if (!matchesId && !matchesName) return false;
       }
+      if (filterColaborador) {
+        const matchesColabId = r.colaboradorId === filterColaborador;
+        const colabName = selectedColaboradorObj?.nombre?.toLowerCase() || '';
+        const matchesColabName = colabName && (
+          (r.concepto === 'MO' && r.descripcion.toLowerCase().includes(colabName)) ||
+          (r.concepto === 'Vehículo' && r.descripcion.toLowerCase().includes(colabName))
+        );
+        if (!matchesColabId && !matchesColabName) return false;
+      }
       if (filterConcepto && r.concepto !== filterConcepto) return false;
       if (filterFechaDesde && r.fecha < filterFechaDesde) return false;
       if (filterFechaHasta && r.fecha > filterFechaHasta) return false;
       return true;
     });
-  }, [unifiedRegistros, filterCliente, filterProyecto, filterConcepto, filterFechaDesde, filterFechaHasta, data.clientes, data.proyectos]);
+  }, [unifiedRegistros, filterCliente, filterProyecto, filterColaborador, filterConcepto, filterFechaDesde, filterFechaHasta, data.clientes, data.proyectos, data.colaboradores]);
 
   const totalFiltrado = useMemo(() => filteredRegistros.reduce((acc, r) => acc + r.total, 0), [filteredRegistros]);
   const totalMOFiltrado = useMemo(() => filteredRegistros.filter(r => r.concepto === 'MO').reduce((acc, r) => acc + r.total, 0), [filteredRegistros]);
@@ -147,10 +169,43 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
   const clearFilters = () => {
     setFilterCliente('');
     setFilterProyecto('');
+    setFilterColaborador('');
     setFilterFechaDesde('');
     setFilterFechaHasta('');
     setFilterConcepto('');
   };
+
+  // Métrica consolidada por empleado (Item 15)
+  const colaboradorSeleccionado = useMemo(() => {
+    return (data.colaboradores || []).find(c => c.id === filterColaborador) || null;
+  }, [data.colaboradores, filterColaborador]);
+
+  const metricasEmpleado = useMemo(() => {
+    if (!filterColaborador) {
+      return { minutosMO: 0, costoMO: 0, cantInsumos: 0, costoInsumos: 0, kmVehiculos: 0, costoVehiculos: 0 };
+    }
+    let minutosMO = 0;
+    let costoMO = 0;
+    let cantInsumos = 0;
+    let costoInsumos = 0;
+    let kmVehiculos = 0;
+    let costoVehiculos = 0;
+
+    for (const r of filteredRegistros) {
+      if (r.concepto === 'MO') {
+        minutosMO += r.cantidad || 0;
+        costoMO += r.total || 0;
+      } else if (r.concepto === 'Insumo') {
+        cantInsumos += 1;
+        costoInsumos += r.total || 0;
+      } else if (r.concepto === 'Vehículo') {
+        kmVehiculos += r.cantidad || 0;
+        costoVehiculos += r.total || 0;
+      }
+    }
+
+    return { minutosMO, costoMO, cantInsumos, costoInsumos, kmVehiculos, costoVehiculos };
+  }, [filterColaborador, filteredRegistros]);
 
   // --- EXPORT TO EXCEL ---
   const sanitizeCell = (value: any): any => {
@@ -204,10 +259,10 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
   // --- EXPORT TO PRINT (PDF) ---
   const handlePrint = () => window.print();
 
-  // --- PRE-FACTURA LOGIC ---
+  // --- PRE-FACTURA LOGIC (Items 13 y 14) ---
   const clientesMap = useMemo(() => new Map(data.clientes.map(c => [c.id, c])), [data.clientes]);
   const proyectoFactura = data.proyectos.find(p => p.id === selectedProyectoFactura);
-  const clienteFactura = proyectoFactura ? clientesMap.get(proyectoFactura.clienteId) || null : null;
+  const clienteFactura = (proyectoFactura ? clientesMap.get(proyectoFactura.clienteId) : null) || (filterClienteFactura ? clientesMap.get(filterClienteFactura) : null) || null;
 
   const registrosFactura = useMemo(() => {
     if (!selectedProyectoFactura) return [];
@@ -236,6 +291,195 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
   }, [registrosFactura]);
 
   const { moFactura, insumosFactura, vehiculosFactura, otrosFactura } = facturaBreakdown;
+
+  // Impresión formal en documento A4 limpio sin captura de pantalla oscura (Item 13)
+  const handlePrintPrefactura = () => {
+    if (!proyectoFactura) return;
+    const printWindow = window.open('', '_blank', 'width=900,height=1100');
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+
+    const fechaHoy = new Date().toLocaleDateString('es-PY', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const compNum = Date.now().toString().slice(-6);
+    const rucStr = rucFactura || (clienteFactura as any)?.ruc || clienteFactura?.codigo || '—';
+    const solicitanteStr = solicitanteFactura || 'No especificado';
+
+    const itemsHtml = registrosFactura.map(r => `
+      <tr>
+        <td style="padding: 6px 8px; border-bottom: 1px solid #e2e8f0; font-family: monospace; font-size: 11px;">${r.fecha}</td>
+        <td style="padding: 6px 8px; border-bottom: 1px solid #e2e8f0; font-weight: bold; font-size: 11px;">${r.concepto}</td>
+        <td style="padding: 6px 8px; border-bottom: 1px solid #e2e8f0; font-size: 11px;">${r.descripcion}</td>
+        <td style="padding: 6px 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-family: monospace; font-size: 11px;">${r.concepto === 'MO' && r.cantidad ? formatMinutosToHHMM(r.cantidad) + ' hs' : Math.round(r.cantidad).toLocaleString('es-PY')}</td>
+        <td style="padding: 6px 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-family: monospace; font-size: 11px;">${formatGuaranies(r.precioUnitario)}</td>
+        <td style="padding: 6px 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-family: monospace; font-weight: bold; font-size: 11px;">${formatGuaranies(r.total)}</td>
+      </tr>
+    `).join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="utf-8">
+        <title>Pre-Factura #${compNum} - ${clienteFactura?.nombre || 'Cliente'}</title>
+        <style>
+          @page { size: A4; margin: 15mm; }
+          body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+            color: #0f172a;
+            background: #ffffff;
+            margin: 0;
+            padding: 20px;
+            font-size: 12px;
+            line-height: 1.4;
+          }
+          .header-table { width: 100%; border-bottom: 2px solid #ea580c; padding-bottom: 15px; margin-bottom: 20px; }
+          .logo-title { font-size: 22px; font-weight: 800; color: #ea580c; letter-spacing: -0.5px; }
+          .doc-badge { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 1px; }
+          .client-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 12px 16px; margin-bottom: 20px; }
+          .info-grid { width: 100%; border-collapse: collapse; }
+          .info-grid td { padding: 4px 0; vertical-align: top; }
+          .label { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px; }
+          .val { font-size: 12px; font-weight: 600; color: #0f172a; }
+          .breakdown-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          .breakdown-table th { background: #0f172a; color: #ffffff; padding: 8px 12px; font-size: 11px; text-align: left; text-transform: uppercase; }
+          .breakdown-table td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-size: 12px; }
+          .total-box { background: #fff7ed; border: 2px solid #ea580c; border-radius: 4px; padding: 14px 20px; margin-bottom: 25px; }
+          .total-price { font-size: 22px; font-weight: 800; color: #ea580c; font-family: monospace; }
+          .items-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+          .items-table th { background: #f1f5f9; color: #334155; padding: 8px; font-size: 10px; text-transform: uppercase; border-bottom: 2px solid #cbd5e1; }
+          .footer { margin-top: 35px; border-top: 1px solid #e2e8f0; padding-top: 12px; text-align: center; font-size: 10px; color: #94a3b8; }
+          @media print {
+            body { padding: 0; }
+            .no-print { display: none !important; }
+          }
+        </style>
+      </head>
+      <body>
+        <table class="header-table">
+          <tr>
+            <td>
+              <div class="logo-title">SISTEMA aFULL</div>
+              <div class="doc-badge">Pre-Factura de Liquidación Operativa</div>
+              <div style="color: #64748b; font-size: 11px; margin-top: 4px;">Comprobante Interno Oficial #${compNum}</div>
+            </td>
+            <td style="text-align: right; vertical-align: top;">
+              <div style="font-size: 11px; color: #64748b;">Fecha de Emisión:</div>
+              <div style="font-weight: 700; font-size: 13px;">${fechaHoy}</div>
+            </td>
+          </tr>
+        </table>
+
+        <div class="client-box">
+          <table class="info-grid">
+            <tr>
+              <td style="width: 50%;">
+                <div class="label">Razón Social (Cliente)</div>
+                <div class="val" style="font-size: 14px; font-weight: 800;">${clienteFactura?.nombre || 'N/A'}</div>
+              </td>
+              <td style="width: 50%;">
+                <div class="label">R.U.C.</div>
+                <div class="val" style="font-family: monospace; font-size: 13px;">${rucStr}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding-top: 10px;">
+                <div class="label">Proyecto / Obra</div>
+                <div class="val" style="color: #ea580c; font-weight: 700;">${proyectoFactura?.nombre}</div>
+              </td>
+              <td style="padding-top: 10px;">
+                <div class="label">Solicitado por / Contacto</div>
+                <div class="val">${solicitanteStr}</div>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: #334155; margin-bottom: 8px; letter-spacing: 0.5px;">
+          Resumen Consolidado de Costos Operativos
+        </div>
+        <table class="breakdown-table">
+          <thead>
+            <tr>
+              <th>Concepto</th>
+              <th style="text-align: right;">Monto Liquidado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Mano de Obra Operativa (MO)</td>
+              <td style="text-align: right; font-family: monospace; font-weight: 600;">${formatGuaranies(moFactura)}</td>
+            </tr>
+            <tr>
+              <td>Insumos, Materiales y Desperdicio</td>
+              <td style="text-align: right; font-family: monospace; font-weight: 600;">${formatGuaranies(insumosFactura)}</td>
+            </tr>
+            <tr>
+              <td>Logística, Viajes y Combustible</td>
+              <td style="text-align: right; font-family: monospace; font-weight: 600;">${formatGuaranies(vehiculosFactura)}</td>
+            </tr>
+            ${otrosFactura > 0 ? `<tr><td>Otros Costos Directos</td><td style="text-align: right; font-family: monospace; font-weight: 600;">${formatGuaranies(otrosFactura)}</td></tr>` : ''}
+            <tr style="background: #f8fafc; font-weight: 800;">
+              <td>SUBTOTAL COSTO OPERATIVO BASE</td>
+              <td style="text-align: right; font-family: monospace; font-size: 13px;">${formatGuaranies(costoBaseFactura)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="total-box">
+          <table style="width: 100%;">
+            <tr>
+              <td>
+                <div style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 600;">Margen de Rentabilidad Aplicado:</div>
+                <div style="font-size: 13px; font-weight: 700; color: #0f172a;">${customMarkup}% (+ ${formatGuaranies(montoMarkup)})</div>
+              </td>
+              <td style="text-align: right;">
+                <div style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.5px;">PRECIO TOTAL SUGERIDO AL CLIENTE:</div>
+                <div class="total-price">${formatGuaranies(precioVentaFactura)}</div>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #334155; margin-top: 20px; letter-spacing: 0.5px;">
+          Detalle de Tareas e Insumos (${registrosFactura.length} registros)
+        </div>
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th style="width: 75px;">Fecha</th>
+              <th style="width: 60px;">Tipo</th>
+              <th>Descripción</th>
+              <th style="text-align: right; width: 65px;">Cant / Hs</th>
+              <th style="text-align: right; width: 95px;">P. Unitario</th>
+              <th style="text-align: right; width: 105px;">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          Sistema aFull — Documento de liquidación pre-facturada emitido el ${fechaHoy}. Validez interna.
+        </div>
+
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+            }, 300);
+          };
+        </script>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
 
   return (
     <div className="space-y-6">
@@ -302,7 +546,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
                 {/* Filter: Cliente */}
                 <div>
                   <label className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-1 block">Cliente</label>
@@ -351,6 +595,21 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                   </select>
                 </div>
 
+                {/* Filter: Empleado / Colaborador (Item 15) */}
+                <div>
+                  <label className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-1 block">Empleado / Colab.</label>
+                  <select
+                    value={filterColaborador}
+                    onChange={e => setFilterColaborador(e.target.value)}
+                    className="glass-select w-full rounded-md px-3 py-2.5 text-xs"
+                  >
+                    <option value="">Todos los Empleados</option>
+                    {(data.colaboradores || []).map(c => (
+                      <option key={c.id} value={c.id}>{c.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+
                 {/* Filter: Fecha Desde */}
                 <div>
                   <label className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-1 block">Desde</label>
@@ -374,6 +633,40 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                 </div>
               </div>
             </div>
+
+            {/* Banner consolidado por colaborador (Item 15) */}
+            {filterColaborador && colaboradorSeleccionado && (
+              <div className="p-4 bg-orange-500/10 border border-orange-500/30 rounded-md">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-2">
+                    <User className="w-5 h-5 text-orange-400" />
+                    <div>
+                      <h4 className="text-sm font-bold text-white">{colaboradorSeleccionado.nombre}</h4>
+                      <p className="text-[11px] text-slate-400 font-mono">
+                        Consolidado individual: Mano de Obra + Insumos utilizados + Viajes y Kilómetros
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="bg-black/30 border border-white/5 rounded-md p-3">
+                    <span className="text-[10px] uppercase font-mono text-slate-400 block">Mano de Obra (Horas)</span>
+                    <span className="text-lg font-bold text-orange-400 font-mono">{formatMinutosToHHMM(metricasEmpleado.minutosMO)} hs</span>
+                    <span className="text-xs text-slate-400 block font-mono">{formatGuaranies(metricasEmpleado.costoMO)}</span>
+                  </div>
+                  <div className="bg-black/30 border border-white/5 rounded-md p-3">
+                    <span className="text-[10px] uppercase font-mono text-slate-400 block">Insumos Registrados</span>
+                    <span className="text-lg font-bold text-amber-400 font-mono">{metricasEmpleado.cantInsumos} items</span>
+                    <span className="text-xs text-slate-400 block font-mono">{formatGuaranies(metricasEmpleado.costoInsumos)}</span>
+                  </div>
+                  <div className="bg-black/30 border border-white/5 rounded-md p-3">
+                    <span className="text-[10px] uppercase font-mono text-slate-400 block">Viajes en Vehículo</span>
+                    <span className="text-lg font-bold text-emerald-400 font-mono">{metricasEmpleado.kmVehiculos.toFixed(1)} km</span>
+                    <span className="text-xs text-slate-400 block font-mono">{formatGuaranies(metricasEmpleado.costoVehiculos)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Summary Metrics */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -642,39 +935,75 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                 <Calculator className="w-4 h-4 text-amber-400" />
                 Configurar Simulación de Pre-Factura
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {/* 1. Selector de Cliente */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                {/* 1. Razón Social (Obligatorio) */}
                 <div>
                   <label htmlFor="prefactura-filtro-cliente" className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-1.5 block">
-                    1. Filtrar por Cliente
+                    1. Razón Social *
                   </label>
                   <select
                     id="prefactura-filtro-cliente"
-                    aria-label="Filtrar por Cliente"
+                    aria-label="Razón Social (Cliente)"
                     value={filterClienteFactura}
                     onChange={e => {
                       const newCliente = e.target.value;
                       setFilterClienteFactura(newCliente);
                       if (newCliente) {
+                        const cl = clientesMap.get(newCliente);
+                        if (cl) {
+                          setRucFactura((cl as any).ruc || cl.codigo || '');
+                        }
                         const proj = data.proyectos.find(p => p.id === selectedProyectoFactura);
                         if (proj && proj.clienteId !== newCliente) {
                           setSelectedProyectoFactura('');
                         }
+                      } else {
+                        setRucFactura('');
                       }
                     }}
-                    className="glass-select w-full rounded-md px-3 py-2.5 text-sm"
+                    className="glass-select w-full rounded-md px-3 py-2 text-sm"
                   >
-                    <option value="">-- Todos los Clientes --</option>
+                    <option value="">-- Razón Social --</option>
                     {data.clientes.map(c => (
                       <option key={c.id} value={c.id}>{c.nombre}</option>
                     ))}
                   </select>
                 </div>
 
-                {/* 2. Selector de Proyecto (Filtrado según cliente elegido) */}
+                {/* 2. R.U.C. (Obligatorio) */}
+                <div>
+                  <label htmlFor="prefactura-ruc" className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-1.5 block">
+                    2. R.U.C. *
+                  </label>
+                  <input
+                    id="prefactura-ruc"
+                    type="text"
+                    value={rucFactura}
+                    onChange={e => setRucFactura(e.target.value)}
+                    placeholder="Ej: 80012345-6"
+                    className="glass-select w-full rounded-md px-3 py-2 text-sm font-mono"
+                  />
+                </div>
+
+                {/* 3. Quién solicitó el trabajo (Opcional) */}
+                <div>
+                  <label htmlFor="prefactura-solicitante" className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-1.5 block">
+                    3. Solicitante (opcional)
+                  </label>
+                  <input
+                    id="prefactura-solicitante"
+                    type="text"
+                    value={solicitanteFactura}
+                    onChange={e => setSolicitanteFactura(e.target.value)}
+                    placeholder="Ej: Lic. Ramírez"
+                    className="glass-select w-full rounded-md px-3 py-2 text-sm"
+                  />
+                </div>
+
+                {/* 4. Selector de Proyecto (Filtrado según cliente elegido) */}
                 <div>
                   <label htmlFor="prefactura-selector-proyecto" className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-1.5 block">
-                    2. Seleccionar Proyecto
+                    4. Proyecto / Obra *
                   </label>
                   <select
                     id="prefactura-selector-proyecto"
@@ -687,12 +1016,16 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                         const proj = data.proyectos.find(p => p.id === newProjId);
                         if (proj && proj.clienteId) {
                           setFilterClienteFactura(proj.clienteId);
+                          const cl = clientesMap.get(proj.clienteId);
+                          if (cl && !rucFactura) {
+                            setRucFactura((cl as any).ruc || cl.codigo || '');
+                          }
                         }
                       }
                     }}
-                    className="glass-select w-full rounded-md px-3 py-2.5 text-sm"
+                    className="glass-select w-full rounded-md px-3 py-2 text-sm"
                   >
-                    <option value="">-- Seleccionar Proyecto --</option>
+                    <option value="">-- Proyecto --</option>
                     {data.proyectos
                       .filter(p => !filterClienteFactura || p.clienteId === filterClienteFactura)
                       .map(p => {
@@ -706,21 +1039,22 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                   </select>
                 </div>
 
-                {/* 3. Markup Rate */}
+                {/* 5. Markup Rate */}
                 <div>
-                  <label className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-1.5 block">
-                    3. Markup / Rentabilidad (%)
+                  <label htmlFor="prefactura-markup" className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-1.5 block">
+                    5. Markup (%)
                   </label>
                   <div className="relative">
                     <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                     <input
+                      id="prefactura-markup"
                       type="number"
                       value={customMarkup}
                       onChange={e => setCustomMarkup(Math.max(0, parseFloat(e.target.value) || 0))}
                       min="0"
                       max="500"
                       step="5"
-                      className="glass-select w-full rounded-md pl-9 pr-4 py-2.5 text-sm"
+                      className="glass-select w-full rounded-md pl-9 pr-3 py-2 text-sm"
                     />
                   </div>
                   <p className="text-[10px] text-slate-500 mt-1.5 font-mono">
@@ -759,9 +1093,13 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                       <p className="text-xs text-slate-400 font-mono">Fecha Emisión: {new Date().toLocaleDateString('es-PY')}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-slate-400 uppercase font-mono tracking-wider mb-0.5">Cliente</p>
+                      <p className="text-xs text-slate-400 uppercase font-mono tracking-wider mb-0.5">Razón Social</p>
                       <p className="font-bold text-white text-base">{clienteFactura?.nombre || 'N/A'}</p>
-                      <p className="text-xs text-slate-400 uppercase font-mono tracking-wider mt-2 mb-0.5">Proyecto</p>
+                      <p className="text-xs text-slate-400 font-mono">RUC: <span className="text-slate-200">{rucFactura || (clienteFactura as any)?.ruc || clienteFactura?.codigo || 'S/N'}</span></p>
+                      {solicitanteFactura && (
+                        <p className="text-xs text-slate-400 font-mono">Solicitante: <span className="text-slate-200">{solicitanteFactura}</span></p>
+                      )}
+                      <p className="text-xs text-slate-400 uppercase font-mono tracking-wider mt-2 mb-0.5">Proyecto / Obra</p>
                       <p className="text-sm font-semibold text-slate-200 max-w-[280px] text-right">{proyectoFactura?.nombre}</p>
                     </div>
                   </div>
@@ -854,7 +1192,7 @@ export default function Reportes({ data, markupRate, onMarkupChange }: ReportesP
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={handlePrint}
+                    onClick={handlePrintPrefactura}
                     className="flex items-center gap-2 px-5 py-3 rounded-md bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold text-sm shadow-lg shadow-amber-500/20 border border-white/10 transition-all cursor-pointer"
                   >
                     <Printer className="w-4 h-4" />

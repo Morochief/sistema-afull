@@ -419,6 +419,7 @@ export default function VehiculoTab({ selectedClienteId, selectedProyectoId, cur
           onStart={iniciarViaje}
           selectedClienteId={selectedClienteId}
           selectedProyectoId={selectedProyectoId}
+          currentUser={currentUser}
         />
       )}
 
@@ -428,6 +429,7 @@ export default function VehiculoTab({ selectedClienteId, selectedProyectoId, cur
           onFinish={finalizarViaje}
           kmInicio={serverKmInicio || kmInicio || 0}
           duracionSegundos={serverDuracion || duracionSegundos}
+          currentUser={currentUser}
         />
       )}
     </div>

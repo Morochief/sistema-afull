@@ -131,16 +131,73 @@ hojasRutaRouter.get('/:id', requireAuth, requireProduccionOrAdmin, async (req: R
 });
 
 // ═══════════════════════════════════════════════════════════════
-// ADMIN: Generar hoja de ruta desde una OT (botón explícito)
+// ADMIN / GERARDO: Generar hoja de ruta desde una OT o directo por Cliente + Proyecto
 // POST /api/admin/hojas-ruta
-// Body: { ordenTrabajoId }
-// Autogenera tareas desde los items del presupuesto (mixto), el admin edita después
+// Body: { ordenTrabajoId } O { clienteId, clienteNombre, proyecto, notas }
 // ═══════════════════════════════════════════════════════════════
 hojasRutaRouter.post('/', requireAuth, requireProduccionOrAdmin, requireWriteAccess, async (req: Request, res: Response) => {
   try {
-    const { ordenTrabajoId } = req.body;
+    const { ordenTrabajoId, clienteId, clienteNombre, proyecto, notas } = req.body;
+
+    // Si viene directo por cliente y proyecto:
+    if (!ordenTrabajoId && clienteId && proyecto) {
+      let finalClienteNombre = clienteNombre;
+      if (!finalClienteNombre) {
+        const c = await prisma.cliente.findUnique({ where: { id: clienteId } });
+        finalClienteNombre = c?.nombre || 'Cliente';
+      }
+
+      const hoja = await prisma.hojaRuta.create({
+        data: {
+          id: crypto.randomUUID(),
+          ordenTrabajoId: null,
+          clienteId,
+          clienteNombre: finalClienteNombre,
+          proyecto,
+          fecha: new Date(),
+          estado: 'Borrador',
+          notas: notas || null,
+        },
+      });
+
+      // Crear tarea inicial vacía para que carguen tareas
+      await prisma.hojaRutaTarea.create({
+        data: {
+          id: crypto.randomUUID(),
+          hojaRutaId: hoja.id,
+          operarioNombre: 'Sin asignar',
+          orden: 0,
+          descripcion: 'Tarea inicial',
+          categoria: 'Montaje',
+          estado: 'Pendiente',
+          fechaAsignada: new Date(),
+        },
+      });
+
+      const hojaCompleta = await prisma.hojaRuta.findUnique({
+        where: { id: hoja.id },
+        include: {
+          tareas: {
+            orderBy: { orden: 'asc' },
+            include: { colaborador: { select: { id: true, nombre: true, rol: true } } },
+          },
+        },
+      });
+
+      auditLog({
+        usuario: req.user!.usuario,
+        accion: 'CREAR_HOJA_RUTA_DIRECTA',
+        recurso: `hojas_ruta/${hoja.id}`,
+        resultado: 'success',
+        ip: req.ip,
+        detalle: `Hoja de ruta creada directo para ${finalClienteNombre} - ${proyecto}`,
+      });
+
+      return res.status(201).json({ success: true, data: hojaCompleta } as ApiResponse);
+    }
+
     if (!ordenTrabajoId) {
-      return res.status(400).json({ success: false, error: { code: 'MISSING_OT', message: 'Falta el id de la Orden de Trabajo' } } as ApiResponse);
+      return res.status(400).json({ success: false, error: { code: 'MISSING_PARAMS', message: 'Debe especificar una Orden de Trabajo o bien Cliente y Proyecto' } } as ApiResponse);
     }
 
     // Verificar que la OT exista y traer presupuesto con items
@@ -181,8 +238,14 @@ hojasRutaRouter.post('/', requireAuth, requireProduccionOrAdmin, requireWriteAcc
 
     // Autogenerar tareas desde los items del presupuesto (mixto)
     // El admin puede editar/agregar/quitar después
+    // Item 11: Excluir insumos de compra/materiales del presupuesto al generar la hoja de ruta
     if (ot.presupuesto?.items && ot.presupuesto.items.length > 0) {
-      const tareas = ot.presupuesto.items.map((item, index) => ({
+      const itemsOperativos = ot.presupuesto.items.filter(item => {
+        const cat = ((item as any).categoria || '').toLowerCase().trim();
+        return cat !== 'insumo' && cat !== 'material';
+      });
+      const itemsParaTareas = itemsOperativos.length > 0 ? itemsOperativos : ot.presupuesto.items;
+      const tareas = itemsParaTareas.map((item, index) => ({
         id: crypto.randomUUID(),
         hojaRutaId: hoja.id,
         colaboradorId: null, // sin asignar — el admin asigna después

@@ -241,11 +241,65 @@ importRouter.post('/import/confirm', requireAuth, requireWriteAccess, async (req
       const validRegistrosData: any[] = [];
       let errores = 0;
       for (const r of registros) {
-        const realClienteId = clienteIdMap.get(r.clienteId) || r.clienteId;
-        const realProyectoId = proyectoIdMap.get(r.proyectoId) || r.proyectoId;
-        const realClienteNombre = clienteNombreMap.get(realClienteId);
-        const realProyectoNombre = proyectoNombreMap.get(realProyectoId);
-        if (!realClienteId || !realProyectoId || !realClienteNombre || !realProyectoNombre) { errores++; continue; }
+        // 1. Resolver Cliente (por ID mapeado o por Nombre)
+        let realClienteId = clienteIdMap.get(r.clienteId) || (dbClientes.some(c => c.id === r.clienteId) ? r.clienteId : null);
+        let realClienteNombre = realClienteId ? clienteNombreMap.get(realClienteId) : null;
+
+        if (!realClienteId || !realClienteNombre) {
+          const rawClientName = (r.clienteNombre || '').trim();
+          const normNombre = rawClientName.toLowerCase();
+          if (normNombre && clientesPorNombre.has(normNombre)) {
+            realClienteId = clientesPorNombre.get(normNombre)!;
+            realClienteNombre = clienteNombreMap.get(realClienteId) || rawClientName;
+          } else if (rawClientName) {
+            const created = await tx.cliente.create({
+              data: {
+                id: generateId('cli'),
+                nombre: rawClientName,
+                codigo: rawClientName.substring(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, 'C') || generateId('cli').substring(0, 8).toUpperCase()
+              }
+            });
+            realClienteId = created.id;
+            realClienteNombre = created.nombre;
+            clientesPorNombre.set(normNombre, created.id);
+            clienteNombreMap.set(created.id, created.nombre);
+            if (r.clienteId) clienteIdMap.set(r.clienteId, created.id);
+          }
+        }
+
+        // 2. Resolver Proyecto (por ID mapeado o por Nombre dentro del cliente)
+        let realProyectoId = proyectoIdMap.get(r.proyectoId) || (dbProyectos.some(p => p.id === r.proyectoId) ? r.proyectoId : null);
+        let realProyectoNombre = realProyectoId ? proyectoNombreMap.get(realProyectoId) : null;
+
+        if (realClienteId && (!realProyectoId || !realProyectoNombre)) {
+          const rawProjName = (r.proyectoNombre || 'Proyecto General').trim();
+          const normProj = rawProjName.toLowerCase();
+          const key = `${realClienteId}::${normProj}`;
+          if (proyectosPorNombre.has(key)) {
+            realProyectoId = proyectosPorNombre.get(key)!;
+            realProyectoNombre = proyectoNombreMap.get(realProyectoId) || rawProjName;
+          } else if (rawProjName) {
+            const created = await tx.proyecto.create({
+              data: {
+                id: generateId('pro'),
+                clienteId: realClienteId,
+                nombre: rawProjName,
+                estado: 'EN_PROCESO',
+                fechaInicio: new Date()
+              }
+            });
+            realProyectoId = created.id;
+            realProyectoNombre = created.nombre;
+            proyectosPorNombre.set(key, created.id);
+            proyectoNombreMap.set(created.id, created.nombre);
+            if (r.proyectoId) proyectoIdMap.set(r.proyectoId, created.id);
+          }
+        }
+
+        if (!realClienteId || !realProyectoId || !realClienteNombre || !realProyectoNombre) {
+          errores++;
+          continue;
+        }
         
         let parsedFecha: Date;
         if (r.fecha instanceof Date) {
@@ -256,9 +310,10 @@ importRouter.post('/import/confirm', requireAuth, requireWriteAccess, async (req
           parsedFecha = new Date();
         }
 
-        const cantidad = Number(r.cantidad) || 0;
-        const precioUnitario = Number(r.precioUnitario) || 0;
-        if (cantidad <= 0 || precioUnitario <= 0) { errores++; continue; }
+        const rawCant = typeof r.cantidad === 'string' ? parseFloat(r.cantidad.replace(',', '.')) : Number(r.cantidad);
+        const rawPu = typeof r.precioUnitario === 'string' ? parseFloat(r.precioUnitario.replace(',', '.')) : Number(r.precioUnitario);
+        const cantidad = isNaN(rawCant) || rawCant <= 0 ? 1 : rawCant;
+        const precioUnitario = isNaN(rawPu) || rawPu < 0 ? 0 : rawPu;
         const total = Number(r.total) > 0 ? Number(r.total) : cantidad * precioUnitario;
         const conceptoRaw = (r.concepto || '').trim().toLowerCase();
         let conceptoValido: 'MO' | 'INSUMO' | 'VEHICULO';
@@ -275,8 +330,8 @@ importRouter.post('/import/confirm', requireAuth, requireWriteAccess, async (req
           proyectoNombre: realProyectoNombre,
           fecha: parsedFecha,
           concepto: conceptoValido,
-          descripcion: r.descripcion || null,
-          colaboradorId: null,
+          descripcion: r.descripcion || (conceptoValido === 'MO' ? 'Mano de obra' : 'Insumo'),
+          colaboradorId: r.colaboradorId || null,
           hsInicio: r.hsInicio ? String(r.hsInicio).substring(0, 5) : null,
           hsFin: r.hsFin ? String(r.hsFin).substring(0, 5) : null,
           hsTotal: r.hsTotal ? Number(r.hsTotal) : null,

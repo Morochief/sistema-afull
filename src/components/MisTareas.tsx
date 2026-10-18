@@ -49,7 +49,12 @@ function calcularPageNumbers(current: number, total: number): (number | string)[
   return [1, '...', current - 1, current, current + 1, '...', total];
 }
 
-export default function MisTareas() {
+interface MisTareasProps {
+  onNavigateToVehiculo?: (clienteId?: string, proyecto?: string) => void;
+  onNavigateToRegistro?: (clienteId?: string, proyecto?: string, descripcion?: string) => void;
+}
+
+export default function MisTareas({ onNavigateToVehiculo, onNavigateToRegistro }: MisTareasProps = {}) {
   const [tareas, setTareas] = useState<Tarea[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,10 +109,36 @@ export default function MisTareas() {
     setSaving(true);
     setError(null);
     try {
+      if (nuevoEstado === 'EnProgreso') {
+        // Validación de asistencia
+        const checkAsistencia = await authFetchJSON<{ success: boolean; data: any }>('/api/marcacion/estado-actual').catch(() => null);
+        if (checkAsistencia?.success && checkAsistencia.data && !checkAsistencia.data.tieneEntradaHoy) {
+          setError('⚠️ Debes marcar tu ENTRADA antes de poder iniciar tareas.');
+          setSaving(false);
+          return;
+        }
+
+        // Si la tarea es de categoría Viaje o Ruta y tenemos callback
+        const esViaje = tarea.categoria?.toLowerCase().includes('viaje') || tarea.categoria?.toLowerCase().includes('ruta') || tarea.descripcion?.toLowerCase().includes('viaje');
+        if (esViaje && onNavigateToVehiculo) {
+          await authFetchJSON(`/api/operario/tareas/${tarea.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ estado: nuevoEstado }),
+          });
+          onNavigateToVehiculo(tarea.hojaRuta.clienteNombre, tarea.hojaRuta.proyecto);
+          return;
+        }
+      }
+
       await authFetchJSON(`/api/operario/tareas/${tarea.id}`, {
         method: 'PUT',
         body: JSON.stringify({ estado: nuevoEstado }),
       });
+
+      if (nuevoEstado === 'EnProgreso' && onNavigateToRegistro) {
+        onNavigateToRegistro(tarea.hojaRuta.clienteNombre, tarea.hojaRuta.proyecto, tarea.descripcion);
+      }
+
       load();
     } catch (e: any) {
       setError(e.message || 'Error al actualizar tarea');
@@ -252,9 +283,19 @@ export default function MisTareas() {
               </div>
               <div className="flex flex-col items-end gap-1">
                 {/* Acciones rápidas de estado */}
-                <div className="flex gap-1">
-                  {t.estado !== 'EnProgreso' && t.estado !== 'Completada' && (
-                    <button onClick={() => handleCambiarEstado(t, 'EnProgreso')} disabled={saving} title="Iniciar" className="rounded border border-orange-500/30 bg-orange-500/10 p-1.5 text-orange-300 hover:bg-orange-500/20 disabled:opacity-50">
+                <div className="flex items-center gap-1">
+                  {(t.categoria?.toLowerCase().includes('viaje') || t.categoria?.toLowerCase().includes('ruta') || t.descripcion?.toLowerCase().includes('viaje')) && t.estado !== 'Completada' && (
+                    <button
+                      onClick={() => handleCambiarEstado(t, 'EnProgreso')}
+                      disabled={saving}
+                      title="Iniciar Viaje de Ruta"
+                      className="px-2.5 py-1 rounded-md bg-orange-600 hover:bg-orange-500 text-white text-[11px] font-semibold flex items-center gap-1 shadow-sm transition cursor-pointer"
+                    >
+                      <Play className="w-3 h-3 fill-white" /> Iniciar Viaje
+                    </button>
+                  )}
+                  {t.estado !== 'EnProgreso' && t.estado !== 'Completada' && !(t.categoria?.toLowerCase().includes('viaje') || t.categoria?.toLowerCase().includes('ruta')) && (
+                    <button onClick={() => handleCambiarEstado(t, 'EnProgreso')} disabled={saving} title="Iniciar Tarea" className="rounded border border-orange-500/30 bg-orange-500/10 p-1.5 text-orange-300 hover:bg-orange-500/20 disabled:opacity-50 cursor-pointer">
                       <Play className="w-3 h-3" />
                     </button>
                   )}

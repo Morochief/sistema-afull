@@ -24,6 +24,7 @@ import {
   FileText,
   Route,
   CheckSquare,
+  FileCheck2,
   Menu,
   ChevronLeft,
   X,
@@ -45,9 +46,10 @@ import PresupuestosAdmin from './components/PresupuestosAdmin.tsx';
 import OrdenesTrabajoAdmin from './components/OrdenesTrabajoAdmin.tsx';
 import HojasRutaAdmin from './components/HojasRutaAdmin.tsx';
 import MisTareas from './components/MisTareas.tsx';
+import PermisosTab from './components/PermisosTab.tsx';
 import { NotifProvider, useNotif } from './context/NotifContext.tsx';
 
-type TabType = 'dashboard' | 'registro' | 'import' | 'admin' | 'reportes' | 'misregistros' | 'pedidos' | 'presupuestos' | 'ordenestrabajo' | 'hojasruta' | 'mistareas';
+type TabType = 'dashboard' | 'registro' | 'import' | 'admin' | 'reportes' | 'misregistros' | 'pedidos' | 'presupuestos' | 'ordenestrabajo' | 'hojasruta' | 'mistareas' | 'permisos';
 
 const VALID_TABS: TabType[] = [
   'dashboard',
@@ -60,7 +62,8 @@ const VALID_TABS: TabType[] = [
   'presupuestos',
   'ordenestrabajo',
   'hojasruta',
-  'mistareas'
+  'mistareas',
+  'permisos'
 ];
 
 interface SessionUser {
@@ -277,8 +280,17 @@ function AppInner() {
   // RBAC: Redirect non-admin users away from restricted tabs
   useEffect(() => {
     if (session && session.rol !== 'Admin') {
-      // Non-admin users can access 'registro', 'misregistros' y 'mistareas'
-      const allowedTabs: TabType[] = ['registro', 'misregistros', 'mistareas'];
+      const isJefe = (session as any).cargo?.toLowerCase().includes('jefe de produccion') || 
+                     (session as any).cargo?.toLowerCase().includes('produccion') || 
+                     session.usuario === '2908320';
+      const isDis = (session as any).departamento?.toLowerCase().includes('diseñ') || 
+                    (session as any).cargo?.toLowerCase().includes('diseñ') || 
+                    session.usuario === '4958075';
+
+      const allowedTabs: TabType[] = ['registro', 'misregistros', 'mistareas', 'permisos'];
+      if (isJefe) allowedTabs.push('ordenestrabajo', 'hojasruta', 'pedidos');
+      if (isDis) allowedTabs.push('pedidos');
+
       if (!allowedTabs.includes(activeTab)) {
         setActiveTab('registro');
       }
@@ -584,54 +596,61 @@ function AppInner() {
     setIsImporting(true);
     setProgress(10);
 
-    let progressInterval: any;
-
     try {
-      // Simulate progress progression up to 90%
-      progressInterval = setInterval(() => {
-        setProgress(prev => {
-          if (prev >= 90) return prev;
-          return prev + Math.floor(Math.random() * 8) + 2;
-        });
-      }, 250);
-
       // Only send newly imported records (not existing historical records in DB)
       const existingIds = new Set((dbState?.registros || []).map(r => r.id));
       const onlyNewRegistros = newFullDbState.registros.filter(r => !existingIds.has(r.id));
       const registrosToSend = onlyNewRegistros.length > 0 ? onlyNewRegistros : newFullDbState.registros;
 
-      const resData = await authFetchJSON('/api/import/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientes: newFullDbState.clientes,
-          proyectos: newFullDbState.proyectos,
-          registros: registrosToSend
-        })
-      });
+      const CHUNK_SIZE = 1500;
+      let totalGuardados = 0;
+      let totalErrores = 0;
+      const totalRegistros = registrosToSend.length;
+      const totalChunks = Math.ceil(totalRegistros / CHUNK_SIZE) || 1;
 
-      clearInterval(progressInterval);
+      for (let chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
+        const start = chunkIdx * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, totalRegistros);
+        const chunkRegistros = registrosToSend.slice(start, end);
 
-      if (resData.success && resData.data) {
-        setProgress(100);
-        // Short delay so the user sees completion state
-        await new Promise(resolve => setTimeout(resolve, 800));
+        // Clientes y proyectos nuevos se envían en el primer lote
+        const clientesChunk = chunkIdx === 0 ? newFullDbState.clientes : [];
+        const proyectosChunk = chunkIdx === 0 ? newFullDbState.proyectos : [];
 
-        const { guardados, errores } = resData.data;
-        // Recargar datos desde Supabase
-        await fetchDbState();
+        const currentPct = Math.min(95, Math.round(10 + ((chunkIdx + 1) / totalChunks) * 85));
+        setProgress(currentPct);
 
-        if (errores === 0) {
-          showToast(`Importación exitosa: ${guardados} registros guardados en Supabase.`, 'success');
+        const resData = await authFetchJSON('/api/import/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientes: clientesChunk,
+            proyectos: proyectosChunk,
+            registros: chunkRegistros
+          })
+        });
+
+        if (resData.success && resData.data) {
+          totalGuardados += resData.data.guardados || 0;
+          totalErrores += resData.data.errores || 0;
         } else {
-          showToast(`Importación parcial: ${guardados} guardados, ${errores} errores.`, 'warning');
+          throw new Error(resData.error?.message || `Error en lote ${chunkIdx + 1}`);
         }
-        setActiveTab('dashboard');
-      } else {
-        throw new Error(resData.error?.message || 'Error en la respuesta del servidor');
       }
+
+      setProgress(100);
+      await new Promise(resolve => setTimeout(resolve, 600));
+
+      // Recargar datos frescos desde Supabase
+      await fetchDbState();
+
+      if (totalErrores === 0) {
+        showToast(`Importación exitosa: ${totalGuardados} registros guardados en Supabase.`, 'success');
+      } else {
+        showToast(`Importación completada: ${totalGuardados} guardados, ${totalErrores} errores.`, 'warning');
+      }
+      setActiveTab('dashboard');
     } catch (err: any) {
-      if (progressInterval) clearInterval(progressInterval);
       showToast('Error al importar: ' + (err.message || 'Error desconocido'), 'error');
     } finally {
       setIsImporting(false);
@@ -710,6 +729,7 @@ function AppInner() {
       items: [
         { id: 'registro', label: 'Registro Operativo', icon: ClipboardList, adminOnly: false },
         { id: 'mistareas', label: 'Mis Tareas', icon: CheckSquare, adminOnly: false, hideForAdmin: true },
+        { id: 'permisos', label: 'Permisos RRHH', icon: FileCheck2, adminOnly: false },
         { 
           id: 'misregistros', 
           label: 'Mis Registros', 
@@ -745,7 +765,7 @@ function AppInner() {
         { id: 'dashboard', label: 'Panel de Control', icon: Tv, adminOnly: true },
         { id: 'reportes', label: 'Reportes y Costos', icon: BarChart2, adminOnly: true },
         { id: 'import', label: 'Importar Excel', icon: FileSpreadsheet, adminOnly: true },
-        { id: 'admin', label: 'Configuración Admin', icon: ShieldCheck, adminOnly: true },
+        { id: 'admin', label: 'Administración', icon: ShieldCheck, adminOnly: true },
       ]
     }
   ];
@@ -826,17 +846,17 @@ function AppInner() {
                 return true;
               }
 
-              // Jefe de Producción (Item 14): OTs, Hojas de Ruta, Pedidos, Registro Operativo, Mis Tareas, Mis Registros
+              // Jefe de Producción: OTs, Hojas de Ruta, Pedidos, Registro Operativo, Mis Tareas, Mis Registros, Permisos
               if (isJefeProduccion) {
-                if (['registro', 'mistareas', 'misregistros', 'ordenestrabajo', 'hojasruta', 'pedidos'].includes(item.id)) {
+                if (['registro', 'mistareas', 'misregistros', 'ordenestrabajo', 'hojasruta', 'pedidos', 'permisos'].includes(item.id)) {
                   return true;
                 }
                 return false;
               }
 
-              // Nachi / Diseño (Item 13): Mis Tareas, Pedidos, Registro Operativo, Mis Registros
+              // Nachi / Diseño: Mis Tareas, Pedidos, Registro Operativo, Mis Registros, Permisos
               if (isDiseno) {
-                if (['registro', 'mistareas', 'misregistros', 'pedidos'].includes(item.id)) {
+                if (['registro', 'mistareas', 'misregistros', 'pedidos', 'permisos'].includes(item.id)) {
                   return true;
                 }
                 return false;
@@ -1126,7 +1146,43 @@ function AppInner() {
               exit={{ opacity: 0, y: -15 }}
               transition={{ duration: 0.22 }}
             >
-              <MisTareas />
+              <MisTareas
+                onNavigateToVehiculo={(clienteNombre, proyecto) => {
+                  if (clienteNombre) {
+                    const c = dbState?.clientes.find(cli => cli.nombre.toLowerCase() === clienteNombre.toLowerCase());
+                    if (c) sessionStorage.setItem(`afull_ctx_${session?.usuario || 'guest'}_clienteId`, c.id);
+                  }
+                  if (proyecto) {
+                    const p = dbState?.proyectos.find(pro => pro.nombre.toLowerCase() === proyecto.toLowerCase());
+                    if (p) sessionStorage.setItem(`afull_ctx_${session?.usuario || 'guest'}_proyectoId`, p.id);
+                  }
+                  setActiveTab('registro');
+                  showToast('Redirigiendo a registro de vehículo...', 'info');
+                }}
+                onNavigateToRegistro={(clienteNombre, proyecto) => {
+                  if (clienteNombre) {
+                    const c = dbState?.clientes.find(cli => cli.nombre.toLowerCase() === clienteNombre.toLowerCase());
+                    if (c) sessionStorage.setItem(`afull_ctx_${session?.usuario || 'guest'}_clienteId`, c.id);
+                  }
+                  if (proyecto) {
+                    const p = dbState?.proyectos.find(pro => pro.nombre.toLowerCase() === proyecto.toLowerCase());
+                    if (p) sessionStorage.setItem(`afull_ctx_${session?.usuario || 'guest'}_proyectoId`, p.id);
+                  }
+                  setActiveTab('registro');
+                }}
+              />
+            </motion.div>
+          )}
+
+          {activeTab === 'permisos' && (
+            <motion.div
+              key="permisos_tab"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.22 }}
+            >
+              <PermisosTab data={dbState} />
             </motion.div>
           )}
 

@@ -64,12 +64,12 @@ describe('AdminPanel', () => {
   describe('Tab Navigation', () => {
     it('should render with default "registro" tab active', () => {
       render(<AdminPanel {...mockProps} />);
-      expect(screen.getByText('Registrar Parte Diario / Gasto Manual')).toBeInTheDocument();
+      expect(screen.getByText('Carga Manual Directa (Contingencia / Ajuste)')).toBeInTheDocument();
     });
 
     it('should use initialSubTab prop when provided', () => {
       render(<AdminPanel {...mockProps} initialSubTab="clientes" />);
-      expect(screen.getByText('Registrar Nuevo Cliente Frecuente')).toBeInTheDocument();
+      expect(screen.getByText(/Nuevo Cliente/i)).toBeInTheDocument();
     });
 
     it('should switch tabs when clicking tab buttons', async () => {
@@ -77,14 +77,14 @@ describe('AdminPanel', () => {
       const user = userEvent.setup();
 
       // Start at registro tab
-      expect(screen.getByText('Registrar Parte Diario / Gasto Manual')).toBeInTheDocument();
+      expect(screen.getByText('Carga Manual Directa (Contingencia / Ajuste)')).toBeInTheDocument();
 
       // Click clientes tab
-      const clientesButton = screen.getByRole('button', { name: /Clientes de Cartera/i });
+      const clientesButton = screen.getByRole('button', { name: /^Clientes/i });
       await user.click(clientesButton);
 
       await waitFor(() => {
-        expect(screen.getByText('Registrar Nuevo Cliente Frecuente')).toBeInTheDocument();
+        expect(screen.getByText(/Nuevo Cliente/i)).toBeInTheDocument();
       });
     });
   });
@@ -93,28 +93,28 @@ describe('AdminPanel', () => {
     it('should render all 5 tab buttons', () => {
       render(<AdminPanel {...mockProps} />);
       
-      expect(screen.getByRole('button', { name: /Nueva Carga Directa/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Clientes de Cartera/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Proyectos Registrados/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Colaboradores/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Vehículos/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Carga Manual Directa/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Clientes/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Proyectos/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Colaboradores/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Control de Vehículos/i })).toBeInTheDocument();
     });
 
     it('should render RegistroManualForm when registro tab active', () => {
       render(<AdminPanel {...mockProps} />);
-      expect(screen.getByText('Registrar Parte Diario / Gasto Manual')).toBeInTheDocument();
+      expect(screen.getByText('Carga Manual Directa (Contingencia / Ajuste)')).toBeInTheDocument();
     });
 
     it('should render ClientesTab when clientes tab active', async () => {
       render(<AdminPanel {...mockProps} initialSubTab="clientes" />);
-      expect(screen.getByText('Registrar Nuevo Cliente Frecuente')).toBeInTheDocument();
-      expect(screen.getByText('Base de Clientes Disponibles (2)')).toBeInTheDocument();
+      expect(screen.getByText(/Nuevo Cliente/i)).toBeInTheDocument();
+      expect(screen.getByText('Cliente A')).toBeInTheDocument();
     });
 
     it('should render ProyectosTab when proyectos tab active', async () => {
       render(<AdminPanel {...mockProps} initialSubTab="proyectos" />);
-      expect(screen.getByText('Registrar Nuevo Proyecto Operativo')).toBeInTheDocument();
-      expect(screen.getByText('Proyectos en Cartera (2)')).toBeInTheDocument();
+      expect(screen.getByText(/Nuevo Proyecto/i)).toBeInTheDocument();
+      expect(screen.getByText('Proyecto Alpha')).toBeInTheDocument();
     });
   });
 
@@ -146,7 +146,8 @@ describe('AdminPanel', () => {
       render(<AdminPanel {...mockProps} initialSubTab="clientes" />);
       const user = userEvent.setup();
 
-      const submitButton = screen.getByRole('button', { name: /Agregar Cliente/i });
+      await user.click(screen.getByRole('button', { name: /Nuevo Cliente/i }));
+      const submitButton = screen.getByRole('button', { name: /Crear Cliente/i });
       await user.click(submitButton);
 
       // Form validation should prevent submission
@@ -157,6 +158,7 @@ describe('AdminPanel', () => {
       render(<AdminPanel {...mockProps} initialSubTab="proyectos" />);
       const user = userEvent.setup();
 
+      await user.click(screen.getByRole('button', { name: /Nuevo Proyecto/i }));
       const submitButton = screen.getByRole('button', { name: /Abrir Proyecto/i });
       await user.click(submitButton);
 
@@ -176,7 +178,7 @@ describe('AdminPanel', () => {
 
       // Verify the button is now active (has the active styling)
       await waitFor(() => {
-        expect(insumoButton).toHaveClass('bg-amber-600');
+        expect(insumoButton).toHaveClass('bg-orange-600');
       });
     });
 
@@ -216,18 +218,15 @@ describe('AdminPanel', () => {
       render(<AdminPanel {...mockProps} initialSubTab="clientes" />);
       const user = userEvent.setup();
 
-      // Get all text inputs - the first two are for cliente form (nombre, codigo)
-      const textInputs = screen.getAllByRole('textbox');
-      const nameInput = textInputs[0];
-      const codeInput = textInputs[1];
-      
-      await user.clear(nameInput);
-      await user.type(nameInput, 'Nuevo Cliente');
+      await user.click(screen.getByRole('button', { name: /Nuevo Cliente/i }));
 
-      await user.clear(codeInput);
+      const nameInput = screen.getByPlaceholderText(/Unilever Paraguay/i);
+      const codeInput = screen.getByPlaceholderText('Ej: UNIL');
+
+      await user.type(nameInput, 'Nuevo Cliente');
       await user.type(codeInput, 'NC');
 
-      const submitButton = screen.getByRole('button', { name: /Agregar Cliente/i });
+      const submitButton = screen.getByRole('button', { name: /Crear Cliente/i });
       await user.click(submitButton);
 
       await waitFor(() => {
@@ -244,23 +243,19 @@ describe('AdminPanel', () => {
       render(<AdminPanel {...mockProps} initialSubTab="colaboradores" />);
       const user = userEvent.setup();
 
-      // Get all text inputs - first is nombre, second is rol
-      const textInputs = screen.getAllByRole('textbox');
-      const nameInput = textInputs[0];
-      const rolInput = textInputs[1];
-      
-      await user.clear(nameInput);
-      await user.type(nameInput, 'Pedro López');
+      await user.click(screen.getByRole('button', { name: /Nuevo Colaborador/i }));
 
+      const nameInput = screen.getByPlaceholderText(/Marcelo Spósito/i);
+      const rolInput = screen.getByPlaceholderText(/Montador de Estructuras/i);
+      const tarifaInput = screen.getByRole('spinbutton');
+
+      await user.type(nameInput, 'Pedro López');
       await user.clear(rolInput);
       await user.type(rolInput, 'Técnico');
-
-      // Find the tarifa input - it's a number input on the colaboradores form
-      const tarifaInput = screen.getByRole('spinbutton');
       await user.clear(tarifaInput);
       await user.type(tarifaInput, '500');
 
-      const submitButton = screen.getByRole('button', { name: /Dar de Alta/i });
+      const submitButton = screen.getByRole('button', { name: /Guardar Colaborador/i });
       await user.click(submitButton);
 
       await waitFor(() => {

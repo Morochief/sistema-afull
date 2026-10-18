@@ -68,6 +68,11 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
     }
   }
 
+  // Auto-inyectar Content-Type application/json si el body es un string (JSON) y no se definió
+  if (options.body && typeof options.body === 'string' && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
   // SECURITY Phase 2 Fix #5: JWT automatically sent via httpOnly cookie
   const response = await fetch(url, {
     ...options,

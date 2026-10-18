@@ -135,3 +135,41 @@ timerRouter.post('/sync', requireAuth, async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: { code: 'TIMER_SYNC_ERROR', message: 'No se pudo sincronizar el timer: ' + error.message } } as ApiResponse);
   }
 });
+
+// GET /activos - Obtener todos los timers activos para el Panel de Control en Tiempo Real (Admin / Gerardo)
+timerRouter.get('/activos', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const [timers, clientes, proyectos, colaboradores] = await Promise.all([
+      prisma.timerActivo.findMany({
+        where: { activo: true },
+        orderBy: { inicio: 'desc' }
+      }),
+      prisma.cliente.findMany({ select: { id: true, nombre: true } }),
+      prisma.proyecto.findMany({ select: { id: true, nombre: true } }),
+      prisma.colaborador.findMany({ select: { id: true, nombre: true } })
+    ]);
+
+    const clienteMap = new Map(clientes.map(c => [c.id, c.nombre]));
+    const proyectoMap = new Map(proyectos.map(p => [p.id, p.nombre]));
+    const colabMap = new Map(colaboradores.map(c => [c.id, c.nombre]));
+
+    res.json({
+      success: true,
+      data: timers.map(t => ({
+        id: t.id,
+        usuario: t.usuario,
+        colaboradorNombre: (t.colaboradorId ? colabMap.get(t.colaboradorId) : null) || t.usuario,
+        clienteNombre: clienteMap.get(t.clienteId) || 'Sin cliente',
+        proyectoNombre: proyectoMap.get(t.proyectoId) || 'Sin proyecto',
+        descripcion: t.descripcion,
+        inicio: t.inicio.toISOString(),
+        isPaused: t.isPaused,
+        currentPauseType: t.currentPauseType,
+        pausedTime: t.pausedTime,
+      }))
+    });
+  } catch (error: any) {
+    logger.error('Error fetching all active timers', error);
+    res.status(500).json({ success: false, error: { code: 'TIMERS_FETCH_ERROR', message: 'Error al listar timers activos' } });
+  }
+});

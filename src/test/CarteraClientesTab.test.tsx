@@ -54,7 +54,7 @@ describe('CarteraClientesTab', () => {
     vi.restoreAllMocks();
     // Default: lista de clientes + hijos vacíos
     vi.spyOn(authFetch, 'authFetchJSON').mockImplementation(async (url: string) => {
-      if (url.startsWith('/api/admin/cartera?')) {
+      if (url === '/api/admin/cartera' || url.startsWith('/api/admin/cartera?')) {
         return { success: true, data: mockClientes };
       }
       if (url.includes('/marcas')) return { success: true, data: mockMarcas };
@@ -120,7 +120,8 @@ describe('CarteraClientesTab', () => {
     await screen.findByText('Milka');
 
     await user.type(screen.getByPlaceholderText('Nueva marca...'), 'Mimosa');
-    await user.click(screen.getByRole('button', { name: /Agregar/ }));
+    const agregarMarcaBtn = screen.getAllByRole('button', { name: /^Agregar$/i })[0];
+    await user.click(agregarMarcaBtn);
 
     await waitFor(() => {
       expect(spy).toHaveBeenCalledWith(
@@ -142,7 +143,8 @@ describe('CarteraClientesTab', () => {
 
     await user.type(screen.getByPlaceholderText('Nombre del contacto'), 'Yeruti Acuña');
     await user.type(screen.getByPlaceholderText('Correo'), 'yerutia@gloria.com.py');
-    await user.click(screen.getByRole('button', { name: /Agregar/ }));
+    const agregarContactoBtn = screen.getAllByRole('button', { name: /^Agregar$/i })[1];
+    await user.click(agregarContactoBtn);
 
     await waitFor(() => {
       expect(spy).toHaveBeenCalledWith(

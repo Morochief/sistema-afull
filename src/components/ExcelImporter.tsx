@@ -132,6 +132,45 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [sheetsInfo, setSheetsInfo] = useState<{ name: string; rowCount: number; isClientSheet: boolean }[]>([]);
+  const [selectedSheets, setSelectedSheets] = useState<string[]>([]);
+
+  // Inspect file and detect sheets immediately upon selection
+  const inspectFile = async (droppedFile: File) => {
+    setFile(droppedFile);
+    setApiError(null);
+    try {
+      const buffer = await droppedFile.arrayBuffer();
+      const wb = xlsx.read(buffer, { type: 'array' });
+      const sheets: { name: string; rowCount: number; isClientSheet: boolean }[] = [];
+      const initialSelected: string[] = [];
+
+      for (const name of wb.SheetNames) {
+        const ws = wb.Sheets[name];
+        const rows = xlsx.utils.sheet_to_json<any>(ws);
+        const isClient = !/^(NBR|ISM|RESUMEN|PARAMETROS|CONFIG|TABLAS)/i.test(name.trim());
+        sheets.push({
+          name,
+          rowCount: rows.length,
+          isClientSheet: isClient
+        });
+        if (isClient && rows.length > 0) {
+          initialSelected.push(name);
+        }
+      }
+
+      if (initialSelected.length === 0 && sheets.length > 0) {
+        sheets.filter(s => s.rowCount > 0).forEach(s => initialSelected.push(s.name));
+      }
+
+      setSheetsInfo(sheets);
+      setSelectedSheets(initialSelected);
+    } catch (err: any) {
+      setSheetsInfo([]);
+      setSelectedSheets([]);
+    }
+  };
+
   // Drag & drop handlers
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -148,8 +187,7 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFile = e.dataTransfer.files[0];
       if (droppedFile.name.endsWith('.xlsx') || droppedFile.name.endsWith('.xls') || droppedFile.name.endsWith('.csv')) {
-        setFile(droppedFile);
-        setApiError(null);
+        inspectFile(droppedFile);
       } else {
         setApiError('Por favor, selecciona un archivo válido de Excel (.xlsx, .xls) o CSV.');
       }
@@ -158,12 +196,11 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFile(e.target.files[0]);
-      setApiError(null);
+      inspectFile(e.target.files[0]);
     }
   };
 
-  // Upload and Parse client-side (no HTTP 413, no upload size limits)
+  // Upload and Parse client-side across all selected sheets
   const handleUploadAndParse = async () => {
     if (!file) return;
 
@@ -176,12 +213,13 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
       if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
         throw new Error('El archivo no contiene hojas de cálculo.');
       }
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const rawRows = xlsx.utils.sheet_to_json<any>(worksheet);
 
-      if (rawRows.length === 0) {
-        throw new Error('La primera hoja del archivo está vacía.');
+      const sheetsToProcess = selectedSheets.length > 0 
+        ? selectedSheets 
+        : workbook.SheetNames.filter(n => !/^(NBR|ISM|RESUMEN)/i.test(n));
+
+      if (sheetsToProcess.length === 0) {
+        throw new Error('Selecciona al menos una hoja para importar.');
       }
 
       const tempClientes: Cliente[] = [...currentDb.clientes];
@@ -193,113 +231,128 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
       const initialColaboradoresCount = tempColaboradores.length;
 
       const importedItems: any[] = [];
+      let totalRowsCount = 0;
 
-      for (const row of rawRows) {
-        const clientName = String(getRowValue(row, ['Cliente', 'Razon Social', 'Razón Social', 'Empresa', 'Cliente/Empresa', 'Nombre Cliente', 'Cuenta'])).trim();
-        const projectName = String(getRowValue(row, ['Proyecto', 'Proyectos', 'Obra', 'OT', 'Orden', 'Nombre Proyecto'])).trim();
-        const fechaRaw = getRowValue(row, ['Fecha', 'Fec', 'Dia', 'Día', 'Date']);
-        const conceptoRaw = String(getRowValue(row, ['Concepto', 'Tipo', 'Rubro', 'Categoria', 'Categoría'])).trim().toUpperCase();
-        const concepto: 'MO' | 'Insumo' = conceptoRaw === 'MO' || conceptoRaw === 'MANO DE OBRA' ? 'MO' : 'Insumo';
-        const descripcion = String(getRowValue(row, ['Descripcion', 'Descripción', 'Detalle', 'Tarea', 'Item', 'Observacion', 'Observación'])).trim();
-        const hsInicio = getRowValue(row, ['Hs Inicio', 'Hora Inicio', 'Inicio', 'Desde', 'Entrada', 'Hs. Inicio']);
-        const hsFin = getRowValue(row, ['Hs Fin', 'Hora Fin', 'Fin', 'Hasta', 'Salida', 'Hs. Fin']);
-        const cantidad = parseFloat(getRowValue(row, ['Cantidad', 'Cant', 'Cant.', 'Minutos', 'Horas', 'Hs', 'QTY'])) || 0;
-        const precioUnitario = parseFloat(getRowValue(row, ['Precio Unitario', 'Tarifa', 'Precio', 'Costo Unitario', 'P. Unitario', 'Tarifa/Hora', 'Unitario'])) || 0;
-        const computedTotal = parseFloat(getRowValue(row, ['Total', 'Importe', 'Monto', 'Subtotal'])) || 0;
+      for (const sheetName of sheetsToProcess) {
+        const worksheet = workbook.Sheets[sheetName];
+        if (!worksheet) continue;
+        const rawRows = xlsx.utils.sheet_to_json<any>(worksheet);
+        totalRowsCount += rawRows.length;
 
-        let hsTotal = 0;
-        if (concepto === 'MO' && cantidad > 0) hsTotal = parseFloat((cantidad / 60).toFixed(2));
+        // Limpiar sufijos como ' (2)' para unificar clientes en múltiples hojas
+        const defaultClientName = sheetName.replace(/\s*\(\d+\)$/, '').trim();
 
-        if (!clientName && !projectName && !descripcion) continue;
-        if (clientName.toLowerCase() === 'cliente' || projectName.toLowerCase() === 'proyecto') continue;
-
-        let targetClient = tempClientes.find(c => {
-          const nc = normalizeEntityName(c.nombre);
-          const ni = normalizeEntityName(clientName);
-          if (!nc || !ni) return false;
-          return nc === ni || (ni.length >= 4 && (nc.includes(ni) || ni.includes(nc)));
-        });
-
-        if (!targetClient && clientName) {
-          targetClient = {
-            id: `cli_${Math.random().toString(36).substring(2, 9)}`,
-            nombre: clientName,
-            codigo: clientName.substring(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, 'C'),
-            fechaCreacion: new Date().toISOString().substring(0, 10)
-          };
-          tempClientes.push(targetClient);
-        }
-
-        let targetProject: Proyecto | undefined = undefined;
-        if (targetClient && projectName) {
-          targetProject = tempProyectos.find(p => {
-            if (p.clienteId !== targetClient!.id) return false;
-            const np = normalizeEntityName(p.nombre);
-            const nip = normalizeEntityName(projectName);
-            return np === nip || (nip.length >= 4 && (np.includes(nip) || nip.includes(np)));
-          });
-
-          if (!targetProject) {
-            targetProject = {
-              id: `pro_${Math.random().toString(36).substring(2, 9)}`,
-              clienteId: targetClient.id,
-              nombre: projectName,
-              estado: 'En Proceso' as const,
-              fechaInicio: parseExcelDate(fechaRaw)
-            };
-            tempProyectos.push(targetProject);
+        for (const row of rawRows) {
+          let clientName = String(getRowValue(row, ['Cliente', 'Razon Social', 'Razón Social', 'Empresa', 'Cliente/Empresa', 'Nombre Cliente', 'Cuenta'])).trim();
+          if (!clientName || clientName.toLowerCase() === 'cliente') {
+            clientName = defaultClientName;
           }
-        }
 
-        let targetColaborador: Colaborador | undefined = undefined;
-        if (concepto === 'MO' && descripcion) {
-          const descWords = descripcion.toLowerCase().split(/\s+/);
-          targetColaborador = tempColaboradores.find(col => {
-            const names = col.nombre.toLowerCase().split(/\s+/);
-            return names.length > 0 && descWords.includes(names[0]);
+          const projectName = String(getRowValue(row, ['Proyecto', 'Proyectos', 'Obra', 'OT', 'Orden', 'Nombre Proyecto'])).trim() || 'Proyecto General';
+          const fechaRaw = getRowValue(row, ['Fecha', 'Fec', 'Dia', 'Día', 'Date']);
+          const conceptoRaw = String(getRowValue(row, ['Concepto', 'Tipo', 'Rubro', 'Categoria', 'Categoría'])).trim().toUpperCase();
+          const concepto: 'MO' | 'Insumo' = conceptoRaw === 'MO' || conceptoRaw === 'MANO DE OBRA' ? 'MO' : 'Insumo';
+          const descripcion = String(getRowValue(row, ['Descripcion', 'Descripción', 'Detalle', 'Tarea', 'Item', 'Observacion', 'Observación'])).trim();
+          const hsInicio = getRowValue(row, ['Hs Inicio', 'Hora Inicio', 'Inicio', 'Desde', 'Entrada', 'Hs. Inicio']);
+          const hsFin = getRowValue(row, ['Hs Fin', 'Hora Fin', 'Fin', 'Hasta', 'Salida', 'Hs. Fin']);
+          const cantidad = parseFloat(getRowValue(row, ['Cantidad', 'Cant', 'Cant.', 'Minutos', 'Horas', 'Hs', 'QTY'])) || 1;
+          const precioUnitario = parseFloat(getRowValue(row, ['Precio Unitario', 'Tarifa', 'Precio', 'Costo Unitario', 'P. Unitario', 'Tarifa/Hora', 'Unitario'])) || 0;
+          const computedTotal = parseFloat(getRowValue(row, ['Total', 'Importe', 'Monto', 'Subtotal'])) || 0;
+
+          let hsTotal = 0;
+          if (concepto === 'MO' && cantidad > 0) hsTotal = parseFloat((cantidad / 60).toFixed(2));
+
+          if (!clientName && !projectName && !descripcion) continue;
+          if (projectName.toLowerCase() === 'proyecto' && descripcion.toLowerCase() === 'descripcion') continue;
+
+          let targetClient = tempClientes.find(c => {
+            const nc = normalizeEntityName(c.nombre);
+            const ni = normalizeEntityName(clientName);
+            if (!nc || !ni) return false;
+            return nc === ni || (ni.length >= 4 && (nc.includes(ni) || ni.includes(nc)));
           });
-          if (!targetColaborador) {
-            const prospectiveWorkerName = descripcion.split(' ')[0] || 'Colaborador';
-            const normalizedName = prospectiveWorkerName.charAt(0).toUpperCase() + prospectiveWorkerName.slice(1).toLowerCase();
-            targetColaborador = tempColaboradores.find(c => c.nombre.startsWith(normalizedName));
-            if (!targetColaborador) {
-              targetColaborador = {
-                id: `col_${Math.random().toString(36).substring(2, 9)}`,
-                nombre: normalizedName + ' ' + (descripcion.split(' ')[1] || ''),
-                tarifaSugerida: precioUnitario || 350,
-                rol: 'Operario Externo'
+
+          if (!targetClient && clientName) {
+            targetClient = {
+              id: `cli_${Math.random().toString(36).substring(2, 9)}`,
+              nombre: clientName,
+              codigo: clientName.substring(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, 'C') || 'CLI',
+              fechaCreacion: new Date().toISOString().substring(0, 10)
+            };
+            tempClientes.push(targetClient);
+          }
+
+          let targetProject: Proyecto | undefined = undefined;
+          if (targetClient && projectName) {
+            targetProject = tempProyectos.find(p => {
+              if (p.clienteId !== targetClient!.id) return false;
+              const np = normalizeEntityName(p.nombre);
+              const nip = normalizeEntityName(projectName);
+              return np === nip || (nip.length >= 4 && (np.includes(nip) || nip.includes(np)));
+            });
+
+            if (!targetProject) {
+              targetProject = {
+                id: `pro_${Math.random().toString(36).substring(2, 9)}`,
+                clienteId: targetClient.id,
+                nombre: projectName,
+                estado: 'En Proceso' as const,
+                fechaInicio: parseExcelDate(fechaRaw)
               };
-              tempColaboradores.push(targetColaborador);
+              tempProyectos.push(targetProject);
             }
           }
+
+          let targetColaborador: Colaborador | undefined = undefined;
+          if (concepto === 'MO' && descripcion) {
+            const descWords = descripcion.toLowerCase().split(/\s+/);
+            targetColaborador = tempColaboradores.find(col => {
+              const names = col.nombre.toLowerCase().split(/\s+/);
+              return names.length > 0 && descWords.includes(names[0]);
+            });
+            if (!targetColaborador) {
+              const prospectiveWorkerName = descripcion.split(' ')[0] || 'Colaborador';
+              const normalizedName = prospectiveWorkerName.charAt(0).toUpperCase() + prospectiveWorkerName.slice(1).toLowerCase();
+              targetColaborador = tempColaboradores.find(c => c.nombre.startsWith(normalizedName));
+              if (!targetColaborador) {
+                targetColaborador = {
+                  id: `col_${Math.random().toString(36).substring(2, 9)}`,
+                  nombre: normalizedName + ' ' + (descripcion.split(' ')[1] || ''),
+                  tarifaSugerida: precioUnitario || 350,
+                  rol: 'Operario Externo'
+                };
+                tempColaboradores.push(targetColaborador);
+              }
+            }
+          }
+
+          const finalFecha = parseExcelDate(fechaRaw);
+          const calculatedTotal = computedTotal || (cantidad * precioUnitario) || 0;
+
+          importedItems.push({
+            sheetRow: row,
+            clienteNombre: clientName || (targetClient ? targetClient.nombre : 'Cliente Desconocido'),
+            clienteId: targetClient ? targetClient.id : 'temp_cli',
+            proyectoNombre: projectName || (targetProject ? targetProject.nombre : 'Proyecto General'),
+            proyectoId: targetProject ? targetProject.id : 'temp_pro',
+            fecha: finalFecha,
+            concepto,
+            descripcion: descripcion || (concepto === 'MO' ? 'Mano de obra' : 'Insumo'),
+            colaboradorId: targetColaborador ? targetColaborador.id : undefined,
+            colaboradorNombre: targetColaborador ? targetColaborador.nombre : undefined,
+            hsInicio: hsInicio ? formatExcelTime(hsInicio) : undefined,
+            hsFin: hsFin ? formatExcelTime(hsFin) : undefined,
+            hsTotal: hsTotal > 0 ? hsTotal : undefined,
+            cantidad: cantidad,
+            precioUnitario: precioUnitario || (targetColaborador ? targetColaborador.tarifaSugerida : 0),
+            total: calculatedTotal
+          });
         }
-
-        const finalFecha = parseExcelDate(fechaRaw);
-        const calculatedTotal = computedTotal || (cantidad * precioUnitario) || 0;
-
-        importedItems.push({
-          sheetRow: row,
-          clienteNombre: clientName || (targetClient ? targetClient.nombre : 'Cliente Desconocido'),
-          clienteId: targetClient ? targetClient.id : 'temp_cli',
-          proyectoNombre: projectName || (targetProject ? targetProject.nombre : 'Proyecto General'),
-          proyectoId: targetProject ? targetProject.id : 'temp_pro',
-          fecha: finalFecha,
-          concepto,
-          descripcion,
-          colaboradorId: targetColaborador ? targetColaborador.id : undefined,
-          colaboradorNombre: targetColaborador ? targetColaborador.nombre : undefined,
-          hsInicio: hsInicio ? formatExcelTime(hsInicio) : undefined,
-          hsFin: hsFin ? formatExcelTime(hsFin) : undefined,
-          hsTotal: hsTotal > 0 ? hsTotal : undefined,
-          cantidad: cantidad,
-          precioUnitario: precioUnitario || (targetColaborador ? targetColaborador.tarifaSugerida : 0),
-          total: calculatedTotal
-        });
       }
 
       setImportResult({
         summary: {
-          totalRowsRead: rawRows.length,
+          totalRowsRead: totalRowsCount,
           itemsImported: importedItems.length,
           tempClientesDetected: tempClientes.length - initialClientesCount,
           tempProyectosDetected: tempProyectos.length - initialProyectosCount,
@@ -410,18 +463,18 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
     // Ensure all Client-Project references are strictly synchronized
     const itemsToSave: RegistroItem[] = importResult.parsedItems.map((item, index) => {
       // Find true client ID mapped dynamically
-      const mappedClientObj = finalDb.clientes.find(c => c.nombre.toLowerCase() === item.clienteNombre.toLowerCase());
-      const mappedProjObj = finalDb.proyectos.find(p => p.nombre.toLowerCase() === item.proyectoNombre.toLowerCase());
+      const mappedClientObj = finalDb.clientes.find(c => c.nombre.toLowerCase().trim() === item.clienteNombre.toLowerCase().trim());
+      const mappedProjObj = finalDb.proyectos.find(p => p.nombre.toLowerCase().trim() === item.proyectoNombre.toLowerCase().trim() && (!mappedClientObj || p.clienteId === mappedClientObj.id));
       
-      const clienteId = mappedClientObj ? mappedClientObj.id : `cli_new_${index}`;
-      const proyectoId = mappedProjObj ? mappedProjObj.id : `pro_new_${index}`;
+      const clienteId = mappedClientObj ? mappedClientObj.id : (item.clienteId || `cli_new_${index}`);
+      const proyectoId = mappedProjObj ? mappedProjObj.id : (item.proyectoId || `pro_new_${index}`);
       
       return {
         id: `reg_${Math.random().toString(36).substring(2, 11)}`,
         clienteId,
-        clienteNombre: item.clienteNombre,
+        clienteNombre: mappedClientObj ? mappedClientObj.nombre : item.clienteNombre,
         proyectoId,
-        proyectoNombre: item.proyectoNombre,
+        proyectoNombre: mappedProjObj ? mappedProjObj.nombre : item.proyectoNombre,
         fecha: item.fecha,
         concepto: item.concepto,
         descripcion: item.descripcion,
@@ -513,6 +566,77 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
               </span>
             </div>
 
+            {/* Selector de Hojas Detectadas */}
+            {sheetsInfo.length > 0 && (
+              <div className="glass-panel p-5 rounded-md space-y-3 border border-orange-500/20 bg-[#111318]">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <div>
+                    <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+                      <FolderGit2 className="w-4 h-4 text-orange-400" />
+                      <span>Hojas Detectadas en el Archivo ({selectedSheets.length} seleccionadas de {sheetsInfo.length})</span>
+                    </h4>
+                    <p className="text-xs text-slate-400">
+                      Se identificaron las hojas del archivo. Selecciona cuáles deseas procesar.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSheets(sheetsInfo.map(s => s.name))}
+                      className="text-xs text-orange-400 hover:text-orange-300 font-mono px-2.5 py-1 bg-white/5 rounded border border-white/10 cursor-pointer"
+                    >
+                      Todas
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSheets(sheetsInfo.filter(s => s.isClientSheet).map(s => s.name))}
+                      className="text-xs text-emerald-400 hover:text-emerald-300 font-mono px-2.5 py-1 bg-white/5 rounded border border-white/10 cursor-pointer"
+                    >
+                      Solo Clientes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSheets([])}
+                      className="text-xs text-slate-400 hover:text-slate-300 font-mono px-2.5 py-1 bg-white/5 rounded border border-white/10 cursor-pointer"
+                    >
+                      Ninguna
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 pt-2 max-h-48 overflow-y-auto">
+                  {sheetsInfo.map(sheet => {
+                    const isSelected = selectedSheets.includes(sheet.name);
+                    return (
+                      <label
+                        key={sheet.name}
+                        className={`flex items-center gap-2 p-2 rounded text-xs cursor-pointer border transition-colors ${
+                          isSelected
+                            ? 'bg-orange-500/10 border-orange-500/30 text-white'
+                            : 'bg-white/5 border-white/5 text-slate-400 opacity-60'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setSelectedSheets(prev => [...prev, sheet.name]);
+                            } else {
+                              setSelectedSheets(prev => prev.filter(n => n !== sheet.name));
+                            }
+                          }}
+                          className="rounded border-white/20 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                        />
+                        <span className="truncate flex-1 font-medium">{sheet.name}</span>
+                        <span className="text-[10px] font-mono text-slate-400 shrink-0">({sheet.rowCount} fls)</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Instruction Bento Guide */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="glass-panel p-5 rounded-md space-y-2">
@@ -546,7 +670,7 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
                   className="flex items-center gap-3 px-8 py-4 rounded-md bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 font-semibold text-white shadow-xl shadow-orange-500/20 cursor-pointer"
                 >
                   {loading && <RefreshCw className="w-5 h-5 animate-spin" />}
-                  <span>{loading ? 'Analizando Planilla Operativa...' : 'Ejecutar Mapeo y Parseo'}</span>
+                  <span>{loading ? 'Analizando Planilla Operativa...' : `Ejecutar Mapeo y Parseo (${selectedSheets.length} hojas)`}</span>
                 </motion.button>
               </div>
             )}
@@ -576,11 +700,11 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
             <div className="glass-panel p-6 rounded-md grid grid-cols-2 md:grid-cols-5 gap-6">
               <div className="space-y-1 border-r border-white/5 pr-4">
                 <div className="text-slate-400 text-xs font-mono">FILAS TOTALES</div>
-                <div className="text-2xl font-bold text-white">{importResult.summary.totalRowsRead}</div>
+                <div className="text-2xl font-bold text-white">{importResult.summary.totalRowsRead.toLocaleString('es-PY')}</div>
               </div>
               <div className="space-y-1 border-r border-white/5 pr-4">
                 <div className="text-slate-400 text-xs font-mono">ITEMS IMPORTADOS</div>
-                <div className="text-2xl font-bold text-white">{importResult.summary.itemsImported}</div>
+                <div className="text-2xl font-bold text-white">{importResult.summary.itemsImported.toLocaleString('es-PY')}</div>
               </div>
               <div className="space-y-1 border-r border-white/5 pr-4">
                 <div className="text-emerald-400 text-xs font-mono">CLIENTES NUEVOS</div>
@@ -631,11 +755,17 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
             </div>
 
             {/* Main Interactive Spreadsheet Grid Table */}
-            {/* Main Interactive Spreadsheet Grid Table */}
             <div className="overflow-hidden rounded-xl border border-white/10 bg-[#111318]/80 backdrop-blur-sm shadow-xl p-4">
-              <div className="mb-4">
-                <h3 className="font-sans font-medium text-white mb-1">Previsualización del Mapeo Relacional</h3>
-                <p className="text-xs text-slate-400">Edita los campos directamente si el mapeador automático malinterpretó alguna celda antes de confirmar.</p>
+              <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <div>
+                  <h3 className="font-sans font-medium text-white mb-1">Previsualización del Mapeo Relacional</h3>
+                  <p className="text-xs text-slate-400">Edita los campos directamente si el mapeador automático malinterpretó alguna celda antes de confirmar.</p>
+                </div>
+                {importResult.parsedItems.length > 100 && (
+                  <span className="text-[11px] font-mono px-2.5 py-1 rounded bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                    Mostrando primeras 100 de {importResult.parsedItems.length.toLocaleString('es-PY')} filas (todas se guardarán al confirmar)
+                  </span>
+                )}
               </div>
 
               <div className="overflow-x-auto max-h-[480px]">
@@ -653,7 +783,7 @@ export default function ExcelImporter({ currentDb, onImportConfirmed, onCancel, 
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {importResult.parsedItems.map((item, idx) => {
+                    {importResult.parsedItems.slice(0, 100).map((item, idx) => {
                       // Check if Client is brand new or existing
                       const isNewClient = !currentDb.clientes.some(c => c.nombre.toLowerCase() === item.clienteNombre.toLowerCase());
                       const isNewProject = !currentDb.proyectos.some(p => p.nombre.toLowerCase() === item.proyectoNombre.toLowerCase());

@@ -203,6 +203,14 @@ export interface ViajeActivo {
   activo: boolean;
 }
 
+export interface InsumoResumen {
+  id: string;
+  nombre: string;
+  costo: number;
+  unidad: string;
+  categoria: string;
+}
+
 export interface DatabaseState {
   clientes: Cliente[];
   proyectos: Proyecto[];
@@ -211,6 +219,7 @@ export interface DatabaseState {
   registrosVehiculo: RegistroVehiculo[];
   timersActivos: TimerActivo[];
   viajesActivos: ViajeActivo[];
+  insumos?: InsumoResumen[];
   usuariosSinColaborador?: {
     id: string;
     username: string;

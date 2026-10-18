@@ -118,16 +118,25 @@ portalRouter.post('/:token/sucursal', portalLimiter, async (req: Request, res: R
 portalRouter.post('/:token/pedido', portalLimiter, async (req: Request, res: Response) => {
   const { token } = req.params;
   if (!token || typeof token !== 'string' || token.length < 8) return res.status(404).json({ success: false, error: { code: 'PORTAL_NOT_FOUND', message: 'Link no válido' } });
-  const { sucursalId, descripcion, cantidad, foto } = req.body || {};
-  if (!sucursalId || !descripcion?.trim()) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Local y descripción son requeridos' } });
+  const { sucursalId, sucursalIds, descripcion, cantidad, foto } = req.body || {};
+  
+  const targetSucursalIds: string[] = Array.isArray(sucursalIds) && sucursalIds.length > 0 
+    ? sucursalIds 
+    : (sucursalId ? [sucursalId] : []);
+
+  if (targetSucursalIds.length === 0 || !descripcion?.trim()) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Al menos un local y una descripción son requeridos' } });
   const cantNum = Number(cantidad);
   if (isNaN(cantNum) || cantNum <= 0) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'La cantidad debe ser mayor a 0' } });
   const descripcionLimpia = String(descripcion).trim().slice(0, 1000);
   try {
     const cliente = await prisma.cliente.findUnique({ where: { tokenPortal: token } });
     if (!cliente) return res.status(404).json({ success: false, error: { code: 'PORTAL_NOT_FOUND', message: 'Link no válido o expirado' } });
-    const sucursal = await prisma.sucursal.findFirst({ where: { id: sucursalId, clienteId: cliente.id, activo: true } });
-    if (!sucursal) return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Local no válido para este cliente' } });
+    
+    const sucursales = await prisma.sucursal.findMany({ 
+      where: { id: { in: targetSucursalIds }, clienteId: cliente.id, activo: true } 
+    });
+    if (sucursales.length === 0) return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Locales no válidos para este cliente' } });
+    
     let fotoUrl: string | undefined;
     if (foto && typeof foto === 'string' && foto.startsWith('data:image')) {
       const pedidoId = generateId('ped');
@@ -143,9 +152,26 @@ portalRouter.post('/:token/pedido', portalLimiter, async (req: Request, res: Res
         if (!error) { const { data } = supabaseAdmin.storage.from('pedidos-fotos').getPublicUrl(storagePath); fotoUrl = data.publicUrl; }
       }
     }
-    const pedido = await prisma.pedido.create({ data: { id: generateId('ped'), clienteId: cliente.id, sucursalId: sucursal.id, sucursalNombre: sucursal.nombre, descripcion: descripcionLimpia, cantidad: new Decimal(cantNum), estado: 'Pendiente', fotoUrl } });
-    auditLog({ usuario: 'portal:' + cliente.nombre, accion: 'create_pedido', recurso: `/api/portal/${token}/pedido`, resultado: 'success', ip: getClientIp(req) });
-    res.status(201).json({ success: true, data: { id: pedido.id, local: pedido.sucursalNombre, descripcion: pedido.descripcion, cantidad: Number(pedido.cantidad), estado: pedido.estado }, message: 'Pedido creado correctamente' });
+
+    const pedidosCreados = [];
+    for (const suc of sucursales) {
+      const p = await prisma.pedido.create({
+        data: {
+          id: generateId('ped'),
+          clienteId: cliente.id,
+          sucursalId: suc.id,
+          sucursalNombre: suc.nombre,
+          descripcion: descripcionLimpia,
+          cantidad: new Decimal(cantNum),
+          estado: 'Pendiente',
+          fotoUrl
+        }
+      });
+      pedidosCreados.push(p);
+    }
+
+    auditLog({ usuario: 'portal:' + cliente.nombre, accion: 'create_pedidos_multi', recurso: `/api/portal/${token}/pedido`, resultado: 'success', ip: getClientIp(req), detalle: `${pedidosCreados.length} pedidos creados para ${sucursales.map(s => s.nombre).join(', ')}` });
+    res.status(201).json({ success: true, data: pedidosCreados.map(p => ({ id: p.id, local: p.sucursalNombre, descripcion: p.descripcion, cantidad: Number(p.cantidad), estado: p.estado })), message: `${pedidosCreados.length} pedido(s) creado(s) correctamente` });
   } catch (error: any) {
     logger.error('[PORTAL] Error creating pedido:', error);
     res.status(500).json({ success: false, error: { code: 'PORTAL_ERROR', message: 'Error al crear el pedido' } });

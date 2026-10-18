@@ -48,7 +48,7 @@ import { DatabaseState, PauseRecord } from '../types.ts';
 import VehiculoTab from './VehiculoTab.tsx';
 import CalculadoraAdhesivoModal, { CalculoAdhesivoResultado } from './CalculadoraAdhesivoModal.tsx';
 import InsumosCosteoTabs, { InsumoAgregado } from './InsumosCosteoTabs.tsx';
-import { ModoInsumo, calcularDuracionHoras } from '../lib/insumosCosteo.ts';
+import { ModoInsumo, calcularDuracionHoras, PRODUCTOS_COMPUESTOS_CATALOGO } from '../lib/insumosCosteo.ts';
 import { Calculator } from 'lucide-react';
 import { useNotif } from '../context/NotifContext.tsx';
 
@@ -755,6 +755,11 @@ function useInsumos(isOperario: boolean = false) {
 export default function RegistroOperativo({ data, onAddRegistro, onRefresh, currentUser }: RegistroOperativoProps) {
   const { showToast } = useNotif();
   const isOperario = currentUser?.rol === 'Operario' || currentUser?.rol === 'OPERADOR' || Boolean(currentUser?.rol?.toUpperCase().includes('OPER'));
+  const isEdu = Boolean(
+    currentUser?.nombre?.toLowerCase().includes('edu') || 
+    currentUser?.usuario?.toLowerCase().includes('edu')
+  );
+  const isAdmin = currentUser?.rol === 'Admin' || currentUser?.rol === 'ADMIN';
 
   // ══════════════════════════════════════════════════════
   //  SHARED CONTEXT STATE
@@ -829,7 +834,7 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
       prev.map(d => {
         if (d.id !== id) return d;
         if (field === 'clienteId') {
-          const firstProj = data.proyectos.find(p => p.clienteId === value && p.activo !== false);
+          const firstProj = (data?.proyectos || []).find(p => p.clienteId === value && p.activo !== false);
           return {
             ...d,
             clienteId: value,
@@ -852,9 +857,9 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
     return calcularDuracionHoras(manualHsInicio, manualHsFin);
   }, [manualHsInicio, manualHsFin]);
 
-  const proyectosFiltrados = useMemo(() => data.proyectos.filter(
+  const proyectosFiltrados = useMemo(() => (data?.proyectos || []).filter(
     p => (!selectedClienteId || p.clienteId === selectedClienteId) && p.activo !== false
-  ), [data.proyectos, selectedClienteId]);
+  ), [data?.proyectos, selectedClienteId]);
 
   const contextComplete = esMultiCliente
     ? distribucionValida
@@ -862,17 +867,19 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
 
   // Validate persisted IDs still exist in DB (they may have been deleted or deactivated)
   useEffect(() => {
-    if (data.clientes.length === 0) return; // data not loaded yet
-    if (selectedClienteId && !data.clientes.find(c => c.id === selectedClienteId)) {
+    const clientesList = data?.clientes || [];
+    const proyectosList = data?.proyectos || [];
+    if (clientesList.length === 0) return; // data not loaded yet
+    if (selectedClienteId && !clientesList.find(c => c.id === selectedClienteId)) {
       setSelectedClienteId('');
       setSelectedProyectoId('');
-    } else if (selectedProyectoId && data.proyectos.length > 0) {
-      const proj = data.proyectos.find(p => p.id === selectedProyectoId);
+    } else if (selectedProyectoId && proyectosList.length > 0) {
+      const proj = proyectosList.find(p => p.id === selectedProyectoId);
       if (!proj || proj.activo === false) {
         setSelectedProyectoId('');
       }
     }
-  }, [data.clientes, data.proyectos, selectedClienteId, selectedProyectoId]);
+  }, [data?.clientes, data?.proyectos, selectedClienteId, selectedProyectoId]);
 
   // ══════════════════════════════════════════════════════
   //  TIMER & MANO DE OBRA
@@ -938,7 +945,7 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
   const canChangeColaborador = currentUser?.rol === 'Admin';
   
   const currentUserColaborador = useMemo(() => currentUser 
-    ? data.colaboradores.find(
+    ? (data?.colaboradores || []).find(
         col => {
           if (!col?.nombre || !currentUser?.nombre) return false;
           const colName = col.nombre.toLowerCase();
@@ -946,14 +953,15 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
           return colName.includes(userName) || userName.includes(colName);
         }
       )
-    : null, [currentUser, data.colaboradores]);
+    : null, [currentUser, data?.colaboradores]);
 
   useEffect(() => {
-    if (currentUser && data.colaboradores.length > 0) {
+    const cols = data?.colaboradores || [];
+    if (currentUser && cols.length > 0) {
       if (currentUser.rol !== 'Admin') {
         // Primero intentar match exacto por colaboradorId (más confiable)
         if (currentUser.colaboradorId) {
-          const col = data.colaboradores.find(c => c.id === currentUser.colaboradorId);
+          const col = cols.find(c => c.id === currentUser.colaboradorId);
           if (col) {
             setSelectedColaboradorId(col.id);
             setMoPrecioUnitario(String(col.tarifaSugerida));
@@ -961,7 +969,7 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
           }
         }
         // Fallback: match por nombre (por si el colaboradorId no está disponible aún)
-        const colaborador = data.colaboradores.find(
+        const colaborador = cols.find(
           col => {
             if (!col?.nombre || !currentUser?.nombre) return false;
             const colName = col.nombre.toLowerCase();
@@ -972,12 +980,9 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
         if (colaborador) {
           setSelectedColaboradorId(colaborador.id);
           setMoPrecioUnitario(String(colaborador.tarifaSugerida));
-        } else {
-          // Ningún match por ID ni por nombre — el botón "Iniciar Tarea" quedará bloqueado
-          // Ningún match por ID ni por nombre — el botón "Iniciar Tarea" quedará bloqueado
         }
       } else if (!selectedColaboradorId) {
-        const colaborador = data.colaboradores.find(
+        const colaborador = cols.find(
           col => {
             if (!col?.nombre || !currentUser?.nombre) return false;
             const colName = col.nombre.toLowerCase();
@@ -991,19 +996,46 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
         }
       }
     }
-  }, [currentUser, data.colaboradores]);
+  }, [currentUser, data?.colaboradores]);
 
   useEffect(() => {
     if (selectedColaboradorId) {
-      const col = data.colaboradores.find(c => c.id === selectedColaboradorId);
+      const col = (data?.colaboradores || []).find(c => c.id === selectedColaboradorId);
       if (col) setMoPrecioUnitario(String(col.tarifaSugerida));
     }
-  }, [selectedColaboradorId, data.colaboradores]);
+  }, [selectedColaboradorId, data?.colaboradores]);
 
   const onStartTimer = async () => {
     if (!contextComplete || !selectedColaboradorId) {
       setMoFeedback({ type: 'error', msg: 'Completá Cliente, Proyecto y Colaborador antes de iniciar el timer.' });
       return;
+    }
+
+    // Validación condicional: Operarios deben tener ENTRADA marcada hoy
+    if (isOperario) {
+      try {
+        const checkAsistencia = await authFetchJSON<{ success: boolean; data: any }>('/api/marcacion/estado-actual');
+        if (checkAsistencia.success && checkAsistencia.data) {
+          if (!checkAsistencia.data.tieneEntradaHoy) {
+            setMoFeedback({
+              type: 'error',
+              msg: '⚠️ Debes marcar ENTRADA en el botón superior antes de iniciar una tarea.'
+            });
+            showToast('Primero marcá tu ENTRADA para poder arrancar tareas.', 'warning');
+            return;
+          }
+          if (checkAsistencia.data.tieneEntradaAbiertaDiaAnterior) {
+            setMoFeedback({
+              type: 'error',
+              msg: '⚠️ Tenés una entrada sin salida de un día anterior. Regularizala con tu supervisor.'
+            });
+            showToast('Tenés una marcación pendiente del día anterior.', 'warning');
+            return;
+          }
+        }
+      } catch {
+        // En caso de fallo de red de marcacion, permitir si no bloquea
+      }
     }
 
     await handleStartTimer({
@@ -1051,7 +1083,7 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
       return;
     }
 
-    const colaborador = data.colaboradores.find(c => c.id === selectedColaboradorId);
+    const colaborador = (data?.colaboradores || []).find(c => c.id === selectedColaboradorId);
     const hsInicio = modoHorario === 'manual' ? manualHsInicio : (timerStart ? formatTime(timerStart) : undefined);
     const hsFin = modoHorario === 'manual' ? manualHsFin : (timerEnd ? formatTime(timerEnd) : undefined);
 
@@ -1104,33 +1136,40 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
         setMoFeedback({ type: 'error', msg: err?.message || 'Error al conectar con el servidor.' });
       }
     } else {
-      const ok = await onAddRegistro({
-        clienteId: selectedClienteId,
-        proyectoId: selectedProyectoId,
-        fecha,
-        concepto: 'MO',
-        descripcion: moDescripcion || (colaborador ? colaborador.nombre : 'Tarea sin descripción'),
-        colaboradorId: selectedColaboradorId || undefined,
-        hsInicio,
-        hsFin,
-        hsTotal: horasTotales,
-        cantidad: Math.max(1, minutosRegistrados),
-        precioUnitario: tarifaMin,
-        total: Math.max(tarifaMin, costoMO),
-      });
-
-      setMoSubmitting(false);
-      if (ok) {
-        showToast('Horas de mano de obra registradas con éxito', 'success');
-        setMoFeedback({
-          type: 'success',
-          msg: `✓ Registrado: ${modoHorario === 'manual' ? duracionManual.duracionTexto + ' hs' : formatDuration(timerSeconds)}${!isOperario ? ` — ${formatGuaranies(costoMO)}` : ''}`
+      try {
+        const ok = await onAddRegistro({
+          clienteId: selectedClienteId,
+          proyectoId: selectedProyectoId,
+          fecha,
+          concepto: 'MO',
+          descripcion: moDescripcion || (colaborador ? colaborador.nombre : 'Tarea sin descripción'),
+          colaboradorId: selectedColaboradorId || undefined,
+          hsInicio,
+          hsFin,
+          hsTotal: horasTotales,
+          cantidad: Math.max(1, minutosRegistrados),
+          precioUnitario: tarifaMin,
+          total: Math.max(tarifaMin, costoMO),
         });
-        if (modoHorario === 'timer') handleResetTimer();
-        setMoDescripcion('');
-      } else {
-        showToast('Error al guardar registro de mano de obra', 'error');
-        setMoFeedback({ type: 'error', msg: 'Error al guardar. Verificá los campos e intentá nuevamente.' });
+
+        setMoSubmitting(false);
+        if (ok) {
+          showToast('Horas de mano de obra registradas con éxito', 'success');
+          setMoFeedback({
+            type: 'success',
+            msg: `✓ Registrado: ${modoHorario === 'manual' ? duracionManual.duracionTexto + ' hs' : formatDuration(timerSeconds)}${!isOperario ? ` — ${formatGuaranies(costoMO)}` : ''}`
+          });
+          if (modoHorario === 'timer') handleResetTimer();
+          setMoDescripcion('');
+          if (onRefresh) await onRefresh();
+        } else {
+          showToast('Error al guardar registro de mano de obra', 'error');
+          setMoFeedback({ type: 'error', msg: 'Error al guardar. Verificá los campos e intentá nuevamente.' });
+        }
+      } catch (err: any) {
+        setMoSubmitting(false);
+        showToast('Error de conexión al guardar mano de obra', 'error');
+        setMoFeedback({ type: 'error', msg: err?.message || 'Error de conexión con el servidor.' });
       }
     }
   };
@@ -1152,10 +1191,21 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
     validLines,
   } = useInsumos(isOperario);
 
-  // Catálogo reactivo de insumos históricos y sugerencias frecuentes (Item 11)
+  // Catálogo reactivo de insumos maestros (PostgreSQL) + registros históricos (Items 5 y 6)
   const catalogoInsumos = useMemo(() => {
-    const map = new Map<string, { descripcion: string; precioUnitario: number; count: number }>();
-    (data.registros || []).forEach((r) => {
+    const map = new Map<string, { descripcion: string; precioUnitario: number; count: number; unidad?: string }>();
+
+    // 1. Insumos del catálogo maestro oficial de PostgreSQL
+    (data?.insumos || []).forEach((ins) => {
+      if (ins.nombre?.trim()) {
+        const desc = ins.nombre.trim();
+        const key = desc.toLowerCase();
+        map.set(key, { descripcion: desc, precioUnitario: ins.costo || 0, count: 50, unidad: ins.unidad });
+      }
+    });
+
+    // 2. Historial de registros (para preservar insumos personalizados ya cargados)
+    (data?.registros || []).forEach((r) => {
       if (r.concepto === 'Insumo' && r.descripcion?.trim()) {
         const desc = r.descripcion.trim();
         const key = desc.toLowerCase();
@@ -1164,14 +1214,15 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
           map.set(key, { descripcion: desc, precioUnitario: r.precioUnitario || 0, count: 1 });
         } else {
           existing.count += 1;
-          if (r.precioUnitario && r.precioUnitario > 0) {
+          if (r.precioUnitario && r.precioUnitario > 0 && existing.precioUnitario === 0) {
             existing.precioUnitario = r.precioUnitario;
           }
         }
       }
     });
+
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [data.registros]);
+  }, [data?.insumos, data?.registros]);
 
   const insumosFrecuentes = useMemo(() => {
     return catalogoInsumos.slice(0, 6);
@@ -1417,7 +1468,7 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
 
             <div className="space-y-2">
               {distribucionClientes.map((dist, idx) => {
-                const proyectosDelCliente = data.proyectos.filter(
+                const proyectosDelCliente = (data?.proyectos || []).filter(
                   p => p.clienteId === dist.clienteId && p.activo !== false
                 );
                 return (
@@ -1436,7 +1487,7 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
                         className="glass-select w-full rounded-md px-3 py-2 text-xs"
                       >
                         <option value="">— Seleccionar Cliente —</option>
-                        {data.clientes.map(c => (
+                        {(data?.clientes || []).map(c => (
                           <option key={c.id} value={c.id}>{c.nombre}</option>
                         ))}
                       </select>
@@ -1538,7 +1589,7 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
                   }`}
                 >
                   <option value="">— Seleccionar Cliente —</option>
-                  {data.clientes.map(c => (
+                  {(data?.clientes || []).map(c => (
                     <option key={c.id} value={c.id}>{c.nombre}</option>
                   ))}
                 </select>
@@ -1933,7 +1984,7 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
                         className="glass-select w-full rounded-md pl-10 pr-4 py-2.5 text-sm"
                       >
                         <option value="">— Sin asignar —</option>
-                        {data.colaboradores.map(c => (
+                        {(data?.colaboradores || []).map(c => (
                           <option key={c.id} value={c.id}>
                             {c.nombre} {currentUser?.rol !== 'Operario' ? `(${formatGuaranies(c.tarifaSugerida)}/min)` : ''}
                           </option>
@@ -2084,15 +2135,17 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
                     {showCosteoTabs ? 'Cerrar 5 Modos ▲' : '⚡ 5 Modos de Insumo ▼'}
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setShowCalculadoraAdhesivo(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-orange-500/30 bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 text-xs font-medium transition-colors cursor-pointer"
-                    title="Calcular metros cuadrados, lonas y desperdicio"
-                  >
-                    <Calculator className="w-4 h-4" />
-                    📐 Calcular Lonas / Desperdicio
-                  </button>
+                  {(isEdu || isAdmin) && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCalculadoraAdhesivo(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-orange-500/30 bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 text-xs font-medium transition-colors cursor-pointer"
+                      title="Calcular metros cuadrados, lonas y desperdicio"
+                    >
+                      <Calculator className="w-4 h-4" />
+                      📐 Calcular Lonas / Desperdicio
+                    </button>
+                  )}
                   <AnimatePresence>
                     {!isOperario && totalInsumos > 0 && (
                       <div
@@ -2118,6 +2171,7 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
                   >
                     <InsumosCosteoTabs
                       isOperario={isOperario}
+                      isEdu={isEdu}
                       onAgregar={(insumo) => {
                         addInsumoAgregado(insumo);
                         showToast(`Insumo agregado: ${insumo.descripcion.substring(0, 30)}...`, 'success');
@@ -2126,6 +2180,38 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {/* Kits y Productos Compuestos (ej: McDonald's para todos los operarios) */}
+              {PRODUCTOS_COMPUESTOS_CATALOGO.length > 0 && (
+                <div className="p-2.5 rounded-md bg-gradient-to-r from-orange-500/10 via-amber-500/5 to-transparent border border-orange-500/20 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-orange-300 flex items-center gap-1.5">
+                      🍔 Kits y Productos McDonald's / Compuestos:
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      Carga automática de materiales
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PRODUCTOS_COMPUESTOS_CATALOGO.map(prod => (
+                      <button
+                        key={prod.id}
+                        type="button"
+                        onClick={() => {
+                          prod.materialesSugeridos.forEach(mat => {
+                            addInsumoLineCustom(mat.descripcion, mat.cantidad, 0);
+                          });
+                          showToast(`Cargados materiales de: ${prod.nombre}`, 'success');
+                        }}
+                        className="px-2.5 py-1 rounded text-xs font-semibold bg-orange-600/20 hover:bg-orange-600/30 text-orange-200 border border-orange-500/30 transition-all flex items-center gap-1 cursor-pointer"
+                        title={prod.descripcion}
+                      >
+                        <span>📦 {prod.nombre}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Sugerencias de insumos frecuentes (Item 11) */}
               {insumosFrecuentes.length > 0 && (
@@ -2221,13 +2307,29 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
                               value={line.descripcion}
                               onChange={(e) => {
                                 const val = e.target.value;
-                                const match = catalogoInsumos.find((c) => c.descripcion.toLowerCase() === val.trim().toLowerCase());
-                                if (match && match.precioUnitario > 0 && (!line.precioUnitario || line.precioUnitario === 0)) {
+                                const valNorm = val.trim().toLowerCase();
+                                const exactMatch = catalogoInsumos.find((c) => c.descripcion.toLowerCase() === valNorm);
+                                if (exactMatch && exactMatch.precioUnitario > 0 && (!line.precioUnitario || line.precioUnitario === 0)) {
                                   updateInsumoLineCampos(line.id, {
                                     descripcion: val,
-                                    precioUnitario: match.precioUnitario,
+                                    precioUnitario: exactMatch.precioUnitario,
                                   });
                                 } else {
+                                  // Token matching para dimensiones exactas (ej: "caño 20 x 20")
+                                  const tokens = valNorm.split(/[^a-z0-9]+/).filter(Boolean);
+                                  if (tokens.length >= 2 && (!line.precioUnitario || line.precioUnitario === 0)) {
+                                    const best = catalogoInsumos.find(c => {
+                                      const cTokens = new Set(c.descripcion.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
+                                      return tokens.every(t => cTokens.has(t));
+                                    });
+                                    if (best && best.precioUnitario > 0) {
+                                      updateInsumoLineCampos(line.id, {
+                                        descripcion: val,
+                                        precioUnitario: best.precioUnitario,
+                                      });
+                                      return;
+                                    }
+                                  }
                                   updateInsumoLine(line.id, 'descripcion', val);
                                 }
                               }}

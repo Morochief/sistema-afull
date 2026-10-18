@@ -16,7 +16,7 @@ export const dataRouter = Router();
 // GET /data - Get active DB State for the application
 dataRouter.get('/data', requireAuth, async (req: Request, res: Response) => {
   try {
-    const [clientes, proyectos, colaboradores, registros, registrosVehiculo, timersActivos, viajesActivos, usuarios] = await Promise.all([
+    const [clientes, proyectos, colaboradores, registros, registrosVehiculo, timersActivos, viajesActivos, usuarios, insumos] = await Promise.all([
       prisma.cliente.findMany({ orderBy: { fechaCreacion: 'desc' } }),
       prisma.proyecto.findMany({ orderBy: { fechaInicio: 'desc' } }),
       prisma.colaborador.findMany({ orderBy: { nombre: 'asc' } }),
@@ -24,12 +24,13 @@ dataRouter.get('/data', requireAuth, async (req: Request, res: Response) => {
       prisma.registroVehiculo.findMany({ orderBy: { fecha: 'desc' } }),
       prisma.timerActivo.findMany({ where: { activo: true } }),
       prisma.viajeActivo.findMany({ where: { activo: true } }),
-      prisma.usuario.findMany()
+      prisma.usuario.findMany(),
+      prisma.insumo.findMany({ where: { activo: true }, select: { id: true, nombre: true, costo: true, unidad: true, categoria: true }, orderBy: { nombre: 'asc' } })
     ]);
 
     const data = convertPrismaToFrontend({
       clientes, proyectos, colaboradores, registros, registrosVehiculo,
-      timersActivos, viajesActivos, usuarios,
+      timersActivos, viajesActivos, usuarios, insumos
     });
 
     res.json({ success: true, data } as ApiResponse<DatabaseState>);

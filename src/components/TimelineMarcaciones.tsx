@@ -27,6 +27,18 @@ export default function TimelineMarcaciones() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
 
+  // Estados modal manual
+  const [showModalManual, setShowModalManual] = useState(false);
+  const [editandoMarcacion, setEditandoMarcacion] = useState<MarcacionTimeline | null>(null);
+  const [formManual, setFormManual] = useState({
+    usuario: '',
+    tipo: 'ENTRADA' as 'ENTRADA' | 'SALIDA',
+    fecha: new Date().toISOString().substring(0, 10),
+    hora: '08:00',
+    motivo: '',
+  });
+  const [guardandoManual, setGuardandoManual] = useState(false);
+
   useEffect(() => { fetchTimeline(); }, []);
   useEffect(() => { setCurrentPage(1); }, [itemsPerPage]);
 
@@ -42,6 +54,44 @@ export default function TimelineMarcaciones() {
     } catch (err: any) {
       setError(err.message || 'Error de conexión');
     } finally { setLoading(false); }
+  }
+
+  async function guardarMarcacionManual(e: React.FormEvent) {
+    e.preventDefault();
+    if (!formManual.usuario.trim()) return;
+    setGuardandoManual(true);
+    try {
+      const timestampIso = new Date(`${formManual.fecha}T${formManual.hora}:00`).toISOString();
+      if (editandoMarcacion) {
+        await authFetchJSON(`/api/marcacion/admin/${editandoMarcacion.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tipo: formManual.tipo,
+            timestamp: timestampIso,
+            motivo: formManual.motivo,
+          }),
+        });
+      } else {
+        await authFetchJSON('/api/marcacion/admin/manual', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            usuario: formManual.usuario.trim(),
+            tipo: formManual.tipo,
+            timestamp: timestampIso,
+            motivo: formManual.motivo,
+          }),
+        });
+      }
+      setShowModalManual(false);
+      setEditandoMarcacion(null);
+      await fetchTimeline();
+    } catch (err: any) {
+      setError(err.message || 'Error al guardar');
+    } finally {
+      setGuardandoManual(false);
+    }
   }
 
   function formatDateTime(ts: string) {
@@ -126,6 +176,22 @@ export default function TimelineMarcaciones() {
         >
           Filtrar
         </button>
+        <button
+          onClick={() => {
+            setEditandoMarcacion(null);
+            setFormManual({
+              usuario: '',
+              tipo: 'ENTRADA',
+              fecha: new Date().toISOString().substring(0, 10),
+              hora: new Date().toTimeString().substring(0, 5),
+              motivo: 'Olvido de marcación',
+            });
+            setShowModalManual(true);
+          }}
+          className="px-3 py-1.5 bg-white/10 hover:bg-white/15 text-white text-xs font-bold rounded-md cursor-pointer transition-colors border border-white/10 flex items-center gap-1.5"
+        >
+          + Cargar Manual
+        </button>
       </div>
 
       {error && (
@@ -185,25 +251,135 @@ export default function TimelineMarcaciones() {
                     )}
                   </div>
                 </div>
-                {tieneAlertas && (
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {m.alertas.includes('MULTIPLES_IPS') && (
-                      <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/30 text-amber-300 rounded text-[10px] font-bold flex items-center gap-1">
-                        <AlertTriangle className="w-3 h-3 text-amber-400" />
-                        IPs distintas
-                      </span>
-                    )}
-                    {m.alertas.includes('MULTIPLES_DISPOSITIVOS') && (
-                      <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/30 text-amber-300 rounded text-[10px] font-bold flex items-center gap-1">
-                        <AlertTriangle className="w-3 h-3 text-amber-400" />
-                        Disp. distintos
-                      </span>
-                    )}
-                  </div>
-                )}
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => {
+                      setEditandoMarcacion(m);
+                      const d = new Date(m.timestamp);
+                      const fechaStr = d.toISOString().substring(0, 10);
+                      const horaStr = d.toTimeString().substring(0, 5);
+                      setFormManual({
+                        usuario: m.usuario,
+                        tipo: m.tipo,
+                        fecha: fechaStr,
+                        hora: horaStr,
+                        motivo: m.motivoRemoto || '',
+                      });
+                      setShowModalManual(true);
+                    }}
+                    className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                    title="Editar marcación"
+                  >
+                    ✏️
+                  </button>
+                  {tieneAlertas && (
+                    <div className="flex items-center gap-1.5">
+                      {m.alertas.includes('MULTIPLES_IPS') && (
+                        <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/30 text-amber-300 rounded text-[10px] font-bold flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3 text-amber-400" />
+                          IPs distintas
+                        </span>
+                      )}
+                      {m.alertas.includes('MULTIPLES_DISPOSITIVOS') && (
+                        <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/30 text-amber-300 rounded text-[10px] font-bold flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3 text-amber-400" />
+                          Disp. distintos
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Modal Carga / Edición Manual */}
+      {showModalManual && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass-panel max-w-sm w-full rounded-md border border-white/10 p-5 space-y-4">
+            <h3 className="text-sm font-bold text-white">
+              {editandoMarcacion ? 'Editar Marcación' : 'Registrar Marcación Manual'}
+            </h3>
+            <form onSubmit={guardarMarcacionManual} className="space-y-3">
+              <div>
+                <label className="text-[11px] font-mono uppercase text-slate-400 block mb-1">Usuario *</label>
+                <input
+                  type="text"
+                  value={formManual.usuario}
+                  onChange={e => setFormManual({ ...formManual, usuario: e.target.value })}
+                  placeholder="usuario"
+                  disabled={Boolean(editandoMarcacion)}
+                  className="w-full bg-[#090a0f] border border-white/10 rounded-md px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500 disabled:opacity-50"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] font-mono uppercase text-slate-400 block mb-1">Tipo *</label>
+                  <select
+                    value={formManual.tipo}
+                    onChange={e => setFormManual({ ...formManual, tipo: e.target.value as any })}
+                    className="w-full bg-[#090a0f] border border-white/10 rounded-md px-2 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+                  >
+                    <option value="ENTRADA">ENTRADA</option>
+                    <option value="SALIDA">SALIDA</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-mono uppercase text-slate-400 block mb-1">Hora *</label>
+                  <input
+                    type="time"
+                    value={formManual.hora}
+                    onChange={e => setFormManual({ ...formManual, hora: e.target.value })}
+                    className="w-full bg-[#090a0f] border border-white/10 rounded-md px-2 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-mono uppercase text-slate-400 block mb-1">Fecha *</label>
+                <input
+                  type="date"
+                  value={formManual.fecha}
+                  onChange={e => setFormManual({ ...formManual, fecha: e.target.value })}
+                  className="w-full bg-[#090a0f] border border-white/10 rounded-md px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-mono uppercase text-slate-400 block mb-1">Motivo / Justificación</label>
+                <input
+                  type="text"
+                  value={formManual.motivo}
+                  onChange={e => setFormManual({ ...formManual, motivo: e.target.value })}
+                  placeholder="Ej: Se olvidó de marcar al entrar"
+                  className="w-full bg-[#090a0f] border border-white/10 rounded-md px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowModalManual(false)}
+                  className="flex-1 py-1.5 rounded-md border border-white/10 text-xs text-slate-400 hover:text-white"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={guardandoManual}
+                  className="flex-1 py-1.5 rounded-md bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs"
+                >
+                  {guardandoManual ? 'Guardando...' : 'Guardar'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

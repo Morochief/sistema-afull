@@ -28,6 +28,7 @@ export interface InsumoAgregado {
 
 interface InsumosCosteoTabsProps {
   isOperario: boolean;
+  isEdu?: boolean;
   onAgregar: (insumo: InsumoAgregado) => void;
 }
 
@@ -40,7 +41,7 @@ const BOBINAS_ESTANDAR = [
   { label: 'Plancha (15% merma)', val: 0 },
 ];
 
-export default function InsumosCosteoTabs({ isOperario, onAgregar }: InsumosCosteoTabsProps) {
+export default function InsumosCosteoTabs({ isOperario, isEdu, onAgregar }: InsumosCosteoTabsProps) {
   const [tabActivo, setTabActivo] = useState<ModoInsumo>('UNIDAD');
 
   // Facturas de compra disponibles
@@ -245,20 +246,24 @@ export default function InsumosCosteoTabs({ isOperario, onAgregar }: InsumosCost
         >
           Por dimensión (AxA)
         </button>
-        <button
-          type="button"
-          onClick={() => setTabActivo('PORCENTAJE')}
-          className={pillClass(tabActivo === 'PORCENTAJE')}
-        >
-          Por porcentaje
-        </button>
-        <button
-          type="button"
-          onClick={() => setTabActivo('FACTURA')}
-          className={pillClass(tabActivo === 'FACTURA')}
-        >
-          Desde factura
-        </button>
+        {!isEdu && (
+          <button
+            type="button"
+            onClick={() => setTabActivo('PORCENTAJE')}
+            className={pillClass(tabActivo === 'PORCENTAJE')}
+          >
+            Por porcentaje
+          </button>
+        )}
+        {!isEdu && (
+          <button
+            type="button"
+            onClick={() => setTabActivo('FACTURA')}
+            className={pillClass(tabActivo === 'FACTURA')}
+          >
+            Desde factura
+          </button>
+        )}
       </div>
 
       {/* Formulario según pestaña activa */}
@@ -271,7 +276,14 @@ export default function InsumosCosteoTabs({ isOperario, onAgregar }: InsumosCost
               <input
                 type="text"
                 value={descUnidad}
-                onChange={(e) => setDescUnidad(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setDescUnidad(val);
+                  if (val.toLowerCase().includes('adhesivo blanco')) {
+                    setDescMetro(val);
+                    setTabActivo('METRO');
+                  }
+                }}
                 placeholder="Ej: Plancha acrílico 3mm"
                 className={inputCls}
               />

@@ -137,47 +137,116 @@ registrosRouter.post('/', requireAuth, requireWriteAccess, async (req: Request, 
         const baseNombre = desc.includes('—') ? desc.split('—')[0].trim() : desc;
         const esMerma = /merma|desperdicio/i.test(desc);
 
-        // 1. Buscar coincidencia en la tabla Insumo
-        const insumoDb = await prisma.insumo.findFirst({
+        // 1. Buscar candidatos relevantes en la tabla Insumo
+        const palabras = baseNombre.split(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]+/).filter(w => w.length >= 2);
+        const searchConditions: any[] = [
+          { nombre: { equals: baseNombre, mode: 'insensitive' } },
+          { nombre: { contains: baseNombre, mode: 'insensitive' } }
+        ];
+        if (palabras.length > 0) {
+          searchConditions.push(...palabras.map(w => ({ nombre: { contains: w, mode: 'insensitive' } })));
+        }
+
+        const candidatos = await prisma.insumo.findMany({
           where: {
             activo: true,
-            OR: [
-              { nombre: { equals: baseNombre, mode: 'insensitive' } },
-              { nombre: { contains: baseNombre, mode: 'insensitive' } },
-            ]
+            OR: searchConditions
           },
-          orderBy: { nombre: 'asc' }
+          take: 50
         });
 
-        if (insumoDb) {
-          const costoUnit = esMerma && insumoDb.costoDesperdicio != null && Number(insumoDb.costoDesperdicio) > 0
-            ? Number(insumoDb.costoDesperdicio)
-            : Number(insumoDb.costo);
+        if (candidatos.length > 0) {
+          const normQuery = baseNombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+          const tokensQuery = normQuery.split(/[^a-z0-9]+/).filter(Boolean);
+          const dimMatch = normQuery.match(/\b\d+\s*x\s*\d+\b/g);
+          const dimensionesQuery = dimMatch ? dimMatch.map(d => d.replace(/\s+/g, '')) : [];
 
-          precioUnitarioCalculado = costoUnit;
-          totalCalculado = Math.round(rawItem.cantidad * costoUnit);
-        } else if (isOperario && (!precioUnitarioCalculado || precioUnitarioCalculado === 0)) {
-          // Si no se encuentra exacta, buscar por palabras clave (ej. "serimax", "altatec", "lona")
-          const palabras = baseNombre.split(' ').filter(w => w.length > 3);
-          if (palabras.length > 0) {
-            const fallbackInsumo = await prisma.insumo.findFirst({
-              where: {
-                activo: true,
-                OR: palabras.map(w => ({ nombre: { contains: w, mode: 'insensitive' } }))
-              }
-            });
-            if (fallbackInsumo) {
-              const costoUnit = esMerma && fallbackInsumo.costoDesperdicio != null && Number(fallbackInsumo.costoDesperdicio) > 0
-                ? Number(fallbackInsumo.costoDesperdicio)
-                : Number(fallbackInsumo.costo);
-              precioUnitarioCalculado = costoUnit;
-              totalCalculado = Math.round(rawItem.cantidad * costoUnit);
+          let mejorCandidato: typeof candidatos[0] | null = null;
+          let maxPuntaje = -999;
+
+          for (const c of candidatos) {
+            const normNombre = c.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+            if (normNombre === normQuery) {
+              mejorCandidato = c;
+              maxPuntaje = 9999;
+              break;
             }
+
+            let puntaje = 0;
+            const tokensCandidato = new Set(normNombre.split(/[^a-z0-9]+/).filter(Boolean));
+
+            for (const t of tokensQuery) {
+              if (tokensCandidato.has(t)) {
+                puntaje += /^\d+$/.test(t) ? 25 : 10;
+              }
+            }
+
+            const dimCand = normNombre.replace(/\s+/g, '');
+            for (const dim of dimensionesQuery) {
+              if (dimCand.includes(dim)) {
+                puntaje += 120;
+              } else if (/\d+x\d+/.test(dimCand)) {
+                puntaje -= 80;
+              }
+            }
+
+            puntaje -= Math.abs(normNombre.length - normQuery.length) * 0.1;
+
+            if (puntaje > maxPuntaje) {
+              maxPuntaje = puntaje;
+              mejorCandidato = c;
+            }
+          }
+
+          if (mejorCandidato && maxPuntaje > 15) {
+            const costoUnit = esMerma && mejorCandidato.costoDesperdicio != null && Number(mejorCandidato.costoDesperdicio) > 0
+              ? Number(mejorCandidato.costoDesperdicio)
+              : Number(mejorCandidato.costo);
+
+            precioUnitarioCalculado = costoUnit;
+            totalCalculado = Math.round(rawItem.cantidad * costoUnit);
           }
         }
       } catch (lookupErr) {
         logger.warn('[REGISTROS] Error al resolver costo de insumo desde catálogo:', lookupErr);
       }
+    }
+
+    // DEDUPLICACIÓN (15s): Evita registros duplicados en Android por dobles clics o reintentos de red
+    const fifteenSecondsAgo = new Date(Date.now() - 15000);
+    const duplicadoReciente = await prisma.registro.findFirst({
+      where: {
+        clienteId: rawItem.clienteId,
+        proyectoId: rawItem.proyectoId,
+        colaboradorId: rawItem.colaboradorId || null,
+        concepto: conceptoEnum,
+        descripcion: rawItem.descripcion,
+        fechaImportacion: { gte: fifteenSecondsAgo }
+      }
+    });
+
+    if (duplicadoReciente) {
+      logger.info(`[REGISTROS] Registro duplicado prevenido para colaborador ${rawItem.colaboradorId || 'N/A'}`);
+      const itemDuplicado: RegistroItem = {
+        id: duplicadoReciente.id,
+        clienteId: duplicadoReciente.clienteId,
+        clienteNombre: duplicadoReciente.clienteNombre,
+        proyectoId: duplicadoReciente.proyectoId,
+        proyectoNombre: duplicadoReciente.proyectoNombre,
+        fecha: duplicadoReciente.fecha.toISOString().substring(0, 10),
+        concepto: duplicadoReciente.concepto === 'MO' ? 'MO' : duplicadoReciente.concepto === 'INSUMO' ? 'Insumo' : 'Vehículo',
+        descripcion: duplicadoReciente.descripcion,
+        colaboradorId: duplicadoReciente.colaboradorId || undefined,
+        hsInicio: duplicadoReciente.hsInicio || undefined,
+        hsFin: duplicadoReciente.hsFin || undefined,
+        hsTotal: duplicadoReciente.hsTotal ? parseFloat(duplicadoReciente.hsTotal.toString()) : undefined,
+        cantidad: parseFloat(duplicadoReciente.cantidad.toString()),
+        precioUnitario: isOperario ? 0 : parseFloat(duplicadoReciente.precioUnitario.toString()),
+        total: isOperario ? 0 : parseFloat(duplicadoReciente.total.toString()),
+        origen: duplicadoReciente.origen === 'MANUAL' ? 'Manual' : 'Excel',
+        fechaImportacion: duplicadoReciente.fechaImportacion?.toISOString().substring(0, 10),
+      };
+      return res.json({ success: true, data: itemDuplicado, message: 'Registro ya procesado' } as ApiResponse<RegistroItem>);
     }
 
     const newRegistro = await prisma.registro.create({

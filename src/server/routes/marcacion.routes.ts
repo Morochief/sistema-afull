@@ -188,6 +188,123 @@ marcacionRouter.get('/admin/timeline', requireAuth, requireAdmin, async (req: Re
   } catch (e) { res.status(500).json({ success: false, error: { code: 'READ_ERROR', message: 'Error' } }); }
 });
 
+// GET /estado-actual - Devuelve si el usuario actual tiene entrada hoy y si tiene salida pendiente
+marcacionRouter.get('/estado-actual', requireAuth, async (req: Request, res: Response) => {
+  const up = req.user!;
+  try {
+    const ult = await prisma.marcacion.findFirst({
+      where: { usuario: up.usuario },
+      orderBy: { timestamp: 'desc' }
+    });
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    const tieneEntradaActiva = ult?.tipo === 'ENTRADA';
+    const esDeHoy = ult ? new Date(ult.timestamp) >= hoy : false;
+    const tieneEntradaHoy = tieneEntradaActiva && esDeHoy;
+    const tieneEntradaAbiertaDiaAnterior = tieneEntradaActiva && !esDeHoy;
+
+    res.json({
+      success: true,
+      data: {
+        tieneEntradaActiva,
+        tieneEntradaHoy,
+        tieneEntradaAbiertaDiaAnterior,
+        ultimaMarcacion: ult ? {
+          id: ult.id,
+          tipo: ult.tipo,
+          timestamp: ult.timestamp,
+          origen: ult.origen
+        } : null
+      }
+    });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: { code: 'STATUS_ERROR', message: 'Error al verificar estado de asistencia' } });
+  }
+});
+
+// POST /admin/manual - Crear marcación manual (Admin o Gerardo)
+marcacionRouter.post('/admin/manual', requireAuth, async (req: Request, res: Response) => {
+  const up = req.user!;
+  const esAdminOGerardo = up.rol === 'Admin' || up.usuario.toLowerCase().includes('gerardo');
+  if (!esAdminOGerardo) {
+    return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Solo Admin o Supervisor pueden registrar marcaciones manuales' } });
+  }
+
+  const { usuario, tipo, timestamp, motivo } = req.body;
+  if (!usuario || !tipo || !['ENTRADA', 'SALIDA'].includes(tipo)) {
+    return res.status(400).json({ success: false, error: { code: 'INVALID_DATA', message: 'Usuario y tipo (ENTRADA o SALIDA) requeridos' } });
+  }
+
+  try {
+    const fechaTimestamp = timestamp ? new Date(timestamp) : new Date();
+    const m = await prisma.marcacion.create({
+      data: {
+        id: genMarcacionId(),
+        usuario,
+        tipo,
+        timestamp: fechaTimestamp,
+        origen: 'MANUAL',
+        motivoRemoto: motivo ? `Manual por ${up.usuario}: ${motivo}` : `Manual por ${up.usuario}`,
+        marcadoPor: up.usuario,
+        ip: getClientIp(req),
+      }
+    });
+
+    auditLog({
+      usuario: up.usuario,
+      accion: 'MARCACION_MANUAL_CREADA',
+      recurso: `/api/marcacion/admin/manual`,
+      resultado: 'success',
+      ip: getClientIp(req),
+      detalle: `${tipo} para ${usuario} a las ${fechaTimestamp.toISOString()}`
+    });
+
+    res.status(201).json({ success: true, data: m });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: { code: 'CREATE_ERROR', message: e.message || 'Error al crear marcación manual' } });
+  }
+});
+
+// PUT /admin/:id - Editar timestamp o tipo de marcación (Admin o Gerardo)
+marcacionRouter.put('/admin/:id', requireAuth, async (req: Request, res: Response) => {
+  const up = req.user!;
+  const esAdminOGerardo = up.rol === 'Admin' || up.usuario.toLowerCase().includes('gerardo');
+  if (!esAdminOGerardo) {
+    return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Solo Admin o Supervisor pueden editar marcaciones' } });
+  }
+
+  const { id } = req.params;
+  const { tipo, timestamp, motivo } = req.body;
+
+  try {
+    const updateData: any = {};
+    if (tipo && ['ENTRADA', 'SALIDA'].includes(tipo)) updateData.tipo = tipo;
+    if (timestamp) updateData.timestamp = new Date(timestamp);
+    if (motivo) updateData.motivoRemoto = `Modificado por ${up.usuario}: ${motivo}`;
+    updateData.marcadoPor = up.usuario;
+
+    const m = await prisma.marcacion.update({
+      where: { id },
+      data: updateData
+    });
+
+    auditLog({
+      usuario: up.usuario,
+      accion: 'MARCACION_EDITADA',
+      recurso: `/api/marcacion/admin/${id}`,
+      resultado: 'success',
+      ip: getClientIp(req),
+      detalle: `Modificada marcación ${id} de ${m.usuario}`
+    });
+
+    res.json({ success: true, data: m });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: { code: 'UPDATE_ERROR', message: e.message || 'Error al editar marcación' } });
+  }
+});
+
 // ─── HOJAS DE RUTA DE MARCACION ─────────────────────────────────────
 
 // GET /hojas-ruta - Listar hojas de ruta de marcacion (admin ve todas, operario ve las asignadas)

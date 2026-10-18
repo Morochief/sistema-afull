@@ -185,3 +185,65 @@ export function distribuirValor(total: number, porcentajes: number[]): number[] 
 
   return resultado;
 }
+
+/**
+ * Catálogo de Productos Compuestos y Kits Frecuentes (ej: McDonald's)
+ */
+export interface ProductoCompuesto {
+  id: string;
+  nombre: string;
+  clienteKeyword: string;
+  descripcion: string;
+  materialesSugeridos: {
+    descripcion: string;
+    cantidad: number;
+    unidad: string;
+    modoInsumo: ModoInsumo;
+  }[];
+}
+
+export const PRODUCTOS_COMPUESTOS_CATALOGO: ProductoCompuesto[] = [
+  {
+    id: 'mcd_diez_register',
+    nombre: "McDonald's Diez Register",
+    clienteKeyword: 'mcdonald',
+    descripcion: 'Montaje de acrílico de 10 portavasos',
+    materialesSugeridos: [
+      { descripcion: 'Plancha Acrílico 3mm Cristal', cantidad: 1, unidad: 'u', modoInsumo: 'UNIDAD' },
+      { descripcion: 'Portavasos Acrílico Termoformado', cantidad: 10, unidad: 'u', modoInsumo: 'UNIDAD' },
+      { descripcion: 'Cinta Doble Faz Espumada 19mm', cantidad: 2.5, unidad: 'm', modoInsumo: 'METRO' },
+      { descripcion: 'Tornillos y tarugos fijación 6mm', cantidad: 4, unidad: 'u', modoInsumo: 'UNIDAD' },
+    ]
+  },
+  {
+    id: 'mcd_totem_menu',
+    nombre: "McDonald's Menú Board Digital",
+    clienteKeyword: 'mcdonald',
+    descripcion: 'Montaje y rotulación de cartelería menú board',
+    materialesSugeridos: [
+      { descripcion: 'Backlight Film Impreso HD', cantidad: 1.5, unidad: 'm2', modoInsumo: 'DIMENSION' },
+      { descripcion: 'Perfil de aluminio anodizado clip', cantidad: 3, unidad: 'm', modoInsumo: 'METRO' },
+      { descripcion: 'Adhesivo Blanco', cantidad: 2, unidad: 'm', modoInsumo: 'METRO' },
+    ]
+  },
+  {
+    id: 'mcd_acrilico_mostrador',
+    nombre: "McDonald's Separador Acrílico Mostrador",
+    clienteKeyword: 'mcdonald',
+    descripcion: 'Montaje de acrílico para cajas registradoras',
+    materialesSugeridos: [
+      { descripcion: 'Acrílico 4mm Transparente con ventana', cantidad: 1, unidad: 'u', modoInsumo: 'UNIDAD' },
+      { descripcion: 'Soportes de mesa metálicos', cantidad: 2, unidad: 'u', modoInsumo: 'UNIDAD' },
+    ]
+  },
+  {
+    id: 'mcd_vinilo_promocional',
+    nombre: "McDonald's Ploteo Promocional Vidriera",
+    clienteKeyword: 'mcdonald',
+    descripcion: 'Ploteo e instalación de vinilo en vidrieras de local',
+    materialesSugeridos: [
+      { descripcion: 'Adhesivo Blanco', cantidad: 4, unidad: 'm', modoInsumo: 'METRO' },
+      { descripcion: 'Laminado Mate Protección UV', cantidad: 4, unidad: 'm', modoInsumo: 'METRO' },
+    ]
+  }
+];

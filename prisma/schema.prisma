@@ -288,11 +288,11 @@ model OrdenTrabajo {
   @@map("ordenes_trabajo")
 }
 
-// ─── Hoja de Ruta (actividades/tareas por operario, derivada de una OT) ───
+// ─── Hoja de Ruta (actividades/tareas por operario, derivada de una OT o creada directo) ───
 
 model HojaRuta {
   id              String    @id @db.VarChar(50)
-  ordenTrabajoId  String    @unique @map("orden_trabajo_id") @db.VarChar(50)
+  ordenTrabajoId  String?   @unique @map("orden_trabajo_id") @db.VarChar(50)
   clienteId       String    @map("cliente_id") @db.VarChar(50)
   clienteNombre   String    @map("cliente_nombre")
   proyecto        String    @db.VarChar(200)
@@ -304,7 +304,7 @@ model HojaRuta {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  ordenTrabajo OrdenTrabajo   @relation(fields: [ordenTrabajoId], references: [id], onDelete: Cascade)
+  ordenTrabajo OrdenTrabajo?  @relation(fields: [ordenTrabajoId], references: [id], onDelete: Cascade)
   tareas       HojaRutaTarea[]
 
   @@index([clienteId])

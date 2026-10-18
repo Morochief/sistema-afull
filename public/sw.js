@@ -1,4 +1,4 @@
-const CACHE_NAME = 'afull-cache-v2';
+const CACHE_NAME = 'afull-cache-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -79,12 +79,13 @@ self.addEventListener('fetch', (event) => {
           });
         }
         return networkResponse;
-      }).catch(async () => {
+      }).catch(async (err) => {
         // Return index.html as fallback for client-side navigation (SPA)
         if (event.request.mode === 'navigate') {
           return (await caches.match('/')) || (await caches.match('/index.html')) || new Response('Offline', { status: 503 });
         }
-        return new Response('Network error or offline', { status: 504, headers: { 'Content-Type': 'text/plain' } });
+        // For scripts and stylesheets, throw error so browser / bundler handles chunk load retry properly
+        throw err;
       });
     })
   );

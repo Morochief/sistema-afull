@@ -18,8 +18,8 @@ export function badgeEstado(estado: string): string {
 }
 
 export default function PedidoForm({token, sucursales, onPedidoCreado}: PedidoFormProps) {
-  // Auto-select cuando el cliente tiene una sola sucursal
-  const [sucursalId, setSucursalId] = useState<string>(sucursales.length === 1 ? sucursales[0].id : '');
+  // Soporte para selección de múltiples locales
+  const [sucursalIds, setSucursalIds] = useState<string[]>(sucursales.length === 1 ? [sucursales[0].id] : []);
   const [descripcion, setDescripcion] = useState('');
   const [cantidad, setCantidad] = useState('1');
   const [foto, setFoto] = useState<string | null>(null);
@@ -77,13 +77,27 @@ export default function PedidoForm({token, sucursales, onPedidoCreado}: PedidoFo
     }
   };
 
+  const toggleSucursal = (id: string) => {
+    setSucursalIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleTodosLocales = () => {
+    if (sucursalIds.length === sucursales.length) {
+      setSucursalIds([]);
+    } else {
+      setSucursalIds(sucursales.map(s => s.id));
+    }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setExito(null);
 
-    if (!sucursalId) {
-      setError('Seleccioná un local');
+    if (sucursalIds.length === 0) {
+      setError('Seleccioná al menos un local');
       return;
     }
     if (!descripcion.trim()) {
@@ -101,7 +115,12 @@ export default function PedidoForm({token, sucursales, onPedidoCreado}: PedidoFo
       const res = await fetch('/api/portal/' + encodeURIComponent(token) + '/pedido', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({sucursalId, descripcion: descripcion.trim(), cantidad: cant, foto}),
+        body: JSON.stringify({
+          sucursalIds,
+          descripcion: descripcion.trim(),
+          cantidad: cant,
+          foto
+        }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
@@ -109,12 +128,12 @@ export default function PedidoForm({token, sucursales, onPedidoCreado}: PedidoFo
         return;
       }
       // Reset form
-      setSucursalId(sucursales.length === 1 ? sucursales[0].id : '');
+      setSucursalIds(sucursales.length === 1 ? [sucursales[0].id] : []);
       setDescripcion('');
       setCantidad('1');
       setFoto(null);
       if (fileRef.current) fileRef.current.value = '';
-      setExito('¡Pedido enviado correctamente!');
+      setExito(`¡Pedido enviado correctamente para ${sucursalIds.length} local(es)!`);
       onPedidoCreado();
     } catch {
       setError('Error de conexión. Intentá nuevamente.');
@@ -175,27 +194,49 @@ export default function PedidoForm({token, sucursales, onPedidoCreado}: PedidoFo
                   </button>
                 )}
               </div>
-              {sucursales.length === 1 && !mostrarNuevaSucursal ? (
-                <input
-                  id="local"
-                  type="text"
-                  className={`${inputCls} opacity-80`}
-                  value={sucursales[0].nombre}
-                  disabled
-                />
-              ) : (
-                <select
-                  id="local"
-                  className={inputCls}
-                  value={sucursalId}
-                  onChange={(e) => setSucursalId(e.target.value)}
-                >
-                  <option value="">Seleccioná un local...</option>
-                  {sucursales.map((l) => (
-                    <option key={l.id} value={l.id} className="bg-slate-900">{l.nombre}</option>
-                  ))}
-                </select>
-              )}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">
+                    {sucursalIds.length === 0
+                      ? 'Ningún local seleccionado'
+                      : `${sucursalIds.length} de ${sucursales.length} locales seleccionados`}
+                  </span>
+                  {sucursales.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={toggleTodosLocales}
+                      className="text-orange-400 hover:text-orange-300 font-semibold cursor-pointer"
+                    >
+                      {sucursalIds.length === sucursales.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-1 bg-[#090a0f] rounded-md border border-white/10">
+                  {sucursales.map((l) => {
+                    const seleccionado = sucursalIds.includes(l.id);
+                    return (
+                      <button
+                        key={l.id}
+                        type="button"
+                        onClick={() => toggleSucursal(l.id)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition cursor-pointer border flex items-center gap-1.5 ${
+                          seleccionado
+                            ? 'bg-orange-600 border-orange-500 text-white shadow-sm'
+                            : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+                        }`}
+                      >
+                        <span className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center text-[10px] ${
+                          seleccionado ? 'border-white bg-white text-orange-600 font-bold' : 'border-white/30'
+                        }`}>
+                          {seleccionado ? '✓' : ''}
+                        </span>
+                        {l.nombre}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               {mostrarNuevaSucursal && (
                 <div className="mt-2 flex gap-2">

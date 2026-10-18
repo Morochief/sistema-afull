@@ -146,7 +146,7 @@ export default function HojasRutaAdmin() {
   }
 
   useEffect(() => { fetchHojas(); }, [fetchHojas]);
-  useEffect(() => { fetchOTs(); fetchColaboradores(); }, []);
+  useEffect(() => { fetchOTs(); fetchColaboradores(); fetchClientesYProyectos(); }, []);
 
   async function fetchHojaDetalle(id: string) {
     try {
@@ -157,9 +157,54 @@ export default function HojasRutaAdmin() {
     }
   }
 
-  async function crearHoja() {
-    if (!otSeleccionada) { setError('Seleccioná una OT'); return; }
+  const [modoCreacion, setModoCreacion] = useState<'ot' | 'directo'>('directo');
+  const [clientesData, setClientesData] = useState<{ id: string; nombre: string }[]>([]);
+  const [proyectosData, setProyectosData] = useState<{ id: string; clienteId: string; nombre: string }[]>([]);
+  const [clienteDirectoId, setClienteDirectoId] = useState('');
+  const [proyectoDirecto, setProyectoDirecto] = useState('');
+  const [notasDirecto, setNotasDirecto] = useState('');
+
+  async function fetchClientesYProyectos() {
     try {
+      const res = await authFetchJSON('/api/data');
+      if (res.success && res.data) {
+        if (res.data.clientes) setClientesData(res.data.clientes);
+        if (res.data.proyectos) setProyectosData(res.data.proyectos);
+      }
+    } catch {}
+  }
+
+  async function crearHoja() {
+    try {
+      if (modoCreacion === 'directo') {
+        if (!clienteDirectoId) { setError('Seleccioná un cliente'); return; }
+        if (!proyectoDirecto.trim()) { setError('Ingresá el nombre del proyecto'); return; }
+        const c = clientesData.find(cli => cli.id === clienteDirectoId);
+        const res = await authFetchJSON('/api/admin/hojas-ruta', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clienteId: clienteDirectoId,
+            clienteNombre: c?.nombre || 'Cliente',
+            proyecto: proyectoDirecto.trim(),
+            notas: notasDirecto.trim() || undefined,
+          }),
+        });
+        if (res.success) {
+          setShowCreateModal(false);
+          setClienteDirectoId('');
+          setProyectoDirecto('');
+          setNotasDirecto('');
+          await fetchHojas();
+          setSelectedHoja(res.data);
+          showToast('Hoja de ruta creada con éxito', 'success');
+        } else {
+          setError(res.error?.message || 'Error al crear hoja');
+        }
+        return;
+      }
+
+      if (!otSeleccionada) { setError('Seleccioná una OT'); return; }
       const res = await authFetchJSON('/api/admin/hojas-ruta', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -170,6 +215,7 @@ export default function HojasRutaAdmin() {
         setOtSeleccionada('');
         await fetchHojas();
         setSelectedHoja(res.data);
+        showToast('Hoja de ruta generada desde OT', 'success');
       } else {
         setError(res.error?.message || 'Error al crear hoja');
       }
@@ -681,40 +727,127 @@ export default function HojasRutaAdmin() {
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="p-5 space-y-3">
-                <p className="text-xs text-slate-400">
-                  Seleccioná una Orden de Trabajo para generar la hoja de ruta con sus tareas precargadas:
-                </p>
-                {otsDisponibles.length === 0 ? (
-                  <div className="text-center py-6 text-xs text-slate-500 bg-[#090a0f] rounded-md border border-white/5">
-                    No hay OTs pendientes de hoja de ruta.
+              <div className="p-5 space-y-4">
+                {/* Selector de Modo: Directo vs Desde OT */}
+                <div className="flex gap-1 p-1 bg-[#090a0f] rounded-md border border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setModoCreacion('directo')}
+                    className={`flex-1 py-1.5 px-3 rounded text-xs font-semibold cursor-pointer transition-all ${
+                      modoCreacion === 'directo'
+                        ? 'bg-orange-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Directo (Cliente + Proyecto)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModoCreacion('ot')}
+                    className={`flex-1 py-1.5 px-3 rounded text-xs font-semibold cursor-pointer transition-all ${
+                      modoCreacion === 'ot'
+                        ? 'bg-orange-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Desde Orden de Trabajo (OT)
+                  </button>
+                </div>
+
+                {modoCreacion === 'directo' ? (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
+                        Cliente *
+                      </label>
+                      <select
+                        value={clienteDirectoId}
+                        onChange={(e) => {
+                          const cid = e.target.value;
+                          setClienteDirectoId(cid);
+                          const projs = proyectosData.filter(p => p.clienteId === cid);
+                          if (projs.length > 0) setProyectoDirecto(projs[0].nombre);
+                          else setProyectoDirecto('');
+                        }}
+                        className="w-full bg-[#090a0f] border border-white/10 rounded-md px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500"
+                      >
+                        <option value="">— Seleccionar Cliente —</option>
+                        {clientesData.map(c => (
+                          <option key={c.id} value={c.id}>{c.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
+                        Proyecto *
+                      </label>
+                      <input
+                        type="text"
+                        value={proyectoDirecto}
+                        onChange={(e) => setProyectoDirecto(e.target.value)}
+                        placeholder="Ej: Montaje Cartelería / Mantenimiento"
+                        className="w-full bg-[#090a0f] border border-white/10 rounded-md px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500"
+                        list="proyectos-sugeridos"
+                      />
+                      <datalist id="proyectos-sugeridos">
+                        {proyectosData
+                          .filter(p => !clienteDirectoId || p.clienteId === clienteDirectoId)
+                          .map(p => <option key={p.id} value={p.nombre} />)}
+                      </datalist>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
+                        Notas / Indicaciones Generales (opcional)
+                      </label>
+                      <textarea
+                        value={notasDirecto}
+                        onChange={(e) => setNotasDirecto(e.target.value)}
+                        placeholder="Dirección, contactos o detalles para el equipo..."
+                        rows={2}
+                        className="w-full bg-[#090a0f] border border-white/10 rounded-md px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500"
+                      />
+                    </div>
                   </div>
                 ) : (
-                  <div className="space-y-1 max-h-[300px] overflow-y-auto">
-                    {otsDisponibles.map(ot => (
-                      <button
-                        key={ot.id}
-                        onClick={() => setOtSeleccionada(ot.id)}
-                        className={`w-full text-left px-3 py-2 rounded-md text-xs transition-colors cursor-pointer border ${
-                          otSeleccionada === ot.id
-                            ? 'bg-orange-500/20 border-orange-500/40 text-orange-300'
-                            : 'bg-[#090a0f] border-white/10 text-slate-300 hover:bg-white/5'
-                        }`}
-                      >
-                        <div className="font-semibold">{ot.clienteNombre}</div>
-                        <div className="text-[10px] text-slate-500">{ot.proyecto}</div>
-                        <div className="text-[9px] text-slate-600">Estado: {ot.estado}</div>
-                      </button>
-                    ))}
+                  <div className="space-y-3">
+                    <p className="text-xs text-slate-400">
+                      Seleccioná una Orden de Trabajo para generar la hoja de ruta con sus tareas precargadas:
+                    </p>
+                    {otsDisponibles.length === 0 ? (
+                      <div className="text-center py-6 text-xs text-slate-500 bg-[#090a0f] rounded-md border border-white/5">
+                        No hay OTs pendientes de hoja de ruta.
+                      </div>
+                    ) : (
+                      <div className="space-y-1 max-h-[220px] overflow-y-auto">
+                        {otsDisponibles.map(ot => (
+                          <button
+                            key={ot.id}
+                            onClick={() => setOtSeleccionada(ot.id)}
+                            className={`w-full text-left px-3 py-2 rounded-md text-xs transition-colors cursor-pointer border ${
+                              otSeleccionada === ot.id
+                                ? 'bg-orange-500/20 border-orange-500/40 text-orange-300'
+                                : 'bg-[#090a0f] border-white/10 text-slate-300 hover:bg-white/5'
+                            }`}
+                          >
+                            <div className="font-semibold">{ot.clienteNombre}</div>
+                            <div className="text-[10px] text-slate-500">{ot.proyecto}</div>
+                            <div className="text-[9px] text-slate-600">Estado: {ot.estado}</div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
-                <div className="flex items-center gap-2 pt-2">
+
+                <div className="flex items-center gap-2 pt-2 border-t border-white/5">
                   <button
                     onClick={crearHoja}
-                    disabled={!otSeleccionada}
+                    disabled={modoCreacion === 'directo' ? (!clienteDirectoId || !proyectoDirecto.trim()) : !otSeleccionada}
                     className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-md cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Generar Hoja
+                    Crear Hoja de Ruta
                   </button>
                   <button
                     onClick={() => setShowCreateModal(false)}

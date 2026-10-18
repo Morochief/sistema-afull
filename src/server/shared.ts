@@ -215,5 +215,12 @@ export function convertPrismaToFrontend(prismaData: any): DatabaseState {
         rol: mapDbRolToUi(u.rol),
         activo: u.activo,
       })),
+    insumos: (prismaData.insumos || []).map((ins: any) => ({
+      id: ins.id,
+      nombre: ins.nombre,
+      costo: ins.costo ? parseFloat(ins.costo.toString()) : 0,
+      unidad: ins.unidad || 'm2',
+      categoria: ins.categoria || 'General'
+    })),
   };
 }

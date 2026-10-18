@@ -39,7 +39,7 @@ describe('PedidoHistorial', () => {
       />
     );
 
-    const miniaturas = screen.getAllByRole('button', { name: /Ver foto/i });
+    const miniaturas = screen.getAllByRole('button', { name: /^Ver foto$/i });
     expect(miniaturas).toHaveLength(1);
     const img = screen.getByAltText('Foto del pedido Cambio de micro playland');
     expect(img).toHaveAttribute('src', '/uploads/pedidos/ped-1/foto.jpg');
@@ -73,7 +73,7 @@ describe('PedidoHistorial', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: /Ver foto/i }));
+    await user.click(screen.getByRole('button', { name: /^Ver foto$/i }));
 
     // Modal ampliado
     const ampliada = screen.getByAltText('Foto del pedido');
