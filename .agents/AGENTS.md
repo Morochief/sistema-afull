@@ -35,12 +35,13 @@ Este documento define la base de conocimiento, las reglas de arquitectura y las 
 
 | SIEMPRE (ALWAYS) | PREGUNTAR (ASK) | NUNCA (NEVER) |
 | :--- | :--- | :--- |
-| Cargar `.env.local` antes de `.env` en scripts y servidores backend. | Ejecutar migraciones destructivas en la base de datos (`prisma migrate`). | Subir una URL pública (e.g. `http...` o `/uploads...`) a la función `guardarFotosVehiculo`. |
-| Traducir explícitamente enums de Base de Datos a valores de UI (ej: mapDbRolToUi / mapUiRolToDb) al interactuar con Prisma. | | Insertar strings arbitrarios directamente en columnas mapeadas a Enums en Prisma. |
-| Añadir un *Cache Buster* (`?t=timestamp`) al renderizar URLs de Supabase Storage en el frontend. | Realizar `git push` directo a la rama `main` en producción. | Omitir `preventDefault()` en controladores de envío de formularios. |
-| Correr el compilador/typecheck (`npm run build`) después de cada cambio en los archivos. | Modificar esquemas de bases de datos (`schema.prisma`). | Dejar llamadas a APIs del servidor sin protección de autorización (`requireAuth`). |
-| Invalidar inmediatamente la caché de sesión (`userActiveCache.delete`) al desactivar o modificar un usuario. | Cambiar la configuración de variables de entorno globales. | Guardar contraseñas o datos sensibles sin encriptación previa. |
-| Comprimir y optimizar imágenes en cliente antes de enviarlas al servidor. | | |
+| Seguir el **Protocolo Obligatorio de Cambio (4 Fases)**: Leer reglas e historial (`AGENTS.md`), presentar propuesta/plan, esperar aprobación explícita antes de editar código, y verificar con `npm run build`. | Ejecutar migraciones destructivas en la base de datos (`prisma migrate`). | Implementar cambios de código "de repente" sin consultar las reglas del proyecto ni presentar un plan previo. |
+| Cargar `.env.local` antes de `.env` en scripts y servidores backend. | Modificar esquemas de bases de datos (`schema.prisma`). | Subir una URL pública (e.g. `http...` o `/uploads...`) a la función `guardarFotosVehiculo`. |
+| Traducir explícitamente enums de Base de Datos a valores de UI (ej: mapDbRolToUi / mapUiRolToDb) al interactuar con Prisma. | Realizar `git push` directo a la rama `main` en producción. | Insertar strings arbitrarios directamente en columnas mapeadas a Enums en Prisma. |
+| Añadir un *Cache Buster* (`?t=timestamp`) al renderizar URLs de Supabase Storage en el frontend. | Cambiar la configuración de variables de entorno globales. | Omitir `preventDefault()` en controladores de envío de formularios. |
+| Correr el compilador/typecheck (`npm run build`) después de cada cambio en los archivos. | | Dejar llamadas a APIs del servidor sin protección de autorización (`requireAuth`). |
+| Invalidar inmediatamente la caché de sesión (`userActiveCache.delete`) al desactivar o modificar un usuario. | | Guardar contraseñas o datos sensibles sin encriptación previa. |
+| Comprimir y optimizar imágenes en cliente antes de enviarlas al servidor. | | Tocar o modificar el submódulo `ECC`. |
 
 ---
 
