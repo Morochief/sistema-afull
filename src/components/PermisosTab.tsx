@@ -114,8 +114,8 @@ export default function PermisosTab({ data }: PermisosTabProps) {
   useEffect(() => { fetchPermisos(); }, [fetchPermisos]);
 
   const colaboradorSeleccionado = useMemo(
-    () => data.colaboradores.find(c => c.id === selColaborador),
-    [data.colaboradores, selColaborador]
+    () => (data?.colaboradores || []).find(c => c.id === selColaborador),
+    [data?.colaboradores, selColaborador]
   );
 
   // Filtered by search term
@@ -546,7 +546,7 @@ export default function PermisosTab({ data }: PermisosTabProps) {
                       className="w-full px-3 py-2 text-xs text-white bg-[#090a0f] border border-white/10 rounded-md focus:outline-none focus:border-orange-500"
                     >
                       <option value="">Seleccionar colaborador...</option>
-                      {data.colaboradores.map(c => (
+                      {(data?.colaboradores || []).map(c => (
                         <option key={c.id} value={c.id}>{c.nombre} {c.ci ? `— CI: ${c.ci}` : ''}</option>
                       ))}
                     </select>

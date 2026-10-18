@@ -1042,7 +1042,7 @@ function AppInner() {
               transition={{ duration: 0.22 }}
             >
               <MisRegistros
-                data={dbState}
+                data={dbState || { clientes: [], proyectos: [], colaboradores: [], registros: [], registrosVehiculo: [], timersActivos: [], viajesActivos: [] }}
                 currentUser={session}
                 onRefresh={fetchDbState}
               />
@@ -1149,11 +1149,11 @@ function AppInner() {
               <MisTareas
                 onNavigateToVehiculo={(clienteNombre, proyecto) => {
                   if (clienteNombre) {
-                    const c = dbState?.clientes.find(cli => cli.nombre.toLowerCase() === clienteNombre.toLowerCase());
+                    const c = (dbState?.clientes || []).find(cli => cli?.nombre && cli.nombre.toLowerCase() === clienteNombre.toLowerCase());
                     if (c) sessionStorage.setItem(`afull_ctx_${session?.usuario || 'guest'}_clienteId`, c.id);
                   }
                   if (proyecto) {
-                    const p = dbState?.proyectos.find(pro => pro.nombre.toLowerCase() === proyecto.toLowerCase());
+                    const p = (dbState?.proyectos || []).find(pro => pro?.nombre && pro.nombre.toLowerCase() === proyecto.toLowerCase());
                     if (p) sessionStorage.setItem(`afull_ctx_${session?.usuario || 'guest'}_proyectoId`, p.id);
                   }
                   setActiveTab('registro');
@@ -1161,11 +1161,11 @@ function AppInner() {
                 }}
                 onNavigateToRegistro={(clienteNombre, proyecto) => {
                   if (clienteNombre) {
-                    const c = dbState?.clientes.find(cli => cli.nombre.toLowerCase() === clienteNombre.toLowerCase());
+                    const c = (dbState?.clientes || []).find(cli => cli?.nombre && cli.nombre.toLowerCase() === clienteNombre.toLowerCase());
                     if (c) sessionStorage.setItem(`afull_ctx_${session?.usuario || 'guest'}_clienteId`, c.id);
                   }
                   if (proyecto) {
-                    const p = dbState?.proyectos.find(pro => pro.nombre.toLowerCase() === proyecto.toLowerCase());
+                    const p = (dbState?.proyectos || []).find(pro => pro?.nombre && pro.nombre.toLowerCase() === proyecto.toLowerCase());
                     if (p) sessionStorage.setItem(`afull_ctx_${session?.usuario || 'guest'}_proyectoId`, p.id);
                   }
                   setActiveTab('registro');
@@ -1182,7 +1182,7 @@ function AppInner() {
               exit={{ opacity: 0, y: -15 }}
               transition={{ duration: 0.22 }}
             >
-              <PermisosTab data={dbState} />
+              <PermisosTab data={dbState || { clientes: [], proyectos: [], colaboradores: [], registros: [], registrosVehiculo: [], timersActivos: [], viajesActivos: [] }} />
             </motion.div>
           )}
 

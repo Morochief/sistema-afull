@@ -194,7 +194,7 @@ function useEditRegistro(
     } finally {
       setIsSubmitting(false);
     }
-  }, [editingId, formData, data.registros, onRefresh, cancelEdit]);
+  }, [editingId, formData, data?.registros, onRefresh, cancelEdit]);
 
   return {
     isEditing,
@@ -770,13 +770,13 @@ export default function MisRegistros({ data, currentUser, onRefresh }: MisRegist
     if (!loading) {
       refetchRegistros();
     }
-  }, [data.registros, data.registrosVehiculo]); // Watch both
+  }, [data?.registros, data?.registrosVehiculo]); // Watch both
 
   // Buscar el colaborador SOLO para mostrar la tarifa en el badge (no bloquea el render).
   // El servidor ya filtra los registros por el colaboradorId del JWT, así que la
   // identidad del usuario viene de `currentUser` (nombre / rol) y este lookup es opcional.
   const currentUserColaborador = useMemo(() => {
-    return data.colaboradores.find(
+    return (data?.colaboradores || []).find(
       col => {
         if (!col?.nombre || !currentUser?.nombre) return false;
         const colName = col.nombre.toLowerCase();
@@ -784,7 +784,7 @@ export default function MisRegistros({ data, currentUser, onRefresh }: MisRegist
         return colName.includes(userName) || userName.includes(colName);
       }
     );
-  }, [data.colaboradores, currentUser.nombre]);
+  }, [data?.colaboradores, currentUser?.nombre]);
 
   // Usar los registros del servidor (ya filtrados)
   const misRegistros = registros;
@@ -992,14 +992,14 @@ export default function MisRegistros({ data, currentUser, onRefresh }: MisRegist
             <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1 block">Cliente</label>
             <select value={filterCliente} onChange={e => { setFilterCliente(e.target.value); setFilterProyecto(''); }} className="glass-select w-full rounded-md px-3 py-2 text-xs">
               <option value="">Todos los Clientes</option>
-              {data.clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              {(data?.clientes || []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </select>
           </div>
           <div>
             <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1 block">Proyecto</label>
             <select value={filterProyecto} onChange={e => setFilterProyecto(e.target.value)} className="glass-select w-full rounded-md px-3 py-2 text-xs">
               <option value="">Todos los Proyectos</option>
-              {data.proyectos.filter(p => !filterCliente || p.clienteId === filterCliente).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+              {(data?.proyectos || []).filter(p => !filterCliente || p.clienteId === filterCliente).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
             </select>
           </div>
           <div>
@@ -1136,7 +1136,7 @@ export default function MisRegistros({ data, currentUser, onRefresh }: MisRegist
         formData={formData}
         isSubmitting={isSubmitting}
         feedback={feedback}
-        proyectos={data.proyectos}
+        proyectos={data?.proyectos || []}
         onClose={cancelEdit}
         onUpdateField={updateField}
         onSubmit={submitEdit}

@@ -95,12 +95,12 @@ class ErrorBoundary extends Component<Props, State> {
               La aplicación encontró un error inesperado. Por favor, intenta recargar la página o limpiar la memoria local.
             </p>
 
-            {process.env.NODE_ENV !== 'production' && this.state.error && (
+            {this.state.error && (
               <details className="text-left mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-md">
                 <summary className="text-xs font-mono text-rose-300 cursor-pointer mb-2">
-                  Detalles del error (dev only)
+                  Ver detalle técnico del error
                 </summary>
-                <pre className="text-[10px] text-rose-200 overflow-auto max-h-40">
+                <pre className="text-[10px] text-rose-200 overflow-auto max-h-40 whitespace-pre-wrap break-all">
                   {this.state.error.toString()}
                   {this.state.errorInfo && (
                     <>
