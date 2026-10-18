@@ -973,17 +973,23 @@ function AppInner() {
 
             <span className="text-[10px] sm:text-xs font-mono text-slate-400 uppercase tracking-wider hidden sm:inline">Módulo:</span>
             <span className="text-xs font-semibold text-white uppercase tracking-wider truncate max-w-[150px] xs:max-w-none">
-              {activeTab === 'dashboard' && 'Panel de Control'}
-              {activeTab === 'registro' && 'Registro Operativo'}
-              {activeTab === 'misregistros' && 'Mis Registros'}
-              {activeTab === 'pedidos' && 'Pedidos de Clientes'}
-              {activeTab === 'presupuestos' && 'Presupuestos Comerciales'}
-              {activeTab === 'ordenestrabajo' && 'Órdenes de Trabajo'}
-              {activeTab === 'hojasruta' && 'Hojas de Ruta'}
-              {activeTab === 'mistareas' && 'Mis Tareas y Montajes'}
-              {activeTab === 'import' && 'Importación de Planillas Excel'}
-              {activeTab === 'reportes' && 'Reportes y Costos'}
-              {activeTab === 'admin' && 'Panel de Administración'}
+              {(() => {
+                switch (activeTab) {
+                  case 'dashboard': return 'Panel de Control';
+                  case 'registro': return 'Registro Operativo';
+                  case 'misregistros': return 'Mis Registros';
+                  case 'pedidos': return 'Pedidos de Clientes';
+                  case 'presupuestos': return 'Presupuestos Comerciales';
+                  case 'ordenestrabajo': return 'Órdenes de Trabajo';
+                  case 'hojasruta': return 'Hojas de Ruta';
+                  case 'mistareas': return 'Mis Tareas y Montajes';
+                  case 'permisos': return 'Permisos RRHH';
+                  case 'import': return 'Importación de Planillas Excel';
+                  case 'reportes': return 'Reportes y Costos';
+                  case 'admin': return 'Panel de Administración';
+                  default: return '';
+                }
+              })()}
             </span>
           </div>
 
