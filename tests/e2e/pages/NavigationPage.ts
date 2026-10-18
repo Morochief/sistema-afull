@@ -27,7 +27,8 @@ export class NavigationPage extends BasePage {
       hojasruta: 'Hojas de Ruta',
       reportes: 'Reportes y Costos',
       import: 'Importar Excel',
-      admin: 'Configuración Admin',
+      admin: 'Administración',
+      permisos: 'Permisos RRHH',
     };
 
     const label = tabMap[tabId];
