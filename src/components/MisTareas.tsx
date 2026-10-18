@@ -106,15 +106,22 @@ export default function MisTareas({ onNavigateToVehiculo, onNavigateToRegistro }
   useEffect(() => { load(); }, [load]);
 
   const handleCambiarEstado = async (tarea: Tarea, nuevoEstado: string) => {
-    setSaving(true);
+    // 1. Guardar snapshot previo para rollback si falla la red (Regla 2 del skill)
+    const prevTareas = [...tareas];
+    const prevTarea = { ...tarea };
+
+    // 2. Aplicar cambio optimista inmediato a 0ms en la UI (Regla 1)
+    setTareas(prev => prev.map(t => t.id === tarea.id ? { ...t, estado: nuevoEstado } : t));
     setError(null);
+
     try {
       if (nuevoEstado === 'EnProgreso') {
         // Validación de asistencia
         const checkAsistencia = await authFetchJSON<{ success: boolean; data: any }>('/api/marcacion/estado-actual').catch(() => null);
         if (checkAsistencia?.success && checkAsistencia.data && !checkAsistencia.data.tieneEntradaHoy) {
+          // Revertir cambio optimista si no marcó asistencia
+          setTareas(prevTareas);
           setError('⚠️ Debes marcar tu ENTRADA antes de poder iniciar tareas.');
-          setSaving(false);
           return;
         }
 
@@ -130,20 +137,23 @@ export default function MisTareas({ onNavigateToVehiculo, onNavigateToRegistro }
         }
       }
 
-      await authFetchJSON(`/api/operario/tareas/${tarea.id}`, {
+      const res = await authFetchJSON<{ success: boolean; data: any }>(`/api/operario/tareas/${tarea.id}`, {
         method: 'PUT',
         body: JSON.stringify({ estado: nuevoEstado }),
       });
 
+      // 3. Reconciliación con la respuesta del servidor (Regla 3)
+      if (res?.data) {
+        setTareas(prev => prev.map(t => t.id === tarea.id ? { ...t, ...res.data, hojaRuta: t.hojaRuta } : t));
+      }
+
       if (nuevoEstado === 'EnProgreso' && onNavigateToRegistro) {
         onNavigateToRegistro(tarea.hojaRuta.clienteNombre, tarea.hojaRuta.proyecto, tarea.descripcion);
       }
-
-      load();
     } catch (e: any) {
-      setError(e.message || 'Error al actualizar tarea');
-    } finally {
-      setSaving(false);
+      // 4. Rollback visible y explicación clara en pantalla (Regla 4)
+      setTareas(prevTareas);
+      setError(`No se pudo actualizar la tarea: ${e.message || 'Error de conexión'}. Se restauró el estado anterior.`);
     }
   };
 

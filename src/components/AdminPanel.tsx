@@ -207,8 +207,10 @@ export default function AdminPanel({
     }
   };
 
-  interface NavCategory {
-    category: string;
+  interface NavDomain {
+    id: string;
+    label: string;
+    icon: React.ReactNode;
     items: {
       id: AdminSubTab;
       label: string;
@@ -217,95 +219,106 @@ export default function AdminPanel({
     }[];
   }
 
-  const navCategories: NavCategory[] = [
+  const navDomains: NavDomain[] = [
     {
-      category: 'Taller & Producción',
+      id: 'operaciones',
+      label: 'Operaciones & En Vivo',
+      icon: <Clock className="w-4 h-4 text-emerald-400" />,
       items: [
-        { id: 'insumos', label: 'Catálogo Insumos & Taller', icon: <Layers className="w-4 h-4" /> },
+        { id: 'trabajos-activos', label: '⚡ Control en Vivo', icon: <Users className="w-3.5 h-3.5 text-emerald-400" /> },
+        { id: 'vehiculos', label: 'Flota & Vehículos', icon: <Car className="w-3.5 h-3.5" />, badge: (data.registrosVehiculo || []).length },
+        { id: 'marcaciones', label: 'Timeline Asistencia', icon: <Clock className="w-3.5 h-3.5" /> },
+        { id: 'grupos-marcacion', label: 'Grupos de Marcación', icon: <UsersRound className="w-3.5 h-3.5" /> },
       ]
     },
     {
-      category: 'Entidades & Cartera',
+      id: 'catalogos',
+      label: 'Gestión & Catálogos',
+      icon: <Building2 className="w-4 h-4 text-orange-400" />,
       items: [
-        { id: 'clientes', label: 'Clientes', icon: <Building2 className="w-4 h-4" />, badge: data.clientes.length },
-        { id: 'sucursales', label: 'Sucursales / Locales', icon: <Store className="w-4 h-4" /> },
-        { id: 'proyectos', label: 'Proyectos', icon: <FolderGit2 className="w-4 h-4" />, badge: data.proyectos.length },
-        { id: 'cartera', label: 'Cartera CRM', icon: <Contact className="w-4 h-4" /> },
+        { id: 'clientes', label: 'Clientes', icon: <Building2 className="w-3.5 h-3.5" />, badge: data.clientes.length },
+        { id: 'sucursales', label: 'Sucursales / Locales', icon: <Store className="w-3.5 h-3.5" /> },
+        { id: 'proyectos', label: 'Proyectos', icon: <FolderGit2 className="w-3.5 h-3.5" />, badge: data.proyectos.length },
+        { id: 'insumos', label: 'Insumos & Taller', icon: <Layers className="w-3.5 h-3.5" /> },
+        { id: 'cartera', label: 'Cartera CRM', icon: <Contact className="w-3.5 h-3.5" /> },
       ]
     },
     {
-      category: 'Personal & RR.HH.',
+      id: 'seguridad',
+      label: 'Equipo & Seguridad',
+      icon: <Shield className="w-4 h-4 text-indigo-400" />,
       items: [
-        { id: 'colaboradores', label: 'Colaboradores', icon: <Users className="w-4 h-4" />, badge: data.colaboradores.length },
-        { id: 'permisos', label: 'Permisos (RR.HH.)', icon: <Shield className="w-4 h-4" /> },
-      ]
-    },
-    {
-      category: 'Flota & Asistencia',
-      items: [
-        { id: 'trabajos-activos', label: '⚡ Control en Vivo (Operarios)', icon: <Users className="w-4 h-4 text-emerald-400" /> },
-        { id: 'vehiculos', label: 'Control de Vehículos', icon: <Car className="w-4 h-4" />, badge: (data.registrosVehiculo || []).length },
-        { id: 'marcaciones', label: 'Timeline Marcaciones', icon: <Clock className="w-4 h-4" /> },
-        { id: 'grupos-marcacion', label: 'Grupos de Marcación', icon: <UsersRound className="w-4 h-4" /> },
-      ]
-    },
-    {
-      category: 'Sistema & Contingencia',
-      items: [
-        { id: 'registro', label: 'Carga Manual Directa', icon: <PenTool className="w-4 h-4" /> },
-        { id: 'auditlog', label: 'Auditoría de Accesos', icon: <FileText className="w-4 h-4" /> },
+        { id: 'colaboradores', label: 'Colaboradores', icon: <Users className="w-3.5 h-3.5" />, badge: data.colaboradores.length },
+        { id: 'permisos', label: 'Permisos RR.HH.', icon: <Shield className="w-3.5 h-3.5" /> },
+        { id: 'auditlog', label: 'Auditoría & Accesos', icon: <FileText className="w-3.5 h-3.5" /> },
+        { id: 'registro', label: 'Carga Manual', icon: <PenTool className="w-3.5 h-3.5" /> },
       ]
     }
   ];
 
+  // Identificar el dominio activo según el subtab seleccionado
+  const currentDomain = navDomains.find(d => d.items.some(item => item.id === activeSubTab)) || navDomains[0];
+
   return (
-    <div id="admin_control_view" className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
+    <div id="admin_control_view" className="space-y-4 relative z-10">
       
-      {/* Sidebar navigation tabs for admin view - Categorized Enterprise */}
-      <div className="lg:col-span-3 space-y-5">
-        {navCategories.map((group, gIdx) => (
-          <div key={gIdx} className="space-y-1.5">
-            <h4 className="text-[11px] font-bold tracking-wider uppercase text-slate-500 font-mono px-3">
-              {group.category}
-            </h4>
-            <div className="space-y-0.5">
-              {group.items.map(item => {
-                const isActive = activeSubTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveSubTab(item.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium cursor-pointer transition-all ${
-                      isActive 
-                        ? 'bg-orange-500/15 text-orange-300 font-semibold border border-orange-500/30 shadow-xs' 
-                        : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <span className={isActive ? 'text-orange-400' : 'text-slate-400'}>
-                        {item.icon}
-                      </span>
-                      <span className="truncate">{item.label}</span>
-                    </div>
-                    {item.badge !== undefined && item.badge > 0 && (
-                      <span className={`px-1.5 py-0.5 rounded-sm text-[10px] font-mono ${
-                        isActive 
-                          ? 'bg-orange-500/30 text-orange-200' 
-                          : 'bg-white/10 text-slate-400'
-                      }`}>
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+      {/* Barra de Navegación Enterprise: 3 Dominios Principales + Sub-Pills Horizontales */}
+      <div className="rounded-md border border-white/10 bg-[#111318] p-3 space-y-3">
+        {/* Nivel 1: Selector de Gran Dominio */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-white/5 pb-2.5">
+          {navDomains.map(domain => {
+            const isDomainActive = domain.id === currentDomain.id;
+            return (
+              <button
+                key={domain.id}
+                onClick={() => {
+                  // Si cambiamos de dominio, activar la primera pestaña de ese dominio
+                  setActiveSubTab(domain.items[0].id);
+                }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold cursor-pointer transition-all ${
+                  isDomainActive
+                    ? 'bg-orange-500/15 text-orange-300 border border-orange-500/30 shadow-xs'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+                }`}
+              >
+                {domain.icon}
+                <span>{domain.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Nivel 2: Sub-pills del Dominio Activo */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+          {currentDomain.items.map(item => {
+            const isActive = activeSubTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveSubTab(item.id)}
+                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-medium cursor-pointer transition-all ${
+                  isActive
+                    ? 'bg-[#ea580c] text-white font-semibold shadow-xs'
+                    : 'text-slate-300 hover:text-white hover:bg-white/10 border border-white/5'
+                }`}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${
+                    isActive ? 'bg-black/30 text-white' : 'bg-white/10 text-slate-400'
+                  }`}>
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Main Form/Administration Body */}
-      <div className="lg:col-span-9">
+      {/* Main Form/Administration Body - 100% de Ancho Util */}
+      <div className="w-full">
         <AnimatePresence mode="wait">
           {activeSubTab === 'registro' && (
             <RegistroManualForm
