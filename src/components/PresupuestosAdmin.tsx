@@ -690,7 +690,9 @@ export default function PresupuestosAdmin({ clientes, pedidos, proyectos, onConv
             </div>
             <div className="space-y-1 min-w-0">
               <div className="flex items-center justify-between">
-                <label htmlFor="presupuesto-proyecto" className="text-xs font-mono text-slate-400">Proyecto *</label>
+                <label htmlFor="presupuesto-proyecto" className="text-xs font-mono text-slate-300">
+                  Nombre del Trabajo / Proyecto *
+                </label>
                 <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-md border border-white/5">
                   <button
                     type="button"
@@ -714,7 +716,7 @@ export default function PresupuestosAdmin({ clientes, pedidos, proyectos, onConv
                         : 'text-slate-400 hover:text-slate-200'
                     }`}
                   >
-                    ✨ Nuevo
+                    ✨ Trabajo Nuevo
                   </button>
                 </div>
               </div>
@@ -740,13 +742,13 @@ export default function PresupuestosAdmin({ clientes, pedidos, proyectos, onConv
                     id="presupuesto-proyecto"
                     type="text"
                     className={inputCls}
-                    placeholder="Ej: Renovación Cartelería Fachada 2026"
+                    placeholder="Ej: Letras corpóreas para fachada / Cartelería 2026"
                     value={form.proyecto}
                     onChange={(e) => setForm({ ...form, proyecto: e.target.value })}
                     disabled={!form.clienteId}
                   />
-                  <p className="text-[10px] text-slate-500 font-mono">
-                    💡 Se creará automáticamente en Proyectos cuando el presupuesto sea aprobado.
+                  <p className="text-[10px] text-amber-400/90 font-mono">
+                    💡 No necesitás crear el proyecto antes: se creará de forma automática en Proyectos cuando el cliente apruebe la cotización.
                   </p>
                 </div>
               )}

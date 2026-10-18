@@ -1,11 +1,11 @@
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useState, useMemo} from 'react';
 import {authFetchJSON} from '../authFetch.ts';
 import {Cliente, Pedido, Sucursal} from '../types.ts';
 import PedidoDetalleModal from './PedidoDetalleModal.tsx';
 import ModalDetalleEntrega from '../portal/ModalDetalleEntrega.tsx';
 import { useSortAndPaginate, getSortIcon, sortableHeaderClass } from '../lib/tableUtils.ts';
 import Pagination from './Pagination.tsx';
-import { Eye } from 'lucide-react';
+import { Eye, ExternalLink, Copy, CheckCircle, Clock, CheckCircle2, AlertCircle, MapPin, Tag } from 'lucide-react';
 
 interface PedidosAdminProps {
   clientes: Cliente[];
@@ -147,184 +147,321 @@ export default function PedidosAdmin({clientes, onConvertido}: PedidosAdminProps
 
   const selectCls = 'rounded-md border border-white/10 bg-[#090a0f] px-3 py-2 text-sm text-slate-200 outline-none focus:border-orange-500 transition';
 
+  // Contadores para chips KPI
+  const counts = useMemo(() => {
+    const res = { total: pedidos.length, pendiente: 0, enProceso: 0, completado: 0, entregado: 0 };
+    pedidos.forEach(p => {
+      if (p.estado === 'Pendiente') res.pendiente++;
+      else if (p.estado === 'En Proceso') res.enProceso++;
+      else if (p.estado === 'Completado') res.completado++;
+      else if (p.estado === 'Entregado') res.entregado++;
+    });
+    return res;
+  }, [pedidos]);
+
   return (
     <div className="space-y-4">
       {error && (
         <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>
       )}
 
-      {/* Filtros */}
-      <div className="flex flex-wrap items-center gap-3">
-        <select className={selectCls} value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)}>
-          <option value="">Todos los estados</option>
-          {ESTADOS.map((e) => (
-            <option key={e} value={e}>{e}</option>
-          ))}
-        </select>
-        <select className={selectCls} value={filtroCliente} onChange={(e) => setFiltroCliente(e.target.value)}>
-          <option value="">Todos los clientes</option>
-          {clientes.map((c) => (
-            <option key={c.id} value={c.id}>{c.nombre}</option>
-          ))}
-        </select>
-        <button type="button" onClick={() => loadPedidos()} className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 transition hover:bg-white/10">
-          Refrescar
+      {/* KPI Chips de Estado (Filtros en 1 Click) */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        <button
+          type="button"
+          onClick={() => setFiltroEstado('')}
+          className={`flex items-center justify-between p-2.5 rounded-md border cursor-pointer transition-all ${
+            filtroEstado === ''
+              ? 'bg-orange-500/15 border-orange-500/40 text-orange-200 shadow-xs'
+              : 'bg-[#111318] border-white/10 text-slate-400 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <span className="text-xs font-semibold">Todos</span>
+          <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-white/10">{counts.total}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFiltroEstado('Pendiente')}
+          className={`flex items-center justify-between p-2.5 rounded-md border cursor-pointer transition-all ${
+            filtroEstado === 'Pendiente'
+              ? 'bg-amber-500/20 border-amber-500/50 text-amber-200 shadow-xs'
+              : 'bg-[#111318] border-white/10 text-slate-400 hover:text-amber-300 hover:bg-white/5'
+          }`}
+        >
+          <span className="text-xs font-semibold">Pendientes</span>
+          <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">{counts.pendiente}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFiltroEstado('En Proceso')}
+          className={`flex items-center justify-between p-2.5 rounded-md border cursor-pointer transition-all ${
+            filtroEstado === 'En Proceso'
+              ? 'bg-blue-500/20 border-orange-500/50 text-orange-200 shadow-xs'
+              : 'bg-[#111318] border-white/10 text-slate-400 hover:text-orange-300 hover:bg-white/5'
+          }`}
+        >
+          <span className="text-xs font-semibold">En Proceso</span>
+          <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300">{counts.enProceso}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFiltroEstado('Completado')}
+          className={`flex items-center justify-between p-2.5 rounded-md border cursor-pointer transition-all ${
+            filtroEstado === 'Completado'
+              ? 'bg-orange-500/20 border-orange-500/50 text-orange-200 shadow-xs'
+              : 'bg-[#111318] border-white/10 text-slate-400 hover:text-orange-300 hover:bg-white/5'
+          }`}
+        >
+          <span className="text-xs font-semibold">Completados</span>
+          <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300">{counts.completado}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFiltroEstado('Entregado')}
+          className={`flex items-center justify-between p-2.5 rounded-md border cursor-pointer transition-all ${
+            filtroEstado === 'Entregado'
+              ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-200 shadow-xs'
+              : 'bg-[#111318] border-white/10 text-slate-400 hover:text-emerald-300 hover:bg-white/5'
+          }`}
+        >
+          <span className="text-xs font-semibold">Entregados</span>
+          <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">{counts.entregado}</span>
         </button>
       </div>
 
-      {/* Tabla */}
-      <div className="overflow-hidden rounded-xl border border-white/10 bg-[#111318]/80 backdrop-blur-sm shadow-xl">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs min-w-[1150px] border-collapse">
+      {/* Barra de Filtro de Cliente y Actualización */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#111318] p-3 rounded-md border border-white/10">
+        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[200px]">
+          <select 
+            className="rounded-md border border-white/10 bg-[#090a0f] px-3 py-1.5 text-xs text-slate-200 outline-none focus:border-orange-500 transition min-w-[200px]"
+            value={filtroCliente} 
+            onChange={(e) => setFiltroCliente(e.target.value)}
+          >
+            <option value="">Todos los clientes</option>
+            {clientes.map((c) => (
+              <option key={c.id} value={c.id}>{c.nombre}</option>
+            ))}
+          </select>
+          {filtroCliente && (
+            <button
+              type="button"
+              onClick={() => setFiltroCliente('')}
+              className="text-xs text-orange-400 hover:underline px-2 py-1"
+            >
+              Limpiar filtro cliente
+            </button>
+          )}
+        </div>
+
+        <button 
+          type="button" 
+          onClick={() => loadPedidos()} 
+          className="rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10 hover:text-white cursor-pointer"
+        >
+          Refrescar Datos
+        </button>
+      </div>
+
+      {/* Tabla Compacta Enterprise (100% Ancho Sin Scroll Forzado) */}
+      <div className="overflow-hidden rounded-md border border-white/10 bg-[#111318] shadow-sm">
+        <div className="w-full overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
             <thead className="bg-[#090a0f] text-[11px] font-mono uppercase tracking-wider text-slate-400 border-b border-white/10">
               <tr>
-                <th className={`px-4 py-3.5 whitespace-nowrap ${sortableHeaderClass('fechaSolicitud', table.sortField)}`} onClick={() => table.handleSort('fechaSolicitud')}>Fecha {getSortIcon('fechaSolicitud', table.sortField, table.sortOrder)}</th>
-                <th className={`px-4 py-3.5 min-w-[180px] ${sortableHeaderClass('clienteNombre', table.sortField)}`} onClick={() => table.handleSort('clienteNombre')}>Cliente {getSortIcon('clienteNombre', table.sortField, table.sortOrder)}</th>
-                <th className="px-4 py-3.5 whitespace-nowrap w-[110px]">Marca</th>
-                <th className={`px-4 py-3.5 min-w-[140px] ${sortableHeaderClass('local', table.sortField)}`} onClick={() => table.handleSort('local')}>Local {getSortIcon('local', table.sortField, table.sortOrder)}</th>
-                <th className={`px-4 py-3.5 min-w-[240px] ${sortableHeaderClass('descripcion', table.sortField)}`} onClick={() => table.handleSort('descripcion')}>Descripción {getSortIcon('descripcion', table.sortField, table.sortOrder)}</th>
-                <th className={`px-4 py-3.5 text-center whitespace-nowrap w-[90px] ${sortableHeaderClass('cantidad', table.sortField)}`} onClick={() => table.handleSort('cantidad')}>Cant. {getSortIcon('cantidad', table.sortField, table.sortOrder)}</th>
-                <th className={`px-4 py-3.5 whitespace-nowrap w-[120px] ${sortableHeaderClass('prioridad', table.sortField)}`} onClick={() => table.handleSort('prioridad')}>Prioridad {getSortIcon('prioridad', table.sortField, table.sortOrder)}</th>
-                <th className={`px-4 py-3.5 whitespace-nowrap w-[140px] ${sortableHeaderClass('estado', table.sortField)}`} onClick={() => table.handleSort('estado')}>Estado {getSortIcon('estado', table.sortField, table.sortOrder)}</th>
-                <th className="px-4 py-3.5 whitespace-nowrap w-[110px]">Factura #</th>
-                <th className="px-4 py-3.5 whitespace-nowrap w-[100px]">Presup.</th>
-                <th className="px-4 py-3.5 text-right whitespace-nowrap w-[140px]">Acciones</th>
+                <th className={`px-3.5 py-3 whitespace-nowrap w-[90px] ${sortableHeaderClass('fechaSolicitud', table.sortField)}`} onClick={() => table.handleSort('fechaSolicitud')}>
+                  Fecha {getSortIcon('fechaSolicitud', table.sortField, table.sortOrder)}
+                </th>
+                <th className={`px-3.5 py-3 min-w-[160px] max-w-[220px] ${sortableHeaderClass('clienteNombre', table.sortField)}`} onClick={() => table.handleSort('clienteNombre')}>
+                  Cliente / Local {getSortIcon('clienteNombre', table.sortField, table.sortOrder)}
+                </th>
+                <th className={`px-3.5 py-3 ${sortableHeaderClass('descripcion', table.sortField)}`} onClick={() => table.handleSort('descripcion')}>
+                  Pedido / Detalle {getSortIcon('descripcion', table.sortField, table.sortOrder)}
+                </th>
+                <th className={`px-3.5 py-3 whitespace-nowrap w-[130px] ${sortableHeaderClass('estado', table.sortField)}`} onClick={() => table.handleSort('estado')}>
+                  Estado & Prioridad {getSortIcon('estado', table.sortField, table.sortOrder)}
+                </th>
+                <th className="px-3.5 py-3 whitespace-nowrap w-[140px]">
+                  Comercial / Fac.
+                </th>
+                <th className="px-3.5 py-3 text-right whitespace-nowrap w-[140px]">
+                  Acciones
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 font-sans">
               {loading && (
                 <tr>
-                  <td colSpan={11} className="px-4 py-12 text-center text-xs text-slate-400 font-mono">Cargando pedidos...</td>
+                  <td colSpan={6} className="px-4 py-12 text-center text-xs text-slate-400 font-mono">Cargando pedidos...</td>
                 </tr>
               )}
               {!loading && pedidos.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="px-4 py-12 text-center text-xs text-slate-400 font-mono">No hay pedidos con los filtros seleccionados.</td>
+                  <td colSpan={6} className="px-4 py-12 text-center text-xs text-slate-400 font-mono">No hay pedidos con los filtros seleccionados.</td>
                 </tr>
               )}
               {table.paginatedData.map((p) => (
-                <tr key={p.id} className="hover:bg-white/[0.03] transition-colors">
-                  <td className="whitespace-nowrap px-4 py-3.5 text-slate-300 font-mono align-middle">{formatFecha(p.fechaSolicitud)}</td>
-                  <td className="px-4 py-3.5 font-medium text-white align-middle min-w-[180px]">
-                    <div className="truncate max-w-[200px]" title={p.clienteNombre}>{p.clienteNombre}</div>
+                <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
+                  {/* 1. Fecha */}
+                  <td className="whitespace-nowrap px-3.5 py-3 text-slate-300 font-mono align-top text-[11px]">
+                    <div>{formatFecha(p.fechaSolicitud)}</div>
                   </td>
-                  <td className="px-4 py-3.5 align-middle whitespace-nowrap">
-                    <input
-                      defaultValue={p.marca || ''}
-                      onBlur={(e) => e.target.value !== (p.marca || '') && updatePedido(p.id, {marca: e.target.value})}
-                      placeholder="—"
-                      className="w-24 rounded-md border border-white/10 bg-[#090a0f] px-2 py-1 text-xs text-slate-200 outline-none focus:border-orange-500 transition"
-                    />
+
+                  {/* 2. Cliente & Local Combinado */}
+                  <td className="px-3.5 py-3 align-top min-w-[160px] max-w-[220px]">
+                    <div className="font-semibold text-white truncate leading-snug" title={p.clienteNombre}>
+                      {p.clienteNombre}
+                    </div>
+                    {p.local && (
+                      <div className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-400 truncate" title={p.local}>
+                        <MapPin className="w-3 h-3 text-orange-400/80 shrink-0" />
+                        <span className="truncate">{p.local}</span>
+                      </div>
+                    )}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3.5 text-slate-300 align-middle min-w-[140px]">{p.local}</td>
-                  <td className="px-4 py-3.5 align-middle min-w-[240px]">
+
+                  {/* 3. Descripción + Marca + Cantidad Combinados */}
+                  <td className="px-3.5 py-3 align-top">
                     <button
                       type="button"
                       onClick={() => setDetalle(p)}
-                      className="block w-full text-left text-slate-300 hover:text-orange-400 text-xs break-words line-clamp-2 transition cursor-pointer"
+                      className="block text-left text-slate-200 hover:text-orange-400 text-xs leading-relaxed transition cursor-pointer font-medium line-clamp-2"
                       title={p.descripcion}
                     >
                       {p.descripcion}
                     </button>
-                  </td>
-                  <td className="px-4 py-3.5 text-center font-mono font-medium text-slate-300 align-middle whitespace-nowrap">{p.cantidad}</td>
-                  <td className="px-4 py-3.5 align-middle whitespace-nowrap">
-                    <select
-                      value={p.prioridad || 'Media'}
-                      onChange={(e) => updatePedido(p.id, {prioridad: e.target.value})}
-                      className="rounded-md border border-white/10 bg-[#090a0f] px-2 py-1 text-xs text-slate-200 outline-none focus:border-orange-500 transition cursor-pointer"
-                    >
-                      {PRIORIDADES.map((pr) => (
-                        <option key={pr} value={pr} className="bg-[#111318] text-slate-200">{pr}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-4 py-3.5 align-middle whitespace-nowrap">
-                    <select
-                      value={p.estado}
-                      onChange={(e) => updatePedido(p.id, {estado: e.target.value})}
-                      className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium outline-none cursor-pointer ${badgeEstado(p.estado)}`}
-                    >
-                      {ESTADOS.map((es) => (
-                        <option key={es} value={es} className="bg-[#111318] text-slate-200">{es}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-4 py-3.5 align-middle whitespace-nowrap">
-                    <input
-                      defaultValue={p.facturaNumero || ''}
-                      onBlur={(e) => e.target.value !== (p.facturaNumero || '') && updatePedido(p.id, {facturaNumero: e.target.value})}
-                      placeholder="Sin Fac."
-                      className="w-24 rounded-md border border-white/10 bg-[#090a0f] px-2 py-1 text-xs text-slate-200 outline-none focus:border-orange-500 transition font-mono"
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    {p.presupuestoEstado ? (
-                      <div className="flex flex-col gap-1">
-                        <span className={`inline-flex items-center rounded-lg border px-2 py-1 text-xs font-medium ${badgePresupuesto(p.presupuestoEstado)}`} title={p.presupuestoTotal != null ? `Gs. ${Math.round(p.presupuestoTotal).toLocaleString('es-PY')}` : undefined}>
-                          {p.presupuestoEstado}
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
+                      {p.cantidad && (
+                        <span className="rounded bg-white/5 border border-white/5 px-1.5 py-0.2 font-mono text-slate-300">
+                          Cant: <strong>{p.cantidad}</strong>
                         </span>
-                        {p.presupuestoProyecto && (
-                          <span className="text-xs text-slate-400" title={`Proyecto del presupuesto: ${p.presupuestoProyecto}`}>
-                            {p.presupuestoProyecto}
+                      )}
+                      {p.marca && (
+                        <span className="rounded bg-orange-500/10 border border-orange-500/20 px-1.5 py-0.2 font-mono text-orange-300">
+                          {p.marca}
+                        </span>
+                      )}
+                      {(p.fotoRemisionUrl || p.fotoEntregaUrl) && (
+                        <button
+                          type="button"
+                          onClick={() => setPedidoEntrega(p)}
+                          className="inline-flex items-center gap-1 rounded bg-sky-500/15 border border-sky-500/30 px-1.5 py-0.2 text-sky-300 hover:bg-sky-500/25 transition cursor-pointer"
+                          title="Ver fotos de entrega / remisión"
+                        >
+                          <Eye className="w-2.5 h-2.5" /> Entrega
+                        </button>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* 4. Estado & Prioridad Combinados */}
+                  <td className="px-3.5 py-3 align-top whitespace-nowrap">
+                    <div className="space-y-1">
+                      <div>
+                        <select
+                          value={p.estado}
+                          onChange={(e) => updatePedido(p.id, {estado: e.target.value})}
+                          className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold outline-none cursor-pointer ${badgeEstado(p.estado)}`}
+                        >
+                          {ESTADOS.map((es) => (
+                            <option key={es} value={es} className="bg-[#111318] text-slate-200">{es}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] text-slate-500 font-mono">Prio:</span>
+                        <select
+                          value={p.prioridad || 'Media'}
+                          onChange={(e) => updatePedido(p.id, {prioridad: e.target.value})}
+                          className={`rounded border px-1.5 py-0.2 text-[10px] font-mono outline-none cursor-pointer bg-[#090a0f] border-white/10 text-slate-300`}
+                        >
+                          {PRIORIDADES.map((pr) => (
+                            <option key={pr} value={pr} className="bg-[#111318] text-slate-200">{pr}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* 5. Comercial / Presupuesto / Factura */}
+                  <td className="px-3.5 py-3 align-top whitespace-nowrap">
+                    <div className="space-y-1">
+                      {p.presupuestoEstado ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold ${badgePresupuesto(p.presupuestoEstado)}`} title={p.presupuestoTotal != null ? `Gs. ${Math.round(p.presupuestoTotal).toLocaleString('es-PY')}` : undefined}>
+                            {p.presupuestoEstado}
+                          </span>
+                          {p.presupuestoProyecto && (
+                            <span className="text-[10px] text-slate-400 font-mono truncate max-w-[120px]" title={p.presupuestoProyecto}>
+                              {p.presupuestoProyecto}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-slate-600 font-mono">Sin presup.</span>
+                      )}
+
+                      <div className="text-[10px] font-mono text-slate-400">
+                        {p.facturaNumero ? (
+                          <span className="text-slate-300">Fac: #{p.facturaNumero}</span>
+                        ) : (
+                          <span className="text-slate-600">Sin factura</span>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* 6. Acciones Limpias */}
+                  <td className="whitespace-nowrap px-3.5 py-3 align-top text-right">
+                    <div className="inline-flex flex-col items-end gap-1">
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setDetalle(p)}
+                          className="rounded-md border border-white/10 bg-white/5 hover:bg-white/10 px-2 py-1 text-[11px] font-medium text-slate-200 transition cursor-pointer"
+                          title="Ver y editar detalles completos del pedido"
+                        >
+                          Ver Detalle
+                        </button>
+
+                        {!p.registroId ? (
+                          <button
+                            type="button"
+                            onClick={() => convertir(p.id)}
+                            className="rounded-md border border-emerald-500/30 bg-emerald-500/15 hover:bg-emerald-500/25 px-2 py-1 text-[11px] font-semibold text-emerald-300 transition cursor-pointer"
+                            title="Convertir a registro operativo"
+                          >
+                            Convertir
+                          </button>
+                        ) : (
+                          <span className="inline-flex items-center rounded-md border border-orange-500/30 bg-orange-500/10 px-2 py-1 text-[10px] font-mono text-orange-300">
+                            Registro ✓
                           </span>
                         )}
                       </div>
-                    ) : (
-                      <span className="text-xs text-slate-600">—</span>
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right">
-                    <div className="inline-flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setPedidoEntrega(p)}
-                        className={`rounded-md border p-1.5 text-xs transition ${
-                          (p.fotoRemisionUrl || p.fotoEntregaUrl)
-                            ? 'border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25'
-                            : 'border-white/10 bg-white/5 text-slate-500 hover:bg-white/10 hover:text-slate-300'
-                        }`}
-                        title={(p.fotoRemisionUrl || p.fotoEntregaUrl) ? 'Ver fotos de remisión y entrega' : 'Sin fotos de entrega (click para ver)'}
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDetalle(p)}
-                        className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-white/10"
-                      >
-                        Ver
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => abrirLink(p)}
-                        className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-300 transition hover:bg-amber-500/20"
-                        title="Abrir portal del cliente en nueva pestaña"
-                      >
-                        Abrir
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => copiarLink(p)}
-                        className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-white/10"
-                        title="Copiar link del portal del cliente"
-                      >
-                        Copiar
-                      </button>
-                      {!p.registroId && (
+
+                      {/* Enlaces de portal compactos */}
+                      <div className="inline-flex items-center gap-2 text-[10px]">
                         <button
                           type="button"
-                          onClick={() => convertir(p.id)}
-                          className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-300 transition hover:bg-emerald-500/20"
+                          onClick={() => abrirLink(p)}
+                          className="text-amber-400 hover:text-amber-300 hover:underline flex items-center gap-0.5 cursor-pointer"
+                          title="Abrir portal del cliente"
                         >
-                          Convertir
+                          <ExternalLink className="w-2.5 h-2.5" /> Portal
                         </button>
-                      )}
-                      {p.registroId && (
-                        <span className="inline-flex items-center rounded-md border border-orange-500/30 bg-orange-500/10 px-2.5 py-1 text-xs text-orange-300">
-                          Registro ✓
-                        </span>
-                      )}
+                        <button
+                          type="button"
+                          onClick={() => copiarLink(p)}
+                          className="text-slate-400 hover:text-white flex items-center gap-0.5 cursor-pointer"
+                          title="Copiar link del portal"
+                        >
+                          <Copy className="w-2.5 h-2.5" /> Copiar
+                        </button>
+                      </div>
                     </div>
                   </td>
                 </tr>
