@@ -18,7 +18,6 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  /*
   webServer: {
     command: 'node dist/server.mjs',
     url: 'http://localhost:3100',
@@ -26,8 +25,7 @@ export default defineConfig({
     timeout: 60000,
     env: {
       PORT: '3100',
-      NODE_ENV: 'test',
+      NODE_ENV: 'e2e',
     },
   },
-  */
 });
