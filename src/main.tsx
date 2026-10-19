@@ -9,6 +9,12 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
+// Auto-recuperación automática ante nuevos despliegues de Vite
+window.addEventListener('vite:preloadError', (event) => {
+  console.warn('[Vite] Nuevo despliegue detectado tras fallo de carga de chunk, recargando...', event);
+  window.location.reload();
+});
+
 // Register service worker for PWA installation support
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {

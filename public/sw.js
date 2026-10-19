@@ -1,4 +1,4 @@
-const CACHE_NAME = 'afull-cache-v3';
+const CACHE_NAME = 'afull-cache-v4';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -71,6 +71,11 @@ self.addEventListener('fetch', (event) => {
         return cachedResponse;
       }
       return fetch(event.request).then((networkResponse) => {
+        const contentType = networkResponse.headers.get('content-type') || '';
+        // Si se pidió un asset pero el servidor devolvió text/html (deploy desactualizado o 404 rewrite)
+        if (event.request.url.includes('/assets/') && contentType.includes('text/html')) {
+          return new Response('Asset not found', { status: 404, statusText: 'Not Found' });
+        }
         // Cache new assets dynamically if they are local static assets
         if (networkResponse.status === 200 && event.request.url.includes('/assets/')) {
           const responseToCache = networkResponse.clone();
