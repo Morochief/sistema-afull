@@ -10,7 +10,7 @@ import { logger } from '../config/logger.ts';
 import { ApiResponse } from '../../types.ts';
 import { Decimal } from '@prisma/client/runtime/library';
 import { generateId } from '../shared.ts';
-import { validateSchema, TimerStartSchema, TimerStopSchema, TimerSyncSchema, TimerPauseSchema, TimerResumeSchema } from '../../../server-validation.ts';
+import { validateSchema, TimerStartSchema, TimerStopSchema, TimerSyncSchema, TimerPauseSchema, TimerResumeSchema, TimerChecklistSchema } from '../../../server-validation.ts';
 
 export const timerRouter = Router();
 
@@ -136,6 +136,61 @@ timerRouter.post('/sync', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+timerRouter.post('/checklist', requireAuth, async (req: Request, res: Response) => {
+  const validation = validateSchema(TimerChecklistSchema, req.body);
+  if (!validation.valid) {
+    return res.status(400).json({
+      success: false,
+      error: { code: 'VALIDATION_ERROR', message: 'Datos inválidos para actualizar checklist', details: validation.errors }
+    } as ApiResponse);
+  }
+  const { usuario, checklist } = validation.data!;
+  try {
+    const activeTimer = await prisma.timerActivo.findFirst({ where: { usuario, activo: true } });
+    if (!activeTimer) {
+      return res.status(404).json({ success: false, error: { code: 'NO_ACTIVE_TIMER', message: 'No hay timer activo para este usuario' } } as ApiResponse);
+    }
+
+    const total = checklist.length;
+    const completados = checklist.filter(c => c.completado).length;
+    const primerIncompleto = checklist.find(c => !c.completado);
+
+    // Limpiar tags previos de checklist de la descripción
+    let baseDesc = activeTimer.descripcion.replace(/\s*\[Checklist:[^\]]*\]/g, '').trim();
+    if (!baseDesc) baseDesc = 'Tarea en curso';
+
+    let tag = `[Checklist: ${completados}/${total}`;
+    if (primerIncompleto) {
+      tag += ` · Paso: ${primerIncompleto.texto.slice(0, 40)}`;
+    } else if (total > 0 && completados === total) {
+      tag += ` · 100% Completo`;
+    }
+    tag += `]`;
+
+    const nuevaDesc = `${baseDesc} ${tag}`;
+
+    const updated = await prisma.timerActivo.update({
+      where: { id: activeTimer.id },
+      data: {
+        descripcion: nuevaDesc,
+        ultimaActualizacion: new Date()
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        id: updated.id,
+        descripcion: updated.descripcion,
+        checklistStats: { completados, total, porcentaje: total > 0 ? Math.round((completados / total) * 100) : 0 }
+      }
+    } as ApiResponse);
+  } catch (error: any) {
+    logger.error('Error updating timer checklist', error);
+    res.status(500).json({ success: false, error: { code: 'TIMER_CHECKLIST_ERROR', message: 'No se pudo actualizar el checklist del timer: ' + error.message } } as ApiResponse);
+  }
+});
+
 // GET /activos - Obtener todos los timers activos para el Panel de Control en Tiempo Real (Admin / Gerardo)
 timerRouter.get('/activos', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -155,18 +210,37 @@ timerRouter.get('/activos', requireAuth, async (req: Request, res: Response) => 
 
     res.json({
       success: true,
-      data: timers.map(t => ({
-        id: t.id,
-        usuario: t.usuario,
-        colaboradorNombre: (t.colaboradorId ? colabMap.get(t.colaboradorId) : null) || t.usuario,
-        clienteNombre: clienteMap.get(t.clienteId) || 'Sin cliente',
-        proyectoNombre: proyectoMap.get(t.proyectoId) || 'Sin proyecto',
-        descripcion: t.descripcion,
-        inicio: t.inicio.toISOString(),
-        isPaused: t.isPaused,
-        currentPauseType: t.currentPauseType,
-        pausedTime: t.pausedTime,
-      }))
+      data: timers.map(t => {
+        // Extraer progreso de checklist si está presente en la descripción
+        // Formato: [Checklist: 3/5 · Paso: Nombre del paso] o [Checklist: 5/5 · 100% Completo]
+        let checklistProgress: { completados: number; total: number; porcentaje: number; pasoActual?: string } | null = null;
+        const match = t.descripcion.match(/\[Checklist:\s*(\d+)\/(\d+)(?:\s*·\s*Paso:\s*([^\]]+)|\s*·\s*([^\]]+))?\]/);
+        if (match) {
+          const comp = parseInt(match[1], 10);
+          const tot = parseInt(match[2], 10);
+          const paso = match[3] || match[4] || '';
+          checklistProgress = {
+            completados: comp,
+            total: tot,
+            porcentaje: tot > 0 ? Math.round((comp / tot) * 100) : 0,
+            pasoActual: paso.trim()
+          };
+        }
+
+        return {
+          id: t.id,
+          usuario: t.usuario,
+          colaboradorNombre: (t.colaboradorId ? colabMap.get(t.colaboradorId) : null) || t.usuario,
+          clienteNombre: clienteMap.get(t.clienteId) || 'Sin cliente',
+          proyectoNombre: proyectoMap.get(t.proyectoId) || 'Sin proyecto',
+          descripcion: t.descripcion,
+          checklistProgress,
+          inicio: t.inicio.toISOString(),
+          isPaused: t.isPaused,
+          currentPauseType: t.currentPauseType,
+          pausedTime: t.pausedTime,
+        };
+      })
     });
   } catch (error: any) {
     logger.error('Error fetching all active timers', error);

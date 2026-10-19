@@ -994,20 +994,47 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
     } catch {}
   }, [checklist, currentUser?.usuario]);
 
-  const [nuevoPasoChecklist, setNuevoPasoChecklist] = useState('');
+  // Sincronizar checklist en vivo con el servidor si el timer está corriendo
+  const syncChecklistConServidor = useCallback(async (currentChecklist: ChecklistItem[]) => {
+    if (!currentUser || !timerRunning) return;
+    try {
+      await authFetchJSON('/api/timer/checklist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          usuario: currentUser.usuario,
+          checklist: currentChecklist
+        })
+      });
+    } catch {
+      // Sync failover silent - keeps local state
+    }
+  }, [currentUser, timerRunning]);
 
   const handleToggleChecklist = (id: string) => {
-    setChecklist(prev => prev.map(item => item.id === id ? { ...item, completado: !item.completado } : item));
+    setChecklist(prev => {
+      const updated = prev.map(item => item.id === id ? { ...item, completado: !item.completado } : item);
+      syncChecklistConServidor(updated);
+      return updated;
+    });
   };
 
   const handleAddPasoChecklist = () => {
     if (!nuevoPasoChecklist.trim()) return;
-    setChecklist(prev => [...prev, { id: generateId('chk'), texto: nuevoPasoChecklist.trim(), completado: false }]);
+    setChecklist(prev => {
+      const updated = [...prev, { id: generateId('chk'), texto: nuevoPasoChecklist.trim(), completado: false }];
+      syncChecklistConServidor(updated);
+      return updated;
+    });
     setNuevoPasoChecklist('');
   };
 
   const handleRemovePasoChecklist = (id: string) => {
-    setChecklist(prev => prev.filter(item => item.id !== id));
+    setChecklist(prev => {
+      const updated = prev.filter(item => item.id !== id);
+      syncChecklistConServidor(updated);
+      return updated;
+    });
   };
 
   // ══════════════════════════════════════════════════════
@@ -1202,11 +1229,23 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
       }
     }
 
+    // Generar descripción enriquecida con estado inicial del checklist
+    let descInicial = moDescripcion || 'Tarea en progreso';
+    if (checklist.length > 0) {
+      const comp = checklist.filter(c => c.completado).length;
+      const primerIncompleto = checklist.find(c => !c.completado);
+      descInicial += ` [Checklist: ${comp}/${checklist.length}`;
+      if (primerIncompleto) {
+        descInicial += ` · Paso: ${primerIncompleto.texto.slice(0, 40)}`;
+      }
+      descInicial += `]`;
+    }
+
     await handleStartTimer({
       colaboradorId: selectedColaboradorId,
       clienteId: selectedClienteId,
       proyectoId: selectedProyectoId,
-      descripcion: moDescripcion || 'Tarea en progreso',
+      descripcion: descInicial,
       precioUnitario: parseFloat(moPrecioUnitario) || 0
     });
 

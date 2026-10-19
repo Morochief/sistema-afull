@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Users, Clock, Play, Pause, AlertCircle, CheckCircle, Briefcase, RefreshCw } from 'lucide-react';
+import { Users, Clock, Play, Pause, AlertCircle, CheckCircle, Briefcase, RefreshCw, CheckSquare } from 'lucide-react';
 import { authFetchJSON } from '../authFetch.ts';
 
 interface TimerActivoItem {
@@ -10,6 +10,12 @@ interface TimerActivoItem {
   clienteNombre: string;
   proyectoNombre: string;
   descripcion: string;
+  checklistProgress?: {
+    completados: number;
+    total: number;
+    porcentaje: number;
+    pasoActual?: string;
+  } | null;
   inicio: string;
   isPaused: boolean;
   currentPauseType: string | null;
@@ -180,8 +186,38 @@ export default function PanelTrabajosActivos() {
                 </div>
 
                 <div className="text-xs text-slate-300 font-medium">
-                  {t.descripcion}
+                  {t.descripcion.replace(/\s*\[Checklist:[^\]]*\]/g, '').trim() || t.descripcion}
                 </div>
+
+                {/* Checklist en Vivo */}
+                {t.checklistProgress && (
+                  <div className="p-2.5 rounded bg-black/40 border border-white/5 space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="flex items-center gap-1.5 font-semibold text-orange-400">
+                        <CheckSquare className="w-3.5 h-3.5" />
+                        Checklist ({t.checklistProgress.completados}/{t.checklistProgress.total})
+                      </span>
+                      <span className="font-mono text-[10px] text-slate-400 font-bold">
+                        {t.checklistProgress.porcentaje}%
+                      </span>
+                    </div>
+
+                    <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-500 ${
+                          t.checklistProgress.porcentaje === 100 ? 'bg-emerald-500' : 'bg-orange-500'
+                        }`}
+                        style={{ width: `${t.checklistProgress.porcentaje}%` }}
+                      />
+                    </div>
+
+                    {t.checklistProgress.pasoActual && (
+                      <p className="text-[10px] text-slate-400 truncate">
+                        <span className="text-slate-500">En curso:</span> {t.checklistProgress.pasoActual}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-white/5 font-mono">
                   <span>{t.clienteNombre} · {t.proyectoNombre}</span>

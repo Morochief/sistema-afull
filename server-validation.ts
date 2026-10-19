@@ -180,6 +180,19 @@ export const TimerSyncSchema = z.object({
 });
 
 /**
+ * Timer Checklist Update Schema
+ */
+export const TimerChecklistSchema = z.object({
+  usuario: z.string().min(1, 'Usuario requerido'),
+  checklist: z.array(z.object({
+    id: z.string(),
+    texto: z.string(),
+    completado: z.boolean(),
+  })),
+  currentTask: z.string().optional(),
+});
+
+/**
  * Viaje Start Schema
  */
 export const ViajeStartSchema = z.object({
