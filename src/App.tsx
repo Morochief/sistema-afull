@@ -217,7 +217,7 @@ function AppInner() {
 
       // Load app data using the resilient fetchDbState with automatic retries
       clearTimeout(timeoutId);
-      await fetchDbState();
+      await fetchDbState(2, currentUser);
     } catch (error: any) {
       if (error.name === 'AbortError') {
         setFetchError('La conexión tardó demasiado tiempo. Verificá tu señal de internet móvil.');
@@ -230,9 +230,10 @@ function AppInner() {
     }
   };
 
-  // Fetch DB state with retry
-  const fetchDbState = async (retries = 2) => {
-    if (!session) return;
+  // Fetch DB state with retry (accepts explicitUser to avoid stale React state closure right after login)
+  const fetchDbState = async (retries = 2, explicitUser?: SessionUser | null) => {
+    const activeSession = explicitUser ?? session;
+    if (!activeSession) return;
     
     setLoading(true);
     setFetchError(null);
@@ -250,7 +251,7 @@ function AppInner() {
           // No cerrar sesión, reintentar si quedan intentos
           if (retries > 0) {
             await new Promise(r => setTimeout(r, 1500));
-            return fetchDbState(retries - 1);
+            return fetchDbState(retries - 1, activeSession);
           }
           setFetchError('Error temporal al cargar datos. Reintentá en un momento.');
           setLoading(false);
@@ -264,7 +265,7 @@ function AppInner() {
       if (!response.ok) {
         if (retries > 0) {
           await new Promise(r => setTimeout(r, 1500));
-          return fetchDbState(retries - 1);
+          return fetchDbState(retries - 1, activeSession);
         }
         throw new Error('Error al conectar con la base del Sistema aFull.');
       }
@@ -281,7 +282,7 @@ function AppInner() {
       console.error('[Sistema aFull] Error al sincronizar base de datos:', err);
       if (retries > 0) {
         await new Promise(r => setTimeout(r, 1500));
-        return fetchDbState(retries - 1);
+        return fetchDbState(retries - 1, activeSession);
       }
       setFetchError(err.message || 'Error de red al conectar con el servidor.');
     } finally {
@@ -335,7 +336,7 @@ function AppInner() {
       setActiveTab('registro');
     }
     // Fetch fresh database data for newly authenticated user
-    fetchDbState();
+    fetchDbState(2, user);
   };
 
   const handleLogout = async () => {
@@ -727,7 +728,7 @@ function AppInner() {
           <p className="text-red-300 text-xs">{fetchError || 'Fallo al inicializar base de datos local'}</p>
           <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
             <button
-              onClick={fetchDbState}
+              onClick={() => fetchDbState()}
               className="px-5 py-2 bg-orange-600 font-medium hover:bg-orange-500 rounded-md text-white text-xs cursor-pointer transition-colors"
             >
               Re-intentar Sincronización
