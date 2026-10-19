@@ -184,17 +184,20 @@ timerRouter.post('/checklist', requireAuth, async (req: Request, res: Response) 
     if (!baseDesc) baseDesc = 'Tarea en curso';
 
     // Construir resumen visual para el dashboard
-    let tag = `[Checklist: ${completados}/${total}`;
-    if (primerIncompleto) {
-      tag += ` · Paso: ${primerIncompleto.texto.slice(0, 40)}`;
-    } else if (total > 0 && completados === total) {
-      tag += ` · 100% Completo`;
+    let tag = '';
+    if (total > 0) {
+      tag = `[Checklist: ${completados}/${total}`;
+      if (primerIncompleto) {
+        tag += ` · Paso: ${primerIncompleto.texto.slice(0, 40)}`;
+      } else if (completados === total) {
+        tag += ` · 100% Completo`;
+      }
+      tag += `]`;
     }
-    tag += `]`;
 
     // Persistir estado completo de checklist serializado de forma oculta en la descripción
     const jsonPayload = encodeURIComponent(JSON.stringify(checklist));
-    const nuevaDesc = `${baseDesc} ${tag} <!--CHK:${jsonPayload}-->`;
+    const nuevaDesc = tag ? `${baseDesc} ${tag} <!--CHK:${jsonPayload}-->` : `${baseDesc} <!--CHK:${jsonPayload}-->`;
 
     const updated = await prisma.timerActivo.update({
       where: { id: activeTimer.id },
@@ -234,7 +237,6 @@ timerRouter.post('/add-paso', requireAuth, async (req: Request, res: Response) =
       return res.status(404).json({ success: false, error: { code: 'NO_ACTIVE_TIMER', message: 'No hay timer activo para este usuario' } } as ApiResponse);
     }
 
-    // Extraer checklist existente o inicializar
     let checklist: Array<{ id: string; texto: string; completado: boolean; duracionSegundos?: number }> = [];
     const jsonMatch = activeTimer.descripcion.match(/<!--CHK:(.+?)-->/);
     if (jsonMatch) {

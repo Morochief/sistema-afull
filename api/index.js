@@ -1114,7 +1114,7 @@ var TimerStartSchema = z.object({
   clienteId: z.string().min(1, "Cliente requerido"),
   proyectoId: z.string().min(1, "Proyecto requerido"),
   descripcion: z.string().min(1, "Descripci\xF3n requerida").max(500, "Descripci\xF3n muy larga").transform(sanitizeHTML),
-  precioUnitario: z.number().positive("Precio unitario debe ser positivo")
+  precioUnitario: z.number().nonnegative("Precio unitario no puede ser negativo").default(0)
 });
 var TimerStopSchema = z.object({
   usuario: z.string().min(1, "Usuario requerido"),
@@ -2164,15 +2164,18 @@ timerRouter.post("/checklist", requireAuth, async (req, res) => {
     const primerIncompleto = checklist.find((c) => !c.completado);
     let baseDesc = activeTimer.descripcion.replace(/\s*<!--CHK:.*?-->/g, "").replace(/\s*\[Checklist:[^\]]*\]/g, "").trim();
     if (!baseDesc) baseDesc = "Tarea en curso";
-    let tag = `[Checklist: ${completados}/${total}`;
-    if (primerIncompleto) {
-      tag += ` \xB7 Paso: ${primerIncompleto.texto.slice(0, 40)}`;
-    } else if (total > 0 && completados === total) {
-      tag += ` \xB7 100% Completo`;
+    let tag = "";
+    if (total > 0) {
+      tag = `[Checklist: ${completados}/${total}`;
+      if (primerIncompleto) {
+        tag += ` \xB7 Paso: ${primerIncompleto.texto.slice(0, 40)}`;
+      } else if (completados === total) {
+        tag += ` \xB7 100% Completo`;
+      }
+      tag += `]`;
     }
-    tag += `]`;
     const jsonPayload = encodeURIComponent(JSON.stringify(checklist));
-    const nuevaDesc = `${baseDesc} ${tag} <!--CHK:${jsonPayload}-->`;
+    const nuevaDesc = tag ? `${baseDesc} ${tag} <!--CHK:${jsonPayload}-->` : `${baseDesc} <!--CHK:${jsonPayload}-->`;
     const updated = await prisma.timerActivo.update({
       where: { id: activeTimer.id },
       data: {

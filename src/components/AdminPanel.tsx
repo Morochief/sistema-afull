@@ -413,7 +413,7 @@ export default function AdminPanel({
           )}
 
           {activeSubTab === 'trabajos-activos' && (
-            <PanelTrabajosActivos key="trabajos-activos" />
+            <PanelTrabajosActivos key="trabajos-activos" data={data} onRefresh={onRefresh} />
           )}
 
           {activeSubTab === 'vehiculos' && (

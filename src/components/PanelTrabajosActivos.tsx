@@ -47,7 +47,14 @@ interface TareaConcluidaItem {
   desglosePasos: string[];
 }
 
-export default function PanelTrabajosActivos() {
+import { DatabaseState, Cliente, Proyecto, Colaborador } from '../types.ts';
+
+interface PanelTrabajosActivosProps {
+  data?: DatabaseState;
+  onRefresh?: () => Promise<void>;
+}
+
+export default function PanelTrabajosActivos({ data, onRefresh }: PanelTrabajosActivosProps = {}) {
   const [timers, setTimers] = useState<TimerActivoItem[]>([]);
   const [marcacionesHoy, setMarcacionesHoy] = useState<MarcacionHoyItem[]>([]);
   const [tareasTerminadas, setTareasTerminadas] = useState<TareaConcluidaItem[]>([]);
@@ -57,11 +64,24 @@ export default function PanelTrabajosActivos() {
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState<number>(Date.now());
 
-  // Estado para modal / input rápido de agregar paso en vivo a un operario
+  // Usuarios del sistema para mapear username a colaborador
+  const [usuariosSistema, setUsuariosSistema] = useState<Array<{ id: string; username: string; nombre: string; rol: string; colaboradorId?: string | null }>>([]);
+
+  // Estado para modal / input rápido de agregar paso en vivo a un operario existente
   const [operarioDestino, setOperarioDestino] = useState<TimerActivoItem | null>(null);
   const [nuevoPasoTexto, setNuevoPasoTexto] = useState('');
   const [agregandoPaso, setAgregandoPaso] = useState(false);
   const [mensajePasoOk, setMensajePasoOk] = useState<string | null>(null);
+
+  // Estado para Modal de Asignación Directa de Tarea (sin Hoja de Ruta)
+  const [modalAsignarOpen, setModalAsignarOpen] = useState(false);
+  const [asignarUsuario, setAsignarUsuario] = useState('');
+  const [asignarClienteId, setAsignarClienteId] = useState('');
+  const [asignarProyectoId, setAsignarProyectoId] = useState('');
+  const [asignarDescripcion, setAsignarDescripcion] = useState('');
+  const [asignarPasosTexto, setAsignarPasosTexto] = useState('');
+  const [asignandoTarea, setAsignandoTarea] = useState(false);
+  const [asignarFeedback, setAsignarFeedback] = useState<{ tipo: 'ok' | 'error'; msg: string } | null>(null);
 
   // Actualizar segundero cada segundo
   useEffect(() => {
@@ -89,6 +109,17 @@ export default function PanelTrabajosActivos() {
       if (terminadosRes.success && terminadosRes.data) {
         setTareasTerminadas(terminadosRes.data.tareas || []);
         setHorasTerminadasTotal(terminadosRes.data.horasTotales || 0);
+      }
+
+      // Cargar lista de usuarios del sistema para mapeo a colaboradores si está vacía
+      if (usuariosSistema.length === 0) {
+        authFetchJSON<{ success: boolean; data: any[] }>('/api/users')
+          .then(res => {
+            if (res.success && Array.isArray(res.data)) {
+              setUsuariosSistema(res.data);
+            }
+          })
+          .catch(() => {});
       }
     } catch (e: any) {
       setError(e.message || 'Error al cargar datos en vivo');
@@ -119,6 +150,110 @@ export default function PanelTrabajosActivos() {
 
   const usuariosConTimer = new Set(timers.map(t => t.usuario));
   const presentesSinTarea = presentesHoy.filter(u => !usuariosConTimer.has(u));
+
+  // Abrir modal de asignación directa pre-seleccionando un usuario
+  const abrirModalAsignacion = (usuarioInicial?: string) => {
+    setAsignarUsuario(usuarioInicial || (presentesSinTarea[0] || ''));
+    setAsignarClienteId(data?.clientes?.[0]?.id || '');
+    setAsignarProyectoId('');
+    setAsignarDescripcion('');
+    setAsignarPasosTexto('');
+    setAsignarFeedback(null);
+    setModalAsignarOpen(true);
+  };
+
+  // Enviar inicio de tarea directa (Gerardo a Operario)
+  const handleIniciarTareaDirecta = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!asignarUsuario) {
+      setAsignarFeedback({ tipo: 'error', msg: 'Seleccioná un operario' });
+      return;
+    }
+    if (!asignarClienteId || !asignarProyectoId) {
+      setAsignarFeedback({ tipo: 'error', msg: 'Seleccioná Cliente y Proyecto' });
+      return;
+    }
+
+    // Resolver colaboradorId
+    const uObj = usuariosSistema.find(u => u.username.toLowerCase() === asignarUsuario.toLowerCase());
+    let colId = uObj?.colaboradorId;
+    if (!colId && data?.colaboradores) {
+      const matchCol = data.colaboradores.find(c =>
+        c.nombre.toLowerCase().includes(asignarUsuario.toLowerCase()) ||
+        asignarUsuario.toLowerCase().includes(c.nombre.toLowerCase())
+      );
+      if (matchCol) colId = matchCol.id;
+    }
+
+    // Si aún no hay colaboradorId, usar el primero disponible o id ficticio seguro
+    if (!colId && data?.colaboradores && data.colaboradores.length > 0) {
+      colId = data.colaboradores[0].id;
+    }
+
+    if (!colId) {
+      setAsignarFeedback({ tipo: 'error', msg: 'No se encontró un colaborador asociado a este usuario' });
+      return;
+    }
+
+    // Construir checklist inicial si Gerardo escribió pasos
+    const pasosParsed: Array<{ id: string; texto: string; completado: boolean }> = [];
+    if (asignarPasosTexto.trim()) {
+      const lineas = asignarPasosTexto.split('\n').map(l => l.trim()).filter(Boolean);
+      lineas.forEach(l => {
+        pasosParsed.push({
+          id: `chk_${Math.random().toString(36).substring(2, 9)}`,
+          texto: l,
+          completado: false,
+        });
+      });
+    }
+
+    // Construir descripción enriquecida con tag si hay pasos
+    let baseDesc = asignarDescripcion.trim() || 'Tarea asignada por supervisor';
+    let descFinal = baseDesc;
+    if (pasosParsed.length > 0) {
+      const tag = `[Checklist: 0/${pasosParsed.length} · Paso: ${pasosParsed[0].texto.slice(0, 40)}]`;
+      const jsonPayload = encodeURIComponent(JSON.stringify(pasosParsed));
+      descFinal = `${baseDesc} ${tag} <!--CHK:${jsonPayload}-->`;
+    }
+
+    setAsignandoTarea(true);
+    setAsignarFeedback(null);
+
+    try {
+      const colObj = (data?.colaboradores || []).find(c => c.id === colId);
+      const precioUnitario = colObj ? colObj.tarifaSugerida : 0;
+
+      const res = await authFetchJSON<{ success: boolean; data?: any; error?: any }>('/api/timer/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          usuario: asignarUsuario,
+          colaboradorId: colId,
+          clienteId: asignarClienteId,
+          proyectoId: asignarProyectoId,
+          descripcion: descFinal,
+          precioUnitario: precioUnitario || 0,
+        })
+      });
+
+      if (res.success) {
+        setAsignarFeedback({ tipo: 'ok', msg: `✓ Tarea asignada exitosamente a ${asignarUsuario}. Su cronómetro ya está corriendo.` });
+        setTimeout(() => {
+          setModalAsignarOpen(false);
+          setAsignarFeedback(null);
+        }, 1200);
+        await fetchData();
+        if (onRefresh) await onRefresh();
+      } else {
+        setAsignarFeedback({ tipo: 'error', msg: res.error?.message || 'No se pudo asignar la tarea' });
+      }
+    } catch (err: any) {
+      setAsignarFeedback({ tipo: 'error', msg: err?.message || 'Error de conexión' });
+    } finally {
+      setAsignandoTarea(false);
+    }
+  };
 
   // Enviar un nuevo paso en vivo al checklist de un operario
   const handleEnviarNuevoPaso = async () => {
@@ -190,6 +325,15 @@ export default function PanelTrabajosActivos() {
           </div>
 
           <button
+            onClick={() => abrirModalAsignacion()}
+            className="px-3 py-1.5 rounded-md bg-orange-600 hover:bg-orange-500 text-xs text-white font-semibold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+            title="Asignar e iniciar tarea directa a un operario sin Hoja de Ruta"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Asignar Tarea Directa
+          </button>
+
+          <button
             onClick={fetchData}
             disabled={loading}
             className="px-3 py-1.5 rounded-md bg-white/5 hover:bg-white/10 text-xs text-slate-300 font-semibold flex items-center gap-1.5 border border-white/10 transition cursor-pointer"
@@ -245,18 +389,29 @@ export default function PanelTrabajosActivos() {
         </div>
       </div>
 
-      {/* Alerta de presentes sin tarea */}
+      {/* Alerta de presentes sin tarea con botón de asignación directa */}
       {presentesSinTarea.length > 0 && (
         <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-md">
-          <div className="flex items-center gap-2 text-xs font-semibold text-amber-300">
-            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>Operarios presentes que aún no iniciaron tareas:</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-semibold text-amber-300">
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>Operarios presentes que aún no iniciaron tareas:</span>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-1.5 mt-2">
+          <div className="flex flex-wrap items-center gap-2 mt-2">
             {presentesSinTarea.map(u => (
-              <span key={u} className="px-2 py-0.5 bg-amber-500/20 rounded text-[11px] font-mono text-amber-200">
-                {u}
-              </span>
+              <div key={u} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/20 border border-amber-500/30 rounded-md text-[11px] font-mono text-amber-200">
+                <span className="font-semibold">{u}</span>
+                <button
+                  type="button"
+                  onClick={() => abrirModalAsignacion(u)}
+                  className="ml-1 px-1.5 py-0.5 bg-orange-600 hover:bg-orange-500 text-white rounded text-[10px] font-semibold flex items-center gap-1 transition cursor-pointer"
+                  title={`Asignar tarea e iniciar timer a ${u}`}
+                >
+                  <Play className="w-2.5 h-2.5 fill-white" />
+                  Asignar Tarea
+                </button>
+              </div>
             ))}
           </div>
         </div>
@@ -545,6 +700,176 @@ export default function PanelTrabajosActivos() {
                   {agregandoPaso ? 'Enviando...' : 'Asignar Paso'}
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* MODAL: ASIGNACIÓN DIRECTA DE TAREA A OPERARIO (Sin Hoja de Ruta) */}
+        {modalAsignarOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-[#0e1017] border border-white/15 rounded-md p-5 w-full max-w-lg shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2">
+                  <Play className="w-4 h-4 text-orange-400 fill-orange-400" />
+                  <div>
+                    <h4 className="text-sm font-bold text-white">Asignar e Iniciar Tarea en Vivo</h4>
+                    <p className="text-[11px] text-slate-400">
+                      Arranca el cronómetro directamente al operario sin necesidad de Hoja de Ruta
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setModalAsignarOpen(false)}
+                  className="text-slate-500 hover:text-white text-sm"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleIniciarTareaDirecta} className="space-y-4">
+                {/* Selector de Operario */}
+                <div>
+                  <label className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
+                    Operario Responsable <span className="text-orange-400">*</span>
+                  </label>
+                  <select
+                    value={asignarUsuario}
+                    onChange={(e) => setAsignarUsuario(e.target.value)}
+                    required
+                    className="w-full rounded-md border border-white/10 bg-[#111318] px-3 py-2 text-xs text-white focus:border-orange-500 outline-none"
+                  >
+                    <option value="">— Seleccionar Operario —</option>
+                    {presentesHoy.length > 0 && (
+                      <optgroup label="Presentes Hoy (Marcación Activa)">
+                        {presentesHoy.map(u => (
+                          <option key={`p_${u}`} value={u}>
+                            {u} {presentesSinTarea.includes(u) ? '(Sin tarea activa)' : '(En tarea)'}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    <optgroup label="Todos los Operarios / Usuarios">
+                      {usuariosSistema
+                        .filter(u => !presentesHoy.includes(u.username))
+                        .map(u => (
+                          <option key={u.id} value={u.username}>
+                            {u.nombre} ({u.username})
+                          </option>
+                        ))}
+                    </optgroup>
+                  </select>
+                </div>
+
+                {/* Cliente */}
+                <div>
+                  <label className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
+                    Cliente <span className="text-orange-400">*</span>
+                  </label>
+                  <select
+                    value={asignarClienteId}
+                    onChange={(e) => {
+                      setAsignarClienteId(e.target.value);
+                      setAsignarProyectoId('');
+                    }}
+                    required
+                    className="w-full rounded-md border border-white/10 bg-[#111318] px-3 py-2 text-xs text-white focus:border-orange-500 outline-none"
+                  >
+                    <option value="">— Seleccionar Cliente —</option>
+                    {(data?.clientes || []).map(c => (
+                      <option key={c.id} value={c.id}>{c.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Proyecto */}
+                <div>
+                  <label className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
+                    Proyecto <span className="text-orange-400">*</span>
+                  </label>
+                  <select
+                    value={asignarProyectoId}
+                    onChange={(e) => setAsignarProyectoId(e.target.value)}
+                    required
+                    disabled={!asignarClienteId}
+                    className="w-full rounded-md border border-white/10 bg-[#111318] px-3 py-2 text-xs text-white focus:border-orange-500 outline-none disabled:opacity-40"
+                  >
+                    <option value="">— Seleccionar Proyecto —</option>
+                    {(data?.proyectos || [])
+                      .filter(p => p.clienteId === asignarClienteId && p.activo !== false)
+                      .map(p => (
+                        <option key={p.id} value={p.id}>{p.nombre}</option>
+                      ))}
+                  </select>
+                </div>
+
+                {/* Descripción Base */}
+                <div>
+                  <label className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
+                    Descripción del Trabajo <span className="text-orange-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={asignarDescripcion}
+                    onChange={(e) => setAsignarDescripcion(e.target.value)}
+                    required
+                    placeholder="ej: Mecanizado y pulido de acrílicos para marquesina"
+                    className="w-full rounded-md border border-white/10 bg-[#111318] px-3 py-2 text-xs text-white focus:border-orange-500 outline-none"
+                  />
+                </div>
+
+                {/* Checklist Inicial Opcional */}
+                <div>
+                  <label className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block mb-1 flex items-center justify-between">
+                    <span>Pasos de Checklist Inicial (opcional)</span>
+                    <span className="text-[10px] text-slate-500 font-sans">1 paso por línea</span>
+                  </label>
+                  <textarea
+                    value={asignarPasosTexto}
+                    onChange={(e) => setAsignarPasosTexto(e.target.value)}
+                    rows={3}
+                    placeholder="Corte de planchas según plano&#10;Desbaste y lijado de bordes&#10;Pulido y control dimensional"
+                    className="w-full rounded-md border border-white/10 bg-[#111318] px-3 py-2 text-xs text-white focus:border-orange-500 outline-none font-mono"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    El operario verá estos pasos en su pantalla con casillas para tildar mientras avanza.
+                  </p>
+                </div>
+
+                {/* Feedback */}
+                {asignarFeedback && (
+                  <div className={`p-2.5 rounded-md text-xs font-medium ${
+                    asignarFeedback.tipo === 'ok'
+                      ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-300'
+                      : 'bg-rose-500/20 border border-rose-500/30 text-rose-300'
+                  }`}>
+                    {asignarFeedback.msg}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setModalAsignarOpen(false)}
+                    className="px-3 py-1.5 rounded-md text-xs text-slate-400 hover:text-white"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={asignandoTarea || !asignarUsuario || !asignarClienteId || !asignarProyectoId || !asignarDescripcion.trim()}
+                    className="px-4 py-2 rounded-md bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-xs font-semibold text-white transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-white" />
+                    {asignandoTarea ? 'Iniciando Tarea...' : 'Asignar e Iniciar Timer'}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

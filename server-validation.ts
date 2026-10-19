@@ -140,7 +140,7 @@ export const TimerStartSchema = z.object({
     .min(1, 'Descripción requerida')
     .max(500, 'Descripción muy larga')
     .transform(sanitizeHTML),
-  precioUnitario: z.number().positive('Precio unitario debe ser positivo')
+  precioUnitario: z.number().nonnegative('Precio unitario no puede ser negativo').default(0)
 });
 
 /**

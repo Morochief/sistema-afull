@@ -120,6 +120,14 @@ function generateId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).substring(2, 10)}`;
 }
 
+export function cleanDescripcion(desc?: string | null): string {
+  if (!desc) return '';
+  return desc
+    .replace(/\s*<!--CHK:.*?-->/g, '')
+    .replace(/\s*\[Checklist:[^\]]*\]/g, '')
+    .trim();
+}
+
 // ─── TABS CONTEXT (Compound Component Pattern) ─────────────────────────────
 
 interface TabsContextValue {
@@ -394,7 +402,7 @@ function useTimer({ currentUser, onRestoreContext, onChecklistSync }: UseTimerOp
                 clienteId: serverTimer.clienteId,
                 proyectoId: serverTimer.proyectoId,
                 colaboradorId: serverTimer.colaboradorId,
-                descripcion: serverTimer.descripcion,
+                descripcion: cleanDescripcion(serverTimer.descripcion),
                 precioUnitario: serverTimer.precioUnitario,
               });
             }
@@ -415,7 +423,18 @@ function useTimer({ currentUser, onRestoreContext, onChecklistSync }: UseTimerOp
     };
 
     loadActiveTimer();
-  }, [currentUser]);
+
+    // Polling pasivo cuando el timer NO está corriendo (12s) para detectar si Gerardo asignó una tarea en vivo
+    let idleInterval: any = null;
+    if (!timerRunning) {
+      idleInterval = setInterval(() => {
+        loadActiveTimer();
+      }, 12000);
+    }
+    return () => {
+      if (idleInterval) clearInterval(idleInterval);
+    };
+  }, [currentUser, timerRunning]);
 
   useEffect(() => {
     if (!timerRunning || !currentUser) return;
@@ -1056,7 +1075,7 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
     try { return localStorage.getItem(`${ctxPrefix}_colaboradorId`) || ''; } catch { return ''; }
   });
   const [moDescripcion, setMoDescripcion] = useState(() => {
-    try { return localStorage.getItem(`${ctxPrefix}_moDescripcion`) || ''; } catch { return ''; }
+    try { return cleanDescripcion(localStorage.getItem(`${ctxPrefix}_moDescripcion`) || ''); } catch { return ''; }
   });
   const [moPrecioUnitario, setMoPrecioUnitario] = useState(() => {
     try { return localStorage.getItem(`${ctxPrefix}_moPrecioUnitario`) || ''; } catch { return ''; }
@@ -1066,7 +1085,7 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
     try {
       if (selectedColaboradorId) localStorage.setItem(`${ctxPrefix}_colaboradorId`, selectedColaboradorId);
       else localStorage.removeItem(`${ctxPrefix}_colaboradorId`);
-      if (moDescripcion) localStorage.setItem(`${ctxPrefix}_moDescripcion`, moDescripcion);
+      if (moDescripcion) localStorage.setItem(`${ctxPrefix}_moDescripcion`, cleanDescripcion(moDescripcion));
       else localStorage.removeItem(`${ctxPrefix}_moDescripcion`);
       if (moPrecioUnitario) localStorage.setItem(`${ctxPrefix}_moPrecioUnitario`, moPrecioUnitario);
       else localStorage.removeItem(`${ctxPrefix}_moPrecioUnitario`);
@@ -1083,7 +1102,7 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
     if (ctx.clienteId) setSelectedClienteId(ctx.clienteId);
     if (ctx.proyectoId) setSelectedProyectoId(ctx.proyectoId);
     if (ctx.colaboradorId) setSelectedColaboradorId(ctx.colaboradorId);
-    if (ctx.descripcion) setMoDescripcion(ctx.descripcion);
+    if (ctx.descripcion) setMoDescripcion(cleanDescripcion(ctx.descripcion));
     if (ctx.precioUnitario !== undefined && ctx.precioUnitario > 0) {
       setMoPrecioUnitario(String(ctx.precioUnitario));
     }
@@ -1288,7 +1307,8 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
     }
 
     // Generar descripción enriquecida con estado inicial del checklist
-    let descInicial = moDescripcion || 'Tarea en progreso';
+    let baseDesc = cleanDescripcion(moDescripcion) || 'Tarea en progreso';
+    let descInicial = baseDesc;
     if (checklist.length > 0) {
       const comp = checklist.filter(c => c.completado).length;
       const primerIncompleto = checklist.find(c => !c.completado);
