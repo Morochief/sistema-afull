@@ -42,6 +42,10 @@ import {
   Trash2,
   Layers,
   Sparkles,
+  Camera,
+  Ruler,
+  CheckSquare,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { authFetchJSON } from '../authFetch.ts';
 import { DatabaseState, PauseRecord } from '../types.ts';
@@ -82,6 +86,15 @@ interface DistribucionClienteItem {
   clienteId: string;
   proyectoId: string;
   porcentaje: number;
+  anchoCm?: number;
+  altoCm?: number;
+  cantidadPiezas?: number;
+}
+
+interface ChecklistItem {
+  id: string;
+  texto: string;
+  completado: boolean;
 }
 
 // ─── HELPERS ────────────────────────────────────────────────────────────────
@@ -788,13 +801,40 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
   const [fecha, setFecha] = useState(new Date().toISOString().substring(0, 10));
 
   // ══════════════════════════════════════════════════════
-  //  MULTI-CLIENT PRORRATEO STATE
+  //  MULTI-CLIENT PRORRATEO & ASISTENTE DE PLANCHA
   // ══════════════════════════════════════════════════════
   const [esMultiCliente, setEsMultiCliente] = useState(false);
+  const [modoDistribucion, setModoDistribucion] = useState<'MEDIDAS' | 'PORCENTAJE'>(() => isEdu ? 'MEDIDAS' : 'PORCENTAJE');
+  const [fotoGlobal, setFotoGlobal] = useState<string | null>(null);
+
   const [distribucionClientes, setDistribucionClientes] = useState<DistribucionClienteItem[]>([
-    { id: 'dist_1', clienteId: '', proyectoId: '', porcentaje: 50 },
-    { id: 'dist_2', clienteId: '', proyectoId: '', porcentaje: 50 },
+    { id: 'dist_1', clienteId: '', proyectoId: '', porcentaje: 50, anchoCm: 120, altoCm: 80, cantidadPiezas: 1 },
+    { id: 'dist_2', clienteId: '', proyectoId: '', porcentaje: 50, anchoCm: 60, altoCm: 40, cantidadPiezas: 1 },
   ]);
+
+  // Recalcular porcentajes automáticamente según medidas (ancho x alto x piezas)
+  const recalculateDistribucionPorMedidas = useCallback((items: DistribucionClienteItem[]): DistribucionClienteItem[] => {
+    const areas = items.map(d => {
+      const w = Number(d.anchoCm) || 0;
+      const h = Number(d.altoCm) || 0;
+      const qty = Number(d.cantidadPiezas) || 1;
+      return w * h * qty;
+    });
+    const totalArea = areas.reduce((acc, a) => acc + a, 0);
+    if (totalArea <= 0) return items;
+
+    let acumulado = 0;
+    return items.map((d, idx) => {
+      if (idx === items.length - 1) {
+        const pct = Math.max(0.1, Math.round((100 - acumulado) * 10) / 10);
+        return { ...d, porcentaje: pct };
+      } else {
+        const pct = Math.round((areas[idx] / totalArea) * 1000) / 10;
+        acumulado += pct;
+        return { ...d, porcentaje: pct };
+      }
+    });
+  }, []);
 
   const sumaPorcentajes = useMemo(() => {
     return distribucionClientes.reduce((acc, d) => acc + (Number(d.porcentaje) || 0), 0);
@@ -803,35 +843,50 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
   const distribucionValida = useMemo(() => {
     if (!esMultiCliente) return true;
     if (distribucionClientes.length < 2) return false;
-    if (Math.abs(sumaPorcentajes - 100) > 0.1) return false;
+    if (Math.abs(sumaPorcentajes - 100) > 0.5) return false;
     return distribucionClientes.every(d => d.clienteId && d.proyectoId && d.porcentaje > 0);
   }, [esMultiCliente, distribucionClientes, sumaPorcentajes]);
 
   const handleAddDistribucionCliente = () => {
     const restante = Math.max(0, 100 - sumaPorcentajes);
-    setDistribucionClientes(prev => [
-      ...prev,
-      {
-        id: generateId('dist'),
-        clienteId: '',
-        proyectoId: '',
-        porcentaje: restante > 0 ? restante : 10,
+    setDistribucionClientes(prev => {
+      const nuevo = [
+        ...prev,
+        {
+          id: generateId('dist'),
+          clienteId: '',
+          proyectoId: '',
+          porcentaje: restante > 0 ? restante : 10,
+          anchoCm: 50,
+          altoCm: 50,
+          cantidadPiezas: 1,
+        }
+      ];
+      if (modoDistribucion === 'MEDIDAS') {
+        return recalculateDistribucionPorMedidas(nuevo);
       }
-    ]);
+      return nuevo;
+    });
   };
 
   const handleRemoveDistribucionCliente = (id: string) => {
     if (distribucionClientes.length <= 2) return;
-    setDistribucionClientes(prev => prev.filter(d => d.id !== id));
+    setDistribucionClientes(prev => {
+      const filtered = prev.filter(d => d.id !== id);
+      if (modoDistribucion === 'MEDIDAS') {
+        return recalculateDistribucionPorMedidas(filtered);
+      }
+      return filtered;
+    });
   };
 
   const handleUpdateDistribucionCliente = (
     id: string,
-    field: 'clienteId' | 'proyectoId' | 'porcentaje',
+    field: 'clienteId' | 'proyectoId' | 'porcentaje' | 'anchoCm' | 'altoCm' | 'cantidadPiezas',
     value: any
   ) => {
-    setDistribucionClientes(prev =>
-      prev.map(d => {
+    setDistribucionClientes(prev => {
+      const updated = prev.map(d => {
         if (d.id !== id) return d;
         if (field === 'clienteId') {
           const firstProj = (data?.proyectos || []).find(p => p.clienteId === value && p.activo !== false);
@@ -842,8 +897,117 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
           };
         }
         return { ...d, [field]: value };
-      })
-    );
+      });
+      if (modoDistribucion === 'MEDIDAS' && (field === 'anchoCm' || field === 'altoCm' || field === 'cantidadPiezas')) {
+        return recalculateDistribucionPorMedidas(updated);
+      }
+      return updated;
+    });
+  };
+
+  // Compresión y carga de Foto Global en cliente
+  const handleFotoGlobalUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 1200;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          setFotoGlobal(canvas.toDataURL('image/jpeg', 0.8));
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // ══════════════════════════════════════════════════════
+  //  CHECKLIST OPERATIVO INTERACTIVO (Edu + McDonald's + General)
+  // ══════════════════════════════════════════════════════
+  const isMcDonalds = useMemo(() => {
+    const cli = (data?.clientes || []).find(c => c.id === selectedClienteId);
+    return Boolean(cli?.nombre?.toLowerCase().includes('mcdonald') || cli?.nombre?.toLowerCase().includes('mc donald'));
+  }, [data?.clientes, selectedClienteId]);
+
+  const defaultChecklist = useMemo<ChecklistItem[]>(() => {
+    if (isMcDonalds) {
+      return [
+        { id: 'chk_1', texto: "Revisar acrílicos y kit McDonald's Diez Register", completado: false },
+        { id: 'chk_2', texto: 'Montaje y pegado de los 10 portavasos', completado: false },
+        { id: 'chk_3', texto: 'Fijación de adhesivos y señalética corporativa', completado: false },
+        { id: 'chk_4', texto: 'Limpieza, embalaje e identificación por sucursal', completado: false },
+      ];
+    }
+    if (isEdu) {
+      return [
+        { id: 'chk_1', texto: 'Medición y escuadra de la plancha en mesa', completado: false },
+        { id: 'chk_2', texto: 'Nesting y posición de cortes multi-proyecto', completado: false },
+        { id: 'chk_3', texto: 'Corte / Mecanizado de pasada continua', completado: false },
+        { id: 'chk_4', texto: 'Desbaste, lijado y pulido de bordes', completado: false },
+        { id: 'chk_5', texto: 'Control de calidad y rotulado por cliente', completado: false },
+      ];
+    }
+    return [
+      { id: 'chk_1', texto: 'Preparación de materiales e insumos', completado: false },
+      { id: 'chk_2', texto: 'Ejecución del corte / montaje', completado: false },
+      { id: 'chk_3', texto: 'Verificación de medidas y limpieza', completado: false },
+    ];
+  }, [isMcDonalds, isEdu]);
+
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(`afull_chk_${currentUser?.usuario || 'guest'}`);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+
+  useEffect(() => {
+    if (checklist.length === 0 && defaultChecklist.length > 0) {
+      setChecklist(defaultChecklist);
+    }
+  }, [defaultChecklist]);
+
+  useEffect(() => {
+    try {
+      if (checklist.length > 0) {
+        localStorage.setItem(`afull_chk_${currentUser?.usuario || 'guest'}`, JSON.stringify(checklist));
+      }
+    } catch {}
+  }, [checklist, currentUser?.usuario]);
+
+  const [nuevoPasoChecklist, setNuevoPasoChecklist] = useState('');
+
+  const handleToggleChecklist = (id: string) => {
+    setChecklist(prev => prev.map(item => item.id === id ? { ...item, completado: !item.completado } : item));
+  };
+
+  const handleAddPasoChecklist = () => {
+    if (!nuevoPasoChecklist.trim()) return;
+    setChecklist(prev => [...prev, { id: generateId('chk'), texto: nuevoPasoChecklist.trim(), completado: false }]);
+    setNuevoPasoChecklist('');
+  };
+
+  const handleRemovePasoChecklist = (id: string) => {
+    setChecklist(prev => prev.filter(item => item.id !== id));
   };
 
   // ══════════════════════════════════════════════════════
@@ -1100,11 +1264,19 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
               clienteId: d.clienteId,
               proyectoId: d.proyectoId,
               porcentaje: Number(d.porcentaje),
+              anchoCm: d.anchoCm,
+              altoCm: d.altoCm,
             })),
             registroBase: {
               fecha,
               concepto: 'MO',
-              descripcion: moDescripcion || (colaborador ? colaborador.nombre : 'Tarea sin descripción'),
+              descripcion: (() => {
+                let desc = moDescripcion || (colaborador ? colaborador.nombre : 'Tarea sin descripción');
+                const completadas = checklist.filter(c => c.completado).length;
+                if (completadas > 0) desc += ` [Checklist: ${completadas}/${checklist.length}]`;
+                if (fotoGlobal) desc += ` [Foto global plancha]`;
+                return desc;
+              })(),
               colaboradorId: selectedColaboradorId || undefined,
               hsInicio,
               hsFin,
@@ -1125,6 +1297,7 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
           });
           if (modoHorario === 'timer') handleResetTimer();
           setMoDescripcion('');
+          setFotoGlobal(null);
           if (onRefresh) await onRefresh();
         } else {
           showToast(res.error?.message || 'Error al guardar prorrateo', 'error');
@@ -1461,87 +1634,225 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
         </div>
 
         {esMultiCliente ? (
-          <div className="space-y-3">
-            <p className="text-xs text-slate-400">
-              Asigná el porcentaje de participación para cada cliente. El costo y tiempo se distribuirán automáticamente según los porcentajes definidos.
-            </p>
+          <div className="space-y-4">
+            {/* Selector de Modo: Medidas (Planchas) vs Porcentaje */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-slate-400">Modo de Reparto:</span>
+                <div className="inline-flex rounded-md p-0.5 bg-black/40 border border-white/10 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModoDistribucion('MEDIDAS');
+                      setDistribucionClientes(prev => recalculateDistribucionPorMedidas(prev));
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs transition cursor-pointer font-medium ${
+                      modoDistribucion === 'MEDIDAS'
+                        ? 'bg-orange-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <Ruler className="w-3.5 h-3.5" />
+                    Por Medidas (Planchas / AxA)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModoDistribucion('PORCENTAJE')}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs transition cursor-pointer font-medium ${
+                      modoDistribucion === 'PORCENTAJE'
+                        ? 'bg-orange-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    % Por Porcentaje Directo
+                  </button>
+                </div>
+              </div>
 
-            <div className="space-y-2">
+              {/* Botón Foto Global */}
+              <label className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 text-xs cursor-pointer transition">
+                <Camera className="w-3.5 h-3.5 text-orange-400" />
+                <span>{fotoGlobal ? '✓ Foto Global Cargada' : 'Foto Global de Plancha'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleFotoGlobalUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            {fotoGlobal && (
+              <div className="relative inline-block border border-orange-500/30 rounded-md p-1 bg-black/40">
+                <img src={fotoGlobal} alt="Foto Global Plancha" className="h-20 w-auto rounded object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setFotoGlobal(null)}
+                  className="absolute -top-2 -right-2 p-1 rounded-full bg-rose-600 text-white text-xs hover:bg-rose-500 shadow-md cursor-pointer"
+                  title="Eliminar foto"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+
+            <div className="space-y-2.5">
               {distribucionClientes.map((dist, idx) => {
                 const proyectosDelCliente = (data?.proyectos || []).filter(
                   p => p.clienteId === dist.clienteId && p.activo !== false
                 );
+                const areaM2 = ((Number(dist.anchoCm) || 0) * (Number(dist.altoCm) || 0) * (Number(dist.cantidadPiezas) || 1)) / 10000;
+                const minutosEstimados = Math.round((minutosRegistrados * Number(dist.porcentaje)) / 100);
+
                 return (
                   <div
                     key={dist.id}
-                    className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center bg-white/5 rounded-md p-2.5 border border-white/5"
+                    className="bg-white/5 rounded-md p-3 border border-white/5 space-y-2.5"
                   >
-                    {/* Cliente */}
-                    <div className="md:col-span-5">
-                      <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
-                        Cliente {idx + 1}
-                      </label>
-                      <select
-                        value={dist.clienteId}
-                        onChange={e => handleUpdateDistribucionCliente(dist.id, 'clienteId', e.target.value)}
-                        className="glass-select w-full rounded-md px-3 py-2 text-xs"
-                      >
-                        <option value="">— Seleccionar Cliente —</option>
-                        {(data?.clientes || []).map(c => (
-                          <option key={c.id} value={c.id}>{c.nombre}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Proyecto */}
-                    <div className="md:col-span-4">
-                      <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
-                        Proyecto
-                      </label>
-                      <select
-                        value={dist.proyectoId}
-                        onChange={e => handleUpdateDistribucionCliente(dist.id, 'proyectoId', e.target.value)}
-                        disabled={!dist.clienteId}
-                        className="glass-select w-full rounded-md px-3 py-2 text-xs disabled:opacity-50"
-                      >
-                        <option value="">— Seleccionar Proyecto —</option>
-                        {proyectosDelCliente.map(p => (
-                          <option key={p.id} value={p.id}>{p.nombre}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Porcentaje */}
-                    <div className="md:col-span-2">
-                      <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
-                        Porcentaje (%)
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          min="1"
-                          max="100"
-                          step="any"
-                          value={dist.porcentaje}
-                          onChange={e => handleUpdateDistribucionCliente(dist.id, 'porcentaje', parseFloat(e.target.value) || 0)}
-                          className="glass-input w-full rounded-md px-3 py-2 text-xs text-right pr-6"
-                        />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 text-xs font-mono pointer-events-none">%</span>
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
+                      {/* Cliente */}
+                      <div className={modoDistribucion === 'MEDIDAS' ? 'md:col-span-4' : 'md:col-span-5'}>
+                        <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
+                          Cliente {idx + 1}
+                        </label>
+                        <select
+                          value={dist.clienteId}
+                          onChange={e => handleUpdateDistribucionCliente(dist.id, 'clienteId', e.target.value)}
+                          className="glass-select w-full rounded-md px-3 py-2 text-xs"
+                        >
+                          <option value="">— Seleccionar Cliente —</option>
+                          {(data?.clientes || []).map(c => (
+                            <option key={c.id} value={c.id}>{c.nombre}</option>
+                          ))}
+                        </select>
                       </div>
+
+                      {/* Proyecto */}
+                      <div className={modoDistribucion === 'MEDIDAS' ? 'md:col-span-4' : 'md:col-span-4'}>
+                        <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
+                          Proyecto
+                        </label>
+                        <select
+                          value={dist.proyectoId}
+                          onChange={e => handleUpdateDistribucionCliente(dist.id, 'proyectoId', e.target.value)}
+                          disabled={!dist.clienteId}
+                          className="glass-select w-full rounded-md px-3 py-2 text-xs disabled:opacity-50"
+                        >
+                          <option value="">— Seleccionar Proyecto —</option>
+                          {proyectosDelCliente.map(p => (
+                            <option key={p.id} value={p.id}>{p.nombre}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Medidas (si está en modo MEDIDAS) */}
+                      {modoDistribucion === 'MEDIDAS' ? (
+                        <>
+                          <div className="md:col-span-3 grid grid-cols-3 gap-1">
+                            <div>
+                              <label className="text-[9px] font-mono text-slate-400 block mb-1">Ancho cm</label>
+                              <input
+                                type="number"
+                                min="1"
+                                step="any"
+                                value={dist.anchoCm || ''}
+                                onChange={e => handleUpdateDistribucionCliente(dist.id, 'anchoCm', parseFloat(e.target.value) || 0)}
+                                placeholder="120"
+                                className="glass-input w-full rounded-md px-2 py-1.5 text-xs text-right"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-mono text-slate-400 block mb-1">Alto cm</label>
+                              <input
+                                type="number"
+                                min="1"
+                                step="any"
+                                value={dist.altoCm || ''}
+                                onChange={e => handleUpdateDistribucionCliente(dist.id, 'altoCm', parseFloat(e.target.value) || 0)}
+                                placeholder="80"
+                                className="glass-input w-full rounded-md px-2 py-1.5 text-xs text-right"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-mono text-slate-400 block mb-1">Cant</label>
+                              <input
+                                type="number"
+                                min="1"
+                                step="1"
+                                value={dist.cantidadPiezas || 1}
+                                onChange={e => handleUpdateDistribucionCliente(dist.id, 'cantidadPiezas', parseInt(e.target.value) || 1)}
+                                className="glass-input w-full rounded-md px-2 py-1.5 text-xs text-right"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Botón Eliminar */}
+                          <div className="md:col-span-1 flex items-end justify-center pt-2 md:pt-0">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDistribucionCliente(dist.id)}
+                              disabled={distribucionClientes.length <= 2}
+                              className="p-1.5 rounded text-slate-500 hover:text-rose-400 disabled:opacity-20 disabled:hover:text-slate-500 cursor-pointer transition-colors"
+                              title="Eliminar cliente del prorrateo"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {/* Modo Porcentaje Directo */}
+                          <div className="md:col-span-2">
+                            <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
+                              Porcentaje (%)
+                            </label>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                min="1"
+                                max="100"
+                                step="any"
+                                value={dist.porcentaje}
+                                onChange={e => handleUpdateDistribucionCliente(dist.id, 'porcentaje', parseFloat(e.target.value) || 0)}
+                                className="glass-input w-full rounded-md px-3 py-2 text-xs text-right pr-6"
+                              />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 text-xs font-mono pointer-events-none">%</span>
+                            </div>
+                          </div>
+
+                          {/* Botón Eliminar */}
+                          <div className="md:col-span-1 flex items-end justify-center pt-3 md:pt-0">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDistribucionCliente(dist.id)}
+                              disabled={distribucionClientes.length <= 2}
+                              className="p-2 rounded text-slate-500 hover:text-rose-400 disabled:opacity-20 disabled:hover:text-slate-500 cursor-pointer transition-colors"
+                              title="Eliminar cliente del prorrateo"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
 
-                    {/* Botón Eliminar */}
-                    <div className="md:col-span-1 flex items-end justify-center pt-3 md:pt-0">
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveDistribucionCliente(dist.id)}
-                        disabled={distribucionClientes.length <= 2}
-                        className="p-2 rounded text-slate-500 hover:text-rose-400 disabled:opacity-20 disabled:hover:text-slate-500 cursor-pointer transition-colors"
-                        title="Eliminar cliente del prorrateo"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                    {/* Resumen calculado de la pieza para este cliente */}
+                    {modoDistribucion === 'MEDIDAS' && (
+                      <div className="flex flex-wrap items-center justify-between text-[11px] font-mono bg-black/30 rounded px-2.5 py-1 text-slate-300 border border-white/5">
+                        <span className="text-slate-400">
+                          Área: <strong className="text-white">{areaM2.toFixed(3)} m²</strong>
+                        </span>
+                        <span className="flex items-center gap-1 text-orange-400 font-semibold">
+                          <Sparkles className="w-3 h-3" /> {dist.porcentaje}% de la plancha
+                        </span>
+                        {minutosRegistrados > 0 && (
+                          <span className="text-emerald-400">
+                            ~{minutosEstimados} min asignados
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -1554,17 +1865,25 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-dashed border-white/15 text-xs text-slate-300 hover:text-orange-400 hover:border-orange-500/30 transition-colors cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                Agregar otro Cliente
+                Agregar otro Cliente / Proyecto
               </button>
 
-              <div className="flex items-center gap-2">
-                <label className="text-xs font-mono text-slate-400">Fecha:</label>
-                <input
-                  type="date"
-                  value={fecha}
-                  onChange={e => setFecha(e.target.value)}
-                  className="glass-input rounded-md px-3 py-1.5 text-xs"
-                />
+              <div className="flex items-center gap-4">
+                <div className="text-xs font-mono">
+                  <span className="text-slate-400">Total Reparto: </span>
+                  <span className={Math.abs(sumaPorcentajes - 100) <= 0.5 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                    {sumaPorcentajes.toFixed(1)}%
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-mono text-slate-400">Fecha:</label>
+                  <input
+                    type="date"
+                    value={fecha}
+                    onChange={e => setFecha(e.target.value)}
+                    className="glass-input rounded-md px-3 py-1.5 text-xs"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -1960,6 +2279,100 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {/* CHECKLIST INTERACTIVO DE PRODUCCIÓN (Eduardo / McDonald's / Taller) */}
+              <div className="bg-[#111318]/70 border border-white/10 rounded-md p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="w-4 h-4 text-orange-400" />
+                    <span className="text-xs font-semibold text-slate-200">
+                      {isMcDonalds
+                        ? "Checklist de Montaje McDonald's"
+                        : isEdu
+                        ? "Checklist de Producción / Taller (Eduardo)"
+                        : "Checklist de Tarea"}
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-400">
+                    {checklist.filter(c => c.completado).length} de {checklist.length} pasos completados
+                  </span>
+                </div>
+
+                {/* Barra de Progreso */}
+                {checklist.length > 0 && (
+                  <div className="w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-orange-500 h-full transition-all duration-300"
+                      style={{
+                        width: `${Math.round((checklist.filter(c => c.completado).length / checklist.length) * 100)}%`
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Lista de Ítems */}
+                <div className="space-y-1.5 pt-1">
+                  {checklist.map(item => (
+                    <div
+                      key={item.id}
+                      onClick={() => handleToggleChecklist(item.id)}
+                      className={`flex items-center justify-between p-2 rounded-md border text-xs cursor-pointer transition select-none ${
+                        item.completado
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                          : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="checkbox"
+                          checked={item.completado}
+                          readOnly
+                          className="rounded border-white/20 bg-black/40 text-orange-500 focus:ring-0 cursor-pointer pointer-events-none"
+                        />
+                        <span className={item.completado ? 'line-through text-slate-400' : ''}>
+                          {item.texto}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemovePasoChecklist(item.id);
+                        }}
+                        className="text-slate-600 hover:text-rose-400 p-1 transition cursor-pointer"
+                        title="Eliminar paso"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Agregar nuevo paso */}
+                <div className="flex gap-2 pt-1">
+                  <input
+                    type="text"
+                    value={nuevoPasoChecklist}
+                    onChange={e => setNuevoPasoChecklist(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddPasoChecklist();
+                      }
+                    }}
+                    placeholder="+ Agregar paso al checklist..."
+                    className="glass-input flex-1 rounded-md px-3 py-1.5 text-xs text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddPasoChecklist}
+                    disabled={!nuevoPasoChecklist.trim()}
+                    className="px-3 py-1.5 rounded-md bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white text-xs font-medium transition cursor-pointer"
+                  >
+                    Agregar
+                  </button>
+                </div>
+              </div>
 
               {/* Formulario MO */}
               <div className="space-y-4 pt-2">

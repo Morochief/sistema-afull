@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { authFetchJSON } from '../authFetch.ts';
 import { Cliente, Pedido, Presupuesto, PresupuestoItem, Proyecto, PRESUPUESTO_CATEGORIAS, PresupuestoCategoria, OrdenTrabajo } from '../types.ts';
 import { useSortAndPaginate, getSortIcon, sortableHeaderClass } from '../lib/tableUtils.ts';
