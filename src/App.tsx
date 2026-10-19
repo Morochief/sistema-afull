@@ -183,9 +183,9 @@ function AppInner() {
       }
 
       if (!meResponse.ok) {
-        // Error de red o servidor temporalmente ocupado — mantener sesión cacheada si existe
+        // Error transitorio de red o servidor reiniciándose — intentar cargar datos con fetchDbState
         clearTimeout(timeoutId);
-        setLoading(false);
+        await fetchDbState();
         return;
       }
 
@@ -241,8 +241,8 @@ function AppInner() {
     }
   };
 
-  // Fetch DB state
-  const fetchDbState = async () => {
+  // Fetch DB state with retry
+  const fetchDbState = async (retries = 2) => {
     if (!session) return;
     
     setLoading(true);
@@ -258,7 +258,11 @@ function AppInner() {
         const meCheck = await fetch('/api/auth/me', { credentials: 'include' });
         if (meCheck.ok) {
           // El token sigue siendo válido — fue un error transitorio.
-          // No cerrar sesión, solo marcar error de carga.
+          // No cerrar sesión, reintentar si quedan intentos
+          if (retries > 0) {
+            await new Promise(r => setTimeout(r, 1500));
+            return fetchDbState(retries - 1);
+          }
           setFetchError('Error temporal al cargar datos. Reintentá en un momento.');
           setLoading(false);
           return;
@@ -268,11 +272,21 @@ function AppInner() {
         return;
       }
       
-      if (!response.ok) throw new Error('Error al conectar con la base del Sistema aFull.');
+      if (!response.ok) {
+        if (retries > 0) {
+          await new Promise(r => setTimeout(r, 1500));
+          return fetchDbState(retries - 1);
+        }
+        throw new Error('Error al conectar con la base del Sistema aFull.');
+      }
       
       const result = await response.json();
       setDbState(result.data || result); // Support both formats
     } catch (err: any) {
+      if (retries > 0) {
+        await new Promise(r => setTimeout(r, 1500));
+        return fetchDbState(retries - 1);
+      }
       setFetchError(err.message || 'Error de red.');
     } finally {
       setLoading(false);
