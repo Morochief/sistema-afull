@@ -2432,10 +2432,14 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
                 <div className="space-y-1.5 pt-1">
                   {checklist.map((item, idx) => {
                     const isFirstIncomplete = !item.completado && checklist.slice(0, idx).every(c => c.completado);
-                    const duracionMins = item.duracionSegundos ? Math.round(item.duracionSegundos / 60) : 0;
-                    const duracionTexto = duracionMins >= 60
-                      ? `${Math.floor(duracionMins / 60)}h ${duracionMins % 60}m`
-                      : `${Math.max(1, duracionMins)} min`;
+                    const secs = item.duracionSegundos || 0;
+                    const mins = Math.floor(secs / 60);
+                    const remainingSecs = secs % 60;
+                    const duracionTexto = mins >= 60
+                      ? `${Math.floor(mins / 60)}h ${mins % 60}m`
+                      : mins > 0
+                      ? `${mins}m ${remainingSecs > 0 ? `${remainingSecs}s` : ''}`.trim()
+                      : `${secs}s`;
 
                     return (
                       <div

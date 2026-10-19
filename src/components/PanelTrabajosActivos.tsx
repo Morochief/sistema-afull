@@ -329,27 +329,71 @@ export default function PanelTrabajosActivos() {
                       />
                     </div>
 
-                    {t.checklistProgress.pasoActual && (
-                      <p className="text-[10px] text-slate-400 truncate">
-                        <span className="text-orange-400 font-semibold">Paso en curso:</span> {t.checklistProgress.pasoActual}
-                      </p>
-                    )}
+                    {/* Lista detallada de pasos con tiempos */}
+                    {t.checklistProgress.pasos && t.checklistProgress.pasos.length > 0 ? (
+                      <div className="pt-2 border-t border-white/5 space-y-1.5">
+                        <span className="text-[10px] font-mono uppercase text-slate-400 block font-semibold">
+                          Seguimiento de Tareas / Checklist:
+                        </span>
+                        <div className="space-y-1">
+                          {t.checklistProgress.pasos.map((p, idx) => {
+                            const isCurrent = !p.completado && t.checklistProgress?.pasos?.slice(0, idx).every(prevP => prevP.completado);
+                            const secs = p.duracionSegundos || 0;
+                            const mins = Math.floor(secs / 60);
+                            const remSecs = secs % 60;
+                            const duracionTexto = mins >= 60 
+                              ? `${Math.floor(mins / 60)}h ${mins % 60}m` 
+                              : mins > 0
+                              ? `${mins}m ${remSecs > 0 ? `${remSecs}s` : ''}`.trim()
+                              : `${secs}s`;
 
-                    {/* Desglose de subtareas completadas del operario */}
-                    {t.checklistProgress.pasos && t.checklistProgress.pasos.filter(p => p.completado).length > 0 && (
-                      <div className="pt-1.5 border-t border-white/5 space-y-1">
-                        <span className="text-[9px] font-mono uppercase text-slate-500 block">Subtareas concluidas:</span>
-                        <div className="flex flex-wrap gap-1">
-                          {t.checklistProgress.pasos.filter(p => p.completado).map((p, idx) => {
-                            const mins = p.duracionSegundos ? Math.round(p.duracionSegundos / 60) : 0;
                             return (
-                              <span key={p.id || idx} className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-mono text-emerald-300">
-                                ✓ {p.texto} {mins > 0 ? `(${mins}m)` : ''}
-                              </span>
+                              <div
+                                key={p.id || idx}
+                                className={`flex items-center justify-between px-2.5 py-1 rounded text-xs border ${
+                                  p.completado
+                                    ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
+                                    : isCurrent
+                                    ? 'bg-orange-500/10 border-orange-500/30 text-orange-200'
+                                    : 'bg-white/5 border-white/5 text-slate-400'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 truncate pr-2">
+                                  <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] font-bold ${
+                                    p.completado ? 'bg-emerald-500 text-black' : 'border border-white/20 text-slate-500'
+                                  }`}>
+                                    {p.completado ? '✓' : idx + 1}
+                                  </span>
+                                  <span className={`truncate ${p.completado ? 'line-through text-slate-400' : ''}`}>
+                                    {p.texto}
+                                  </span>
+                                </div>
+
+                                <div className="shrink-0 font-mono text-[11px]">
+                                  {p.completado && p.duracionSegundos !== undefined ? (
+                                    <span className="px-1.5 py-0.5 rounded font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                      ⏱ {duracionTexto}
+                                    </span>
+                                  ) : isCurrent ? (
+                                    <span className="px-1.5 py-0.5 rounded font-semibold bg-orange-500/20 text-orange-300 border border-orange-500/30 animate-pulse flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                                      En curso
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-600 text-[10px]">Pendiente</span>
+                                  )}
+                                </div>
+                              </div>
                             );
                           })}
                         </div>
                       </div>
+                    ) : (
+                      t.checklistProgress.pasoActual && (
+                        <p className="text-[10px] text-slate-400 truncate">
+                          <span className="text-orange-400 font-semibold">Paso en curso:</span> {t.checklistProgress.pasoActual}
+                        </p>
+                      )
                     )}
                   </div>
                 )}
