@@ -142,11 +142,17 @@ export function calcularLonaYDesperdicio(params: {
 
   // 5. Generación de resumen técnico
   const materialNombre = tarifas?.nombreInsumo || 'Lona';
+  const fmtMedida = (mVal: number) => {
+    return unidad === 'cm'
+      ? `${(mVal * 100).toFixed(0)}cm`
+      : `${mVal.toFixed(2)}m`;
+  };
+
   const detallePiezas = piezasCalculadas
-    .map(p => `${(p.anchoM * (unidad === 'cm' ? 100 : 1)).toFixed(0)}x${(p.altoM * (unidad === 'cm' ? 100 : 1)).toFixed(0)}${unidad}${p.cantidad > 1 ? ` (x${p.cantidad})` : ''} = ${p.areaTotalM2.toFixed(3)}m²`)
+    .map(p => `${fmtMedida(p.anchoM)}x${fmtMedida(p.altoM)}${p.cantidad > 1 ? ` (x${p.cantidad})` : ''} = ${p.areaTotalM2.toFixed(3)}m²`)
     .join(', ');
 
-  const medidasLonaStr = `${(anchoLonaM * (unidad === 'cm' ? 100 : 1)).toFixed(0)}x${(altoLonaM * (unidad === 'cm' ? 100 : 1)).toFixed(0)}${unidad}`;
+  const medidasLonaStr = `${fmtMedida(anchoLonaM)}x${fmtMedida(altoLonaM)}`;
 
   const resumenTexto = `${materialNombre} — Lona: ${medidasLonaStr} (${areaTotalLonaM2.toFixed(2)}m²) | Impreso: ${areaTotalImpresaM2.toFixed(2)}m² [${detallePiezas}] | Merma: ${desperdicioM2.toFixed(2)}m² (${porcentajeDesperdicio.toFixed(0)}%)${costoTotalGs > 0 ? ` | Costo: Gs. ${costoTotalGs.toLocaleString('es-PY')}` : ''}`;
 

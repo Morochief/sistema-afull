@@ -200,11 +200,53 @@ export default function CalculadoraAdhesivoModal({
     setPiezas(piezas.map((p) => (p.id === id ? { ...p, [campo]: valor } : p)));
   };
 
+  // Manejador para alternar unidad con conversión automática de valores cargados
+  const handleCambiarUnidad = (nuevaUnidad: 'cm' | 'm') => {
+    if (nuevaUnidad === unidadMedida) return;
+
+    if (nuevaUnidad === 'm') {
+      // De cm a m: dividir entre 100
+      setPiezas(prev => prev.map(p => ({
+        ...p,
+        ancho: p.ancho ? String(Number((parseFloat(p.ancho.replace(',', '.')) / 100).toFixed(3))) : '',
+        alto: p.alto ? String(Number((parseFloat(p.alto.replace(',', '.')) / 100).toFixed(3))) : '',
+      })));
+      if (anchoMaterial) {
+        setAnchoMaterial(String(Number((parseFloat(anchoMaterial.replace(',', '.')) / 100).toFixed(3))));
+      }
+      if (altoMaterial) {
+        setAltoMaterial(String(Number((parseFloat(altoMaterial.replace(',', '.')) / 100).toFixed(3))));
+      }
+    } else {
+      // De m a cm: multiplicar por 100
+      setPiezas(prev => prev.map(p => ({
+        ...p,
+        ancho: p.ancho ? String(Math.round(parseFloat(p.ancho.replace(',', '.')) * 100)) : '',
+        alto: p.alto ? String(Math.round(parseFloat(p.alto.replace(',', '.')) * 100)) : '',
+      })));
+      if (anchoMaterial) {
+        setAnchoMaterial(String(Math.round(parseFloat(anchoMaterial.replace(',', '.')) * 100)));
+      }
+      if (altoMaterial) {
+        setAltoMaterial(String(Math.round(parseFloat(altoMaterial.replace(',', '.')) * 100)));
+      }
+    }
+
+    setUnidadMedida(nuevaUnidad);
+  };
+
   // Presets de material comunes en taller
-  const aplicarPresetMaterial = (nombre: string, w: string, h: string, costoImp?: number, costoDesp?: number) => {
+  const aplicarPresetMaterial = (nombre: string, wMetros: string, hMetros: string, costoImp?: number, costoDesp?: number) => {
     setMaterial(nombre);
-    setAnchoMaterial(unidadMedida === 'cm' ? String(parseFloat(w) * 100) : w);
-    setAltoMaterial(unidadMedida === 'cm' ? String(parseFloat(h) * 100) : h);
+    const wNum = parseFloat(wMetros);
+    const hNum = parseFloat(hMetros);
+    if (unidadMedida === 'cm') {
+      setAnchoMaterial(String(Math.round(wNum * 100)));
+      setAltoMaterial(String(Math.round(hNum * 100)));
+    } else {
+      setAnchoMaterial(wMetros);
+      setAltoMaterial(hMetros);
+    }
     setUsarPlanchaBobina(true);
     if (costoImp !== undefined) setCostoImpresionManual(String(costoImp));
     if (costoDesp !== undefined) setCostoDesperdicioManual(String(costoDesp));
@@ -378,7 +420,7 @@ export default function CalculadoraAdhesivoModal({
               <div className="flex bg-[#111318] border border-white/10 rounded-md p-0.5">
                 <button
                   type="button"
-                  onClick={() => setUnidadMedida('cm')}
+                  onClick={() => handleCambiarUnidad('cm')}
                   className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition ${
                     unidadMedida === 'cm' ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
                   }`}
@@ -387,7 +429,7 @@ export default function CalculadoraAdhesivoModal({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setUnidadMedida('m')}
+                  onClick={() => handleCambiarUnidad('m')}
                   className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition ${
                     unidadMedida === 'm' ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
                   }`}
