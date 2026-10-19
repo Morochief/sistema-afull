@@ -5,6 +5,7 @@ import { useSortAndPaginate, getSortIcon, sortableHeaderClass } from '../lib/tab
 import Pagination from './Pagination.tsx';
 import CalculadoraAdhesivoModal, { CalculoAdhesivoResultado } from './CalculadoraAdhesivoModal.tsx';
 import FormulaInputPopover from './FormulaInputPopover.tsx';
+import SmartSuggestInput, { SuggestionOption } from './SmartSuggestInput.tsx';
 import { Calculator, FileText, Printer, MoreVertical, Edit2, Play, Send, Check, XCircle, Trash2, ClipboardList } from 'lucide-react';
 
 interface PresupuestosAdminProps {
@@ -129,8 +130,39 @@ export default function PresupuestosAdmin({ clientes, pedidos, proyectos, onConv
   const [otModalOpen, setOtModalOpen] = useState(false);
   const [otPresupuestoSeleccionado, setOtPresupuestoSeleccionado] = useState<Presupuesto | null>(null);
   const [otSelectedItemIds, setOtSelectedItemIds] = useState<string[]>([]);
-  const [showCalculadoraAdhesivo, setShowCalculadoraAdhesivo] = useState(false);
-  const [menuAbiertoId, setMenuAbiertoId] = useState<string | null>(null);
+  const [catalogoInsumos, setCatalogoInsumos] = useState<any[]>([]);
+
+  useEffect(() => {
+    authFetchJSON<{ success: boolean; data: { insumos: any[] } }>('/api/insumos')
+      .then(res => {
+        if (res.success && res.data?.insumos) {
+          setCatalogoInsumos(res.data.insumos);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Opciones de autocompletado para insumos/materiales
+  const insumosOptions: SuggestionOption[] = useMemo(() => {
+    return catalogoInsumos.map(i => ({
+      value: i.nombre,
+      label: i.nombre,
+      sublabel: `${i.categoria || 'Insumo'}${i.proveedor ? ` · ${i.proveedor}` : ''}`,
+      badge: i.unidadMedida || 'u',
+      meta: { precio: i.costo, unidad: i.unidadMedida, categoria: i.categoria }
+    }));
+  }, [catalogoInsumos]);
+
+  // Opciones de autocompletado para proyectos según el cliente seleccionado
+  const proyectosOptions: SuggestionOption[] = useMemo(() => {
+    const list = form.clienteId ? proyectos.filter(p => p.clienteId === form.clienteId) : proyectos;
+    return list.map(p => ({
+      value: p.nombre,
+      label: p.nombre,
+      sublabel: clientes.find(c => c.id === p.clienteId)?.nombre || '',
+      badge: p.estado || 'Activo',
+    }));
+  }, [proyectos, form.clienteId, clientes]);
 
   const isMaterialItem = (it: PresupuestoItem) =>
     it.categoria === 'Insumo' || it.categoria === 'Adquisicion' || !['ManoDeObra', 'Entrega'].includes(it.categoria);
@@ -738,14 +770,14 @@ export default function PresupuestosAdmin({ clientes, pedidos, proyectos, onConv
                 </select>
               ) : (
                 <div className="space-y-1">
-                  <input
+                  <SmartSuggestInput
                     id="presupuesto-proyecto"
-                    type="text"
                     className={inputCls}
                     placeholder="Ej: Letras corpóreas para fachada / Cartelería 2026"
                     value={form.proyecto}
-                    onChange={(e) => setForm({ ...form, proyecto: e.target.value })}
+                    onChange={(val) => setForm({ ...form, proyecto: val })}
                     disabled={!form.clienteId}
+                    options={proyectosOptions}
                   />
                   <p className="text-[10px] text-amber-400/90 font-mono">
                     💡 No necesitás crear el proyecto antes: se creará de forma automática en Proyectos cuando el cliente apruebe la cotización.
@@ -829,12 +861,20 @@ export default function PresupuestosAdmin({ clientes, pedidos, proyectos, onConv
                 {form.items.map((it, i) => (
                   it.categoria === cat && (
                     <div key={i} className={`grid ${cat === 'ManoDeObra' ? 'grid-cols-12' : 'grid-cols-12'} gap-2`}>
-                      <input
-                        className={`${inputCls} col-span-4`}
-                        placeholder="Descripción"
-                        value={it.descripcion}
-                        onChange={(e) => updateItem(i, 'descripcion', e.target.value)}
-                      />
+                      <div className="col-span-4">
+                        <SmartSuggestInput
+                          className={`${inputCls} w-full`}
+                          placeholder={cat === 'ManoDeObra' ? 'Ej: Armado, Soldadura...' : 'Ej: PVC Espumado, Vinilo, Lona...'}
+                          value={it.descripcion}
+                          onChange={(val) => updateItem(i, 'descripcion', val)}
+                          options={cat === 'Insumo' || cat === 'Adquisicion' ? insumosOptions : []}
+                          onSelectOption={(opt) => {
+                            if (opt.meta?.precio && (!it.precioUnitario || it.precioUnitario === '0' || it.precioUnitario === '')) {
+                              updateItem(i, 'precioUnitario', String(opt.meta.precio));
+                            }
+                          }}
+                        />
+                      </div>
                       {cat === 'ManoDeObra' ? (
                         <>
                           <div className="col-span-2 flex items-center gap-1">

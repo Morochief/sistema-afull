@@ -2314,24 +2314,38 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
                                     descripcion: val,
                                     precioUnitario: exactMatch.precioUnitario,
                                   });
-                                } else {
-                                  // Token matching para dimensiones exactas (ej: "caño 20 x 20")
-                                  const tokens = valNorm.split(/[^a-z0-9]+/).filter(Boolean);
-                                  if (tokens.length >= 2 && (!line.precioUnitario || line.precioUnitario === 0)) {
-                                    const best = catalogoInsumos.find(c => {
-                                      const cTokens = new Set(c.descripcion.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
-                                      return tokens.every(t => cTokens.has(t));
-                                    });
-                                    if (best && best.precioUnitario > 0) {
-                                      updateInsumoLineCampos(line.id, {
-                                        descripcion: val,
-                                        precioUnitario: best.precioUnitario,
-                                      });
-                                      return;
+                                // Token matching estricto para dimensiones numéricas (ej: "caño 20 x 20" o "caño 20x20")
+                                const normStr = valNorm.replace(/(\d+)x(\d+)/g, '$1 $2');
+                                const tokens = normStr.split(/[^a-z0-9]+/).filter(t => t.length > 0 && t !== 'x');
+                                const queryNumbers = tokens.filter(t => /^\d+$/.test(t));
+
+                                if (tokens.length >= 2 && (!line.precioUnitario || line.precioUnitario === 0)) {
+                                  const candidates = catalogoInsumos.filter(c => {
+                                    if (!c.precioUnitario || c.precioUnitario <= 0) return false;
+                                    const cNormStr = c.descripcion.toLowerCase().replace(/(\d+)x(\d+)/g, '$1 $2');
+                                    const cTokens = cNormStr.split(/[^a-z0-9]+/).filter(t => t.length > 0 && t !== 'x');
+                                    const cSet = new Set(cTokens);
+                                    const allTokensMatch = tokens.every(t => cSet.has(t));
+                                    if (!allTokensMatch) return false;
+                                    if (queryNumbers.length > 0) {
+                                      const cNumbers = cTokens.filter(t => /^\d+$/.test(t));
+                                      const cNumSet = new Set(cNumbers);
+                                      if (!queryNumbers.every(n => cNumSet.has(n))) return false;
                                     }
+                                    return true;
+                                  });
+
+                                  if (candidates.length > 0) {
+                                    const best = candidates.sort((a, b) => a.descripcion.length - b.descripcion.length)[0];
+                                    updateInsumoLineCampos(line.id, {
+                                      descripcion: val,
+                                      precioUnitario: best.precioUnitario,
+                                    });
+                                    return;
                                   }
-                                  updateInsumoLine(line.id, 'descripcion', val);
                                 }
+                                updateInsumoLine(line.id, 'descripcion', val);
+                              }
                               }}
                               onKeyDown={handleKeyDown}
                               placeholder={`Insumo ${idx + 1}...`}

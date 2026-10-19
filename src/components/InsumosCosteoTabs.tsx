@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Calculator, FileText, Percent, Ruler, Layers, AlertCircle, ShoppingCart } from 'lucide-react';
 import { authFetchJSON } from '../authFetch.ts';
+import SmartSuggestInput, { SuggestionOption } from './SmartSuggestInput.tsx';
 import {
   ModoInsumo,
   calcularCostoPorUnidad,
@@ -75,6 +76,28 @@ export default function InsumosCosteoTabs({ isOperario, isEdu, onAgregar }: Insu
   // Estados Form: Desde factura
   const [facturaSeleccionadaId, setFacturaSeleccionadaId] = useState('');
   const [cantidadFacturaUsada, setCantidadFacturaUsada] = useState('0.5');
+
+  const [catalogoInsumos, setCatalogoInsumos] = useState<any[]>([]);
+
+  useEffect(() => {
+    authFetchJSON<{ success: boolean; data: { insumos: any[] } }>('/api/insumos')
+      .then(res => {
+        if (res.success && res.data?.insumos) {
+          setCatalogoInsumos(res.data.insumos);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const insumoOptions: SuggestionOption[] = useMemo(() => {
+    return catalogoInsumos.map(i => ({
+      value: i.nombre,
+      label: i.nombre,
+      sublabel: `${i.categoria || 'Insumo'}${i.proveedor ? ` · ${i.proveedor}` : ''}`,
+      badge: i.unidadMedida || 'u',
+      meta: { precio: i.costo, unidad: i.unidadMedida, categoria: i.categoria }
+    }));
+  }, [catalogoInsumos]);
 
   // Cargar facturas disponibles al montar o al cambiar al tab FACTURA
   useEffect(() => {
@@ -273,18 +296,22 @@ export default function InsumosCosteoTabs({ isOperario, isEdu, onAgregar }: Insu
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
             <div className="sm:col-span-5">
               <label className={labelCls}>Descripción</label>
-              <input
-                type="text"
+              <SmartSuggestInput
                 value={descUnidad}
-                onChange={(e) => {
-                  const val = e.target.value;
+                onChange={(val) => {
                   setDescUnidad(val);
                   if (val.toLowerCase().includes('adhesivo blanco')) {
                     setDescMetro(val);
                     setTabActivo('METRO');
                   }
                 }}
-                placeholder="Ej: Plancha acrílico 3mm"
+                onSelectOption={(opt) => {
+                  if (opt.meta?.precio && (!precioUnidad || precioUnidad === '0')) {
+                    setPrecioUnidad(String(opt.meta.precio));
+                  }
+                }}
+                options={insumoOptions}
+                placeholder="Ej: Plancha acrílico 3mm, PVC..."
                 className={inputCls}
               />
             </div>
@@ -330,11 +357,16 @@ export default function InsumosCosteoTabs({ isOperario, isEdu, onAgregar }: Insu
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
             <div className="sm:col-span-5">
               <label className={labelCls}>Descripción</label>
-              <input
-                type="text"
+              <SmartSuggestInput
                 value={descMetro}
-                onChange={(e) => setDescMetro(e.target.value)}
-                placeholder="Ej: Barra de metal, perfil, tira LED"
+                onChange={(val) => setDescMetro(val)}
+                onSelectOption={(opt) => {
+                  if (opt.meta?.precio && (!precioMetro || precioMetro === '0')) {
+                    setPrecioMetro(String(opt.meta.precio));
+                  }
+                }}
+                options={insumoOptions}
+                placeholder="Ej: Barra de metal, perfil, tira LED..."
                 className={inputCls}
               />
             </div>
@@ -382,11 +414,16 @@ export default function InsumosCosteoTabs({ isOperario, isEdu, onAgregar }: Insu
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
               <div className="sm:col-span-4">
                 <label className={labelCls}>Descripción (impreso/placa)</label>
-                <input
-                  type="text"
+                <SmartSuggestInput
                   value={descDimension}
-                  onChange={(e) => setDescDimension(e.target.value)}
-                  placeholder="Ej: Adhesivo impreso / Lona"
+                  onChange={(val) => setDescDimension(val)}
+                  onSelectOption={(opt) => {
+                    if (opt.meta?.precio && (!precioPorM2 || precioPorM2 === '0')) {
+                      setPrecioPorM2(String(opt.meta.precio));
+                    }
+                  }}
+                  options={insumoOptions}
+                  placeholder="Ej: Adhesivo impreso, Lona, Acrílico..."
                   className={inputCls}
                 />
               </div>
@@ -416,7 +453,7 @@ export default function InsumosCosteoTabs({ isOperario, isEdu, onAgregar }: Insu
                   <input
                     type="number"
                     min="0"
-                    step="5000"
+                    step="1000"
                     value={precioPorM2}
                     onChange={(e) => setPrecioPorM2(e.target.value)}
                     className={inputCls}
@@ -500,7 +537,7 @@ export default function InsumosCosteoTabs({ isOperario, isEdu, onAgregar }: Insu
                 <input
                   type="number"
                   min="0"
-                  step="5000"
+                  step="1000"
                   value={precioTotalInsumo}
                   onChange={(e) => setPrecioTotalInsumo(e.target.value)}
                   placeholder="150000"

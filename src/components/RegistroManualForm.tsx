@@ -19,6 +19,8 @@ import {
 import { DatabaseState } from '../types.ts';
 import { AdminSection, FormSectionHeader } from './AdminShared.tsx';
 import CalculadoraAdhesivoModal, { CalculoAdhesivoResultado } from './CalculadoraAdhesivoModal.tsx';
+import SmartSuggestInput, { SuggestionOption } from './SmartSuggestInput.tsx';
+import { authFetchJSON } from '../authFetch.ts';
 
 export interface RegistroManualFormProps {
   data: DatabaseState;
@@ -74,6 +76,28 @@ export default function RegistroManualForm({
     if (!selectedClienteId) return [];
     return data.proyectos.filter(p => p.clienteId === selectedClienteId);
   }, [selectedClienteId, data.proyectos]);
+
+  const [catalogoInsumos, setCatalogoInsumos] = useState<any[]>([]);
+
+  useEffect(() => {
+    authFetchJSON<{ success: boolean; data: { insumos: any[] } }>('/api/insumos')
+      .then(res => {
+        if (res.success && res.data?.insumos) {
+          setCatalogoInsumos(res.data.insumos);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const insumoSuggestions: SuggestionOption[] = useMemo(() => {
+    return catalogoInsumos.map(i => ({
+      value: i.nombre,
+      label: i.nombre,
+      sublabel: `${i.categoria || 'Insumo'}${i.proveedor ? ` · ${i.proveedor}` : ''}`,
+      badge: i.unidadMedida || 'u',
+      meta: { precio: i.costo }
+    }));
+  }, [catalogoInsumos]);
 
   // Real-time calculation
   const totalLiquidacion = useMemo(() => {
@@ -369,13 +393,18 @@ export default function RegistroManualForm({
                   Descripción detallada del Trabajo
                   <span className="text-rose-400">*</span>
                 </label>
-                <textarea
+                <SmartSuggestInput
                   required
-                  placeholder="Ej: Retiro de vinilos y ploteado del panel frontal..."
-                  rows={2}
+                  placeholder={concepto === 'Insumo' ? 'Ej: PVC Espumado 3mm, Vinilo Arclad...' : 'Ej: Retiro de vinilos y ploteado del panel frontal...'}
                   value={descripcion}
-                  onChange={(e) => setDescripcion(e.target.value)}
-                  className="w-full bg-[#090a0f] border border-white/10 text-white rounded-md px-3 py-2 text-xs focus:outline-none focus:border-orange-500 resize-none"
+                  onChange={(val) => setDescripcion(val)}
+                  options={concepto === 'Insumo' ? insumoSuggestions : []}
+                  onSelectOption={(opt) => {
+                    if (opt.meta?.precio && (!precioUnitario || precioUnitario === '12500' || precioUnitario === '0')) {
+                      setPrecioUnitario(String(opt.meta.precio));
+                    }
+                  }}
+                  className="w-full bg-[#090a0f] border border-white/10 text-white rounded-md px-3 py-2 text-xs focus:outline-none focus:border-orange-500"
                 />
               </div>
             </div>
