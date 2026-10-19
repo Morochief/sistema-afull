@@ -994,48 +994,7 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
     } catch {}
   }, [checklist, currentUser?.usuario]);
 
-  // Sincronizar checklist en vivo con el servidor si el timer está corriendo
-  const syncChecklistConServidor = useCallback(async (currentChecklist: ChecklistItem[]) => {
-    if (!currentUser || !timerRunning) return;
-    try {
-      await authFetchJSON('/api/timer/checklist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          usuario: currentUser.usuario,
-          checklist: currentChecklist
-        })
-      });
-    } catch {
-      // Sync failover silent - keeps local state
-    }
-  }, [currentUser, timerRunning]);
-
-  const handleToggleChecklist = (id: string) => {
-    setChecklist(prev => {
-      const updated = prev.map(item => item.id === id ? { ...item, completado: !item.completado } : item);
-      syncChecklistConServidor(updated);
-      return updated;
-    });
-  };
-
-  const handleAddPasoChecklist = () => {
-    if (!nuevoPasoChecklist.trim()) return;
-    setChecklist(prev => {
-      const updated = [...prev, { id: generateId('chk'), texto: nuevoPasoChecklist.trim(), completado: false }];
-      syncChecklistConServidor(updated);
-      return updated;
-    });
-    setNuevoPasoChecklist('');
-  };
-
-  const handleRemovePasoChecklist = (id: string) => {
-    setChecklist(prev => {
-      const updated = prev.filter(item => item.id !== id);
-      syncChecklistConServidor(updated);
-      return updated;
-    });
-  };
+  const [nuevoPasoChecklist, setNuevoPasoChecklist] = useState('');
 
   // ══════════════════════════════════════════════════════
   //  MODALIDAD DE HORARIO (Timer vs Turno Manual)
@@ -1129,6 +1088,49 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
     handlePauseTimer,
     handleResumeTimer,
   } = useTimer({ currentUser, onRestoreContext: handleRestoreContext });
+
+  // Sincronizar checklist en vivo con el servidor si el timer está corriendo
+  const syncChecklistConServidor = useCallback(async (currentChecklist: ChecklistItem[]) => {
+    if (!currentUser || !timerRunning) return;
+    try {
+      await authFetchJSON('/api/timer/checklist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          usuario: currentUser.usuario,
+          checklist: currentChecklist
+        })
+      });
+    } catch {
+      // Sync failover silent - keeps local state
+    }
+  }, [currentUser, timerRunning]);
+
+  const handleToggleChecklist = (id: string) => {
+    setChecklist(prev => {
+      const updated = prev.map(item => item.id === id ? { ...item, completado: !item.completado } : item);
+      syncChecklistConServidor(updated);
+      return updated;
+    });
+  };
+
+  const handleAddPasoChecklist = () => {
+    if (!nuevoPasoChecklist.trim()) return;
+    setChecklist(prev => {
+      const updated = [...prev, { id: generateId('chk'), texto: nuevoPasoChecklist.trim(), completado: false }];
+      syncChecklistConServidor(updated);
+      return updated;
+    });
+    setNuevoPasoChecklist('');
+  };
+
+  const handleRemovePasoChecklist = (id: string) => {
+    setChecklist(prev => {
+      const updated = prev.filter(item => item.id !== id);
+      syncChecklistConServidor(updated);
+      return updated;
+    });
+  };
 
   const [moSubmitting, setMoSubmitting] = useState(false);
   const [moFeedback, setMoFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
