@@ -316,6 +316,8 @@ function useTimer({ currentUser, onRestoreContext, onChecklistSync }: UseTimerOp
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const serverStartRef = useRef<Date | null>(null);
   const serverPausedTimeRef = useRef<number>(0);
+  const timerSecondsRef = useRef<number>(timerSeconds);
+  timerSecondsRef.current = timerSeconds;
 
   // Persistir estados en localStorage
   useEffect(() => {
@@ -439,7 +441,7 @@ function useTimer({ currentUser, onRestoreContext, onChecklistSync }: UseTimerOp
   useEffect(() => {
     if (!timerRunning || !currentUser) return;
 
-    // Polling más frecuente (10s) para sincronizar en vivo adiciones de tareas de Gerardo
+    // Polling rápido (3s) para sincronizar en vivo adiciones de tareas de Gerardo sin reiniciar el timer
     const syncInterval = setInterval(async () => {
       try {
         const response = await authFetchJSON<{ success: boolean; data: any }>(
@@ -449,7 +451,7 @@ function useTimer({ currentUser, onRestoreContext, onChecklistSync }: UseTimerOp
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               usuario: currentUser.usuario,
-              segundosTranscurridos: timerSeconds
+              segundosTranscurridos: timerSecondsRef.current
             })
           }
         );
@@ -493,10 +495,10 @@ function useTimer({ currentUser, onRestoreContext, onChecklistSync }: UseTimerOp
       } catch (error) {
         // Timer sync failed silently
       }
-    }, 10000);
+    }, 3000);
 
     return () => clearInterval(syncInterval);
-  }, [timerRunning, timerSeconds, currentUser, isPaused]);
+  }, [timerRunning, currentUser, isPaused, onChecklistSync]);
 
   const handleStartTimer = useCallback(async (contextData: {
     colaboradorId: string;
