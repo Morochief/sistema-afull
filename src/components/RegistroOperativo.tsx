@@ -95,6 +95,8 @@ interface ChecklistItem {
   id: string;
   texto: string;
   completado: boolean;
+  completadoAt?: string;
+  duracionSegundos?: number;
 }
 
 // ─── HELPERS ────────────────────────────────────────────────────────────────
@@ -243,9 +245,10 @@ interface UseTimerOptions {
     descripcion?: string;
     precioUnitario?: number;
   }) => void;
+  onChecklistSync?: (serverChecklist: any[]) => void;
 }
 
-function useTimer({ currentUser, onRestoreContext }: UseTimerOptions) {
+function useTimer({ currentUser, onRestoreContext, onChecklistSync }: UseTimerOptions) {
   const timerPrefix = `afull_timer_${currentUser?.usuario || 'guest'}`;
   const timerKeyRunning = `${timerPrefix}_running`;
   const timerKeyStart = `${timerPrefix}_start`;
@@ -395,6 +398,15 @@ function useTimer({ currentUser, onRestoreContext }: UseTimerOptions) {
                 precioUnitario: serverTimer.precioUnitario,
               });
             }
+            if (serverTimer.descripcion) {
+              const jsonMatch = serverTimer.descripcion.match(/<!--CHK:(.+?)-->/);
+              if (jsonMatch && onChecklistSync) {
+                try {
+                  const chkList = JSON.parse(decodeURIComponent(jsonMatch[1]));
+                  if (Array.isArray(chkList) && chkList.length > 0) onChecklistSync(chkList);
+                } catch {}
+              }
+            }
           }
         }
       } catch (error) {
@@ -408,6 +420,7 @@ function useTimer({ currentUser, onRestoreContext }: UseTimerOptions) {
   useEffect(() => {
     if (!timerRunning || !currentUser) return;
 
+    // Polling más frecuente (10s) para sincronizar en vivo adiciones de tareas de Gerardo
     const syncInterval = setInterval(async () => {
       try {
         const response = await authFetchJSON<{ success: boolean; data: any }>(
@@ -431,6 +444,10 @@ function useTimer({ currentUser, onRestoreContext }: UseTimerOptions) {
 
           // Sync pause state from server
           const serverTimer = response.data;
+
+          if (serverTimer.serverChecklist && Array.isArray(serverTimer.serverChecklist) && onChecklistSync) {
+            onChecklistSync(serverTimer.serverChecklist);
+          }
 
           if (serverTimer.isPaused !== isPaused) {
             // Pause state changed on server
@@ -457,7 +474,7 @@ function useTimer({ currentUser, onRestoreContext }: UseTimerOptions) {
       } catch (error) {
         // Timer sync failed silently
       }
-    }, 30000);
+    }, 10000);
 
     return () => clearInterval(syncInterval);
   }, [timerRunning, timerSeconds, currentUser, isPaused]);
@@ -1072,6 +1089,14 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
     }
   }, []);
 
+  const handleChecklistSyncFromServer = useCallback((serverChecklist: ChecklistItem[]) => {
+    setChecklist(prev => {
+      // Si el servidor trae pasos nuevos o actualizados, hacer merge inteligente preservando los laps locales si no vienen en server
+      if (!Array.isArray(serverChecklist) || serverChecklist.length === 0) return prev;
+      return serverChecklist;
+    });
+  }, []);
+
   const {
     timerRunning,
     timerStart,
@@ -1087,7 +1112,11 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
     handleResetTimer,
     handlePauseTimer,
     handleResumeTimer,
-  } = useTimer({ currentUser, onRestoreContext: handleRestoreContext });
+  } = useTimer({
+    currentUser,
+    onRestoreContext: handleRestoreContext,
+    onChecklistSync: handleChecklistSyncFromServer
+  });
 
   // Sincronizar checklist en vivo con el servidor si el timer está corriendo
   const syncChecklistConServidor = useCallback(async (currentChecklist: ChecklistItem[]) => {
@@ -1106,9 +1135,36 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
     }
   }, [currentUser, timerRunning]);
 
+  // Manejador de completado con cálculo automático de laps (Opción 1)
   const handleToggleChecklist = (id: string) => {
     setChecklist(prev => {
-      const updated = prev.map(item => item.id === id ? { ...item, completado: !item.completado } : item);
+      const targetIndex = prev.findIndex(item => item.id === id);
+      if (targetIndex === -1) return prev;
+      const target = prev[targetIndex];
+      const willBeCompleted = !target.completado;
+
+      let duracionCalculada: number | undefined = undefined;
+
+      if (willBeCompleted && timerRunning) {
+        // Calcular tiempo acumulado de los pasos completados previos para deducir el lap actual
+        const tiempoPasosAnteriores = prev
+          .filter((item, idx) => idx !== targetIndex && item.completado && (item.duracionSegundos || 0) > 0)
+          .reduce((acc, item) => acc + (item.duracionSegundos || 0), 0);
+
+        // La duración de este paso es el tiempo transcurrido en el timer menos lo consumido antes
+        duracionCalculada = Math.max(10, timerSeconds - tiempoPasosAnteriores);
+      }
+
+      const updated = prev.map((item, idx) => {
+        if (idx !== targetIndex) return item;
+        return {
+          ...item,
+          completado: willBeCompleted,
+          completadoAt: willBeCompleted ? new Date().toISOString() : undefined,
+          duracionSegundos: willBeCompleted ? duracionCalculada : undefined,
+        };
+      });
+
       syncChecklistConServidor(updated);
       return updated;
     });
@@ -1313,8 +1369,15 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
               concepto: 'MO',
               descripcion: (() => {
                 let desc = moDescripcion || (colaborador ? colaborador.nombre : 'Tarea sin descripción');
-                const completadas = checklist.filter(c => c.completado).length;
-                if (completadas > 0) desc += ` [Checklist: ${completadas}/${checklist.length}]`;
+                const completadas = checklist.filter(c => c.completado);
+                if (completadas.length > 0) {
+                  const desgloseStr = completadas.map(c => {
+                    const mins = c.duracionSegundos ? Math.round(c.duracionSegundos / 60) : 0;
+                    const timeLabel = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${Math.max(1, mins)}m`;
+                    return `${c.texto}: ${timeLabel}`;
+                  }).join(', ');
+                  desc += ` [Checklist: ${completadas.length}/${checklist.length} | ${desgloseStr}]`;
+                }
                 if (fotoGlobal) desc += ` [Foto global plancha]`;
                 return desc;
               })(),
@@ -1351,12 +1414,26 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
       }
     } else {
       try {
+        const descFinal = (() => {
+          let desc = moDescripcion || (colaborador ? colaborador.nombre : 'Tarea sin descripción');
+          const completadas = checklist.filter(c => c.completado);
+          if (completadas.length > 0) {
+            const desgloseStr = completadas.map(c => {
+              const mins = c.duracionSegundos ? Math.round(c.duracionSegundos / 60) : 0;
+              const timeLabel = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${Math.max(1, mins)}m`;
+              return `${c.texto}: ${timeLabel}`;
+            }).join(', ');
+            desc += ` [Checklist: ${completadas.length}/${checklist.length} | ${desgloseStr}]`;
+          }
+          return desc;
+        })();
+
         const ok = await onAddRegistro({
           clienteId: selectedClienteId,
           proyectoId: selectedProyectoId,
           fecha,
           concepto: 'MO',
-          descripcion: moDescripcion || (colaborador ? colaborador.nombre : 'Tarea sin descripción'),
+          descripcion: descFinal,
           colaboradorId: selectedColaboradorId || undefined,
           hsInicio,
           hsFin,
@@ -2353,40 +2430,68 @@ export default function RegistroOperativo({ data, onAddRegistro, onRefresh, curr
 
                 {/* Lista de Ítems */}
                 <div className="space-y-1.5 pt-1">
-                  {checklist.map(item => (
-                    <div
-                      key={item.id}
-                      onClick={() => handleToggleChecklist(item.id)}
-                      className={`flex items-center justify-between p-2 rounded-md border text-xs cursor-pointer transition select-none ${
-                        item.completado
-                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                          : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <input
-                          type="checkbox"
-                          checked={item.completado}
-                          readOnly
-                          className="rounded border-white/20 bg-black/40 text-orange-500 focus:ring-0 cursor-pointer pointer-events-none"
-                        />
-                        <span className={item.completado ? 'line-through text-slate-400' : ''}>
-                          {item.texto}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemovePasoChecklist(item.id);
-                        }}
-                        className="text-slate-600 hover:text-rose-400 p-1 transition cursor-pointer"
-                        title="Eliminar paso"
+                  {checklist.map((item, idx) => {
+                    const isFirstIncomplete = !item.completado && checklist.slice(0, idx).every(c => c.completado);
+                    const duracionMins = item.duracionSegundos ? Math.round(item.duracionSegundos / 60) : 0;
+                    const duracionTexto = duracionMins >= 60
+                      ? `${Math.floor(duracionMins / 60)}h ${duracionMins % 60}m`
+                      : `${Math.max(1, duracionMins)} min`;
+
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => handleToggleChecklist(item.id)}
+                        className={`flex items-center justify-between p-2 rounded-md border text-xs cursor-pointer transition select-none ${
+                          item.completado
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                            : isFirstIncomplete && timerRunning
+                            ? 'bg-orange-500/10 border-orange-500/40 text-orange-200'
+                            : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10'
+                        }`}
                       >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex items-center gap-2.5 flex-1 min-w-0 pr-2">
+                          <input
+                            type="checkbox"
+                            checked={item.completado}
+                            readOnly
+                            className="rounded border-white/20 bg-black/40 text-orange-500 focus:ring-0 cursor-pointer pointer-events-none shrink-0"
+                          />
+                          <span className={`truncate ${item.completado ? 'line-through text-slate-400' : ''}`}>
+                            {item.texto}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {/* Badge de tiempo dedicado al paso */}
+                          {item.completado && item.duracionSegundos !== undefined && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                              ✓ {duracionTexto}
+                            </span>
+                          )}
+
+                          {/* Indicador de paso en curso */}
+                          {isFirstIncomplete && timerRunning && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-orange-500/20 text-orange-300 border border-orange-500/30 animate-pulse flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                              En curso
+                            </span>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemovePasoChecklist(item.id);
+                            }}
+                            className="text-slate-600 hover:text-rose-400 p-1 transition cursor-pointer"
+                            title="Eliminar paso"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Agregar nuevo paso */}

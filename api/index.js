@@ -1141,9 +1141,15 @@ var TimerChecklistSchema = z.object({
   checklist: z.array(z.object({
     id: z.string(),
     texto: z.string(),
-    completado: z.boolean()
+    completado: z.boolean(),
+    completadoAt: z.string().optional(),
+    duracionSegundos: z.number().nonnegative().optional()
   })),
   currentTask: z.string().optional()
+});
+var TimerAddPasoSchema = z.object({
+  usuario: z.string().min(1, "Usuario requerido"),
+  texto: z.string().min(1, "El texto del paso no puede estar vac\xEDo").max(200, "Texto demasiado largo")
 });
 var ViajeStartSchema = z.object({
   usuario: z.string().min(1, "Usuario requerido"),
@@ -2111,7 +2117,29 @@ timerRouter.post("/sync", requireAuth, async (req, res) => {
     const activeTimer = await prisma.timerActivo.findFirst({ where: { usuario, activo: true } });
     if (!activeTimer) return res.json({ success: true, data: { activo: false, message: "Timer no encontrado o detenido" } });
     const updated = await prisma.timerActivo.update({ where: { id: activeTimer.id }, data: { ultimaActualizacion: /* @__PURE__ */ new Date() } });
-    res.json({ success: true, data: { ...updated, precioUnitario: parseFloat(updated.precioUnitario.toString()), inicio: updated.inicio.toISOString(), ultimaActualizacion: updated.ultimaActualizacion.toISOString(), currentPauseStart: updated.currentPauseStart?.toISOString(), currentPauseType: updated.currentPauseType, pauseHistory: updated.pauseHistory, pausedTime: updated.pausedTime, isPaused: updated.isPaused } });
+    let serverChecklist = null;
+    const jsonMatch = activeTimer.descripcion.match(/<!--CHK:(.+?)-->/);
+    if (jsonMatch) {
+      try {
+        serverChecklist = JSON.parse(decodeURIComponent(jsonMatch[1]));
+      } catch {
+      }
+    }
+    res.json({
+      success: true,
+      data: {
+        ...updated,
+        precioUnitario: parseFloat(updated.precioUnitario.toString()),
+        inicio: updated.inicio.toISOString(),
+        ultimaActualizacion: updated.ultimaActualizacion.toISOString(),
+        currentPauseStart: updated.currentPauseStart?.toISOString(),
+        currentPauseType: updated.currentPauseType,
+        pauseHistory: updated.pauseHistory,
+        pausedTime: updated.pausedTime,
+        isPaused: updated.isPaused,
+        serverChecklist
+      }
+    });
   } catch (error) {
     logger2.error("Error syncing timer", error);
     res.status(500).json({ success: false, error: { code: "TIMER_SYNC_ERROR", message: "No se pudo sincronizar el timer: " + error.message } });
@@ -2134,7 +2162,7 @@ timerRouter.post("/checklist", requireAuth, async (req, res) => {
     const total = checklist.length;
     const completados = checklist.filter((c) => c.completado).length;
     const primerIncompleto = checklist.find((c) => !c.completado);
-    let baseDesc = activeTimer.descripcion.replace(/\s*\[Checklist:[^\]]*\]/g, "").trim();
+    let baseDesc = activeTimer.descripcion.replace(/\s*<!--CHK:.*?-->/g, "").replace(/\s*\[Checklist:[^\]]*\]/g, "").trim();
     if (!baseDesc) baseDesc = "Tarea en curso";
     let tag = `[Checklist: ${completados}/${total}`;
     if (primerIncompleto) {
@@ -2143,7 +2171,8 @@ timerRouter.post("/checklist", requireAuth, async (req, res) => {
       tag += ` \xB7 100% Completo`;
     }
     tag += `]`;
-    const nuevaDesc = `${baseDesc} ${tag}`;
+    const jsonPayload = encodeURIComponent(JSON.stringify(checklist));
+    const nuevaDesc = `${baseDesc} ${tag} <!--CHK:${jsonPayload}-->`;
     const updated = await prisma.timerActivo.update({
       where: { id: activeTimer.id },
       data: {
@@ -2164,6 +2193,64 @@ timerRouter.post("/checklist", requireAuth, async (req, res) => {
     res.status(500).json({ success: false, error: { code: "TIMER_CHECKLIST_ERROR", message: "No se pudo actualizar el checklist del timer: " + error.message } });
   }
 });
+timerRouter.post("/add-paso", requireAuth, async (req, res) => {
+  const validation = validateSchema(TimerAddPasoSchema, req.body);
+  if (!validation.valid) {
+    return res.status(400).json({
+      success: false,
+      error: { code: "VALIDATION_ERROR", message: "Datos inv\xE1lidos para agregar paso", details: validation.errors }
+    });
+  }
+  const { usuario, texto } = validation.data;
+  try {
+    const activeTimer = await prisma.timerActivo.findFirst({ where: { usuario, activo: true } });
+    if (!activeTimer) {
+      return res.status(404).json({ success: false, error: { code: "NO_ACTIVE_TIMER", message: "No hay timer activo para este usuario" } });
+    }
+    let checklist = [];
+    const jsonMatch = activeTimer.descripcion.match(/<!--CHK:(.+?)-->/);
+    if (jsonMatch) {
+      try {
+        checklist = JSON.parse(decodeURIComponent(jsonMatch[1]));
+      } catch {
+      }
+    }
+    const nuevoId = generateId("chk");
+    checklist.push({ id: nuevoId, texto: texto.trim(), completado: false });
+    const total = checklist.length;
+    const completados = checklist.filter((c) => c.completado).length;
+    const primerIncompleto = checklist.find((c) => !c.completado);
+    let baseDesc = activeTimer.descripcion.replace(/\s*<!--CHK:.*?-->/g, "").replace(/\s*\[Checklist:[^\]]*\]/g, "").trim();
+    if (!baseDesc) baseDesc = "Tarea en curso";
+    let tag = `[Checklist: ${completados}/${total}`;
+    if (primerIncompleto) {
+      tag += ` \xB7 Paso: ${primerIncompleto.texto.slice(0, 40)}`;
+    } else if (total > 0 && completados === total) {
+      tag += ` \xB7 100% Completo`;
+    }
+    tag += `]`;
+    const jsonPayload = encodeURIComponent(JSON.stringify(checklist));
+    const nuevaDesc = `${baseDesc} ${tag} <!--CHK:${jsonPayload}-->`;
+    await prisma.timerActivo.update({
+      where: { id: activeTimer.id },
+      data: {
+        descripcion: nuevaDesc,
+        ultimaActualizacion: /* @__PURE__ */ new Date()
+      }
+    });
+    res.json({
+      success: true,
+      data: {
+        id: activeTimer.id,
+        checklist,
+        nuevoPaso: { id: nuevoId, texto: texto.trim(), completado: false }
+      }
+    });
+  } catch (error) {
+    logger2.error("Error adding paso to active timer", error);
+    res.status(500).json({ success: false, error: { code: "TIMER_ADD_PASO_ERROR", message: "No se pudo agregar el paso: " + error.message } });
+  }
+});
 timerRouter.get("/activos", requireAuth, async (req, res) => {
   try {
     const [timers, clientes, proyectos, colaboradores] = await Promise.all([
@@ -2182,25 +2269,35 @@ timerRouter.get("/activos", requireAuth, async (req, res) => {
       success: true,
       data: timers.map((t) => {
         let checklistProgress = null;
+        let pasosChecklist = [];
+        const jsonMatch = t.descripcion.match(/<!--CHK:(.+?)-->/);
+        if (jsonMatch) {
+          try {
+            pasosChecklist = JSON.parse(decodeURIComponent(jsonMatch[1]));
+          } catch {
+          }
+        }
         const match = t.descripcion.match(/\[Checklist:\s*(\d+)\/(\d+)(?:\s*·\s*Paso:\s*([^\]]+)|\s*·\s*([^\]]+))?\]/);
-        if (match) {
-          const comp = parseInt(match[1], 10);
-          const tot = parseInt(match[2], 10);
-          const paso = match[3] || match[4] || "";
+        if (match || pasosChecklist.length > 0) {
+          const comp = match ? parseInt(match[1], 10) : pasosChecklist.filter((p) => p.completado).length;
+          const tot = match ? parseInt(match[2], 10) : pasosChecklist.length;
+          const paso = match ? match[3] || match[4] || "" : pasosChecklist.find((p) => !p.completado)?.texto || "";
           checklistProgress = {
             completados: comp,
             total: tot,
             porcentaje: tot > 0 ? Math.round(comp / tot * 100) : 0,
-            pasoActual: paso.trim()
+            pasoActual: paso.trim(),
+            pasos: pasosChecklist
           };
         }
+        const cleanDesc = t.descripcion.replace(/\s*<!--CHK:.*?-->/g, "").replace(/\s*\[Checklist:[^\]]*\]/g, "").trim();
         return {
           id: t.id,
           usuario: t.usuario,
           colaboradorNombre: (t.colaboradorId ? colabMap.get(t.colaboradorId) : null) || t.usuario,
           clienteNombre: clienteMap.get(t.clienteId) || "Sin cliente",
           proyectoNombre: proyectoMap.get(t.proyectoId) || "Sin proyecto",
-          descripcion: t.descripcion,
+          descripcion: cleanDesc || "Tarea en progreso",
           checklistProgress,
           inicio: t.inicio.toISOString(),
           isPaused: t.isPaused,
@@ -2212,6 +2309,67 @@ timerRouter.get("/activos", requireAuth, async (req, res) => {
   } catch (error) {
     logger2.error("Error fetching all active timers", error);
     res.status(500).json({ success: false, error: { code: "TIMERS_FETCH_ERROR", message: "Error al listar timers activos" } });
+  }
+});
+timerRouter.get("/terminados", requireAuth, async (req, res) => {
+  try {
+    const fechaParam = typeof req.query.fecha === "string" ? req.query.fecha : (/* @__PURE__ */ new Date()).toISOString().substring(0, 10);
+    const startOfDay = /* @__PURE__ */ new Date(`${fechaParam}T00:00:00.000Z`);
+    const endOfDay = /* @__PURE__ */ new Date(`${fechaParam}T23:59:59.999Z`);
+    const [registrosMO, colaboradores, clientes, proyectos] = await Promise.all([
+      prisma.registro.findMany({
+        where: {
+          concepto: "MO",
+          fecha: {
+            gte: startOfDay,
+            lte: endOfDay
+          }
+        },
+        orderBy: { hsFin: "desc" }
+      }),
+      prisma.colaborador.findMany({ select: { id: true, nombre: true } }),
+      prisma.cliente.findMany({ select: { id: true, nombre: true } }),
+      prisma.proyecto.findMany({ select: { id: true, nombre: true } })
+    ]);
+    const colabMap = new Map(colaboradores.map((c) => [c.id, c.nombre]));
+    const clienteMap = new Map(clientes.map((c) => [c.id, c.nombre]));
+    const proyectoMap = new Map(proyectos.map((p) => [p.id, p.nombre]));
+    const items = registrosMO.map((r) => {
+      let desglosePasos = [];
+      const matchDesglose = r.descripcion.match(/\[Checklist:\s*\d+\/\d+\s*\|\s*([^\]]+)\]/);
+      if (matchDesglose && matchDesglose[1]) {
+        desglosePasos = matchDesglose[1].split(",").map((s) => s.trim());
+      }
+      const cleanDesc = r.descripcion.replace(/\s*<!--CHK:.*?-->/g, "").replace(/\s*\[Checklist:[^\]]*\]/g, "").trim();
+      return {
+        id: r.id,
+        colaboradorId: r.colaboradorId,
+        colaboradorNombre: (r.colaboradorId ? colabMap.get(r.colaboradorId) : null) || "Sin asignar",
+        clienteId: r.clienteId,
+        clienteNombre: r.clienteNombre || clienteMap.get(r.clienteId) || "Sin cliente",
+        proyectoId: r.proyectoId,
+        proyectoNombre: r.proyectoNombre || proyectoMap.get(r.proyectoId) || "Sin proyecto",
+        descripcion: cleanDesc || "Tarea finalizada",
+        hsInicio: r.hsInicio || null,
+        hsFin: r.hsFin || null,
+        hsTotal: r.hsTotal ? parseFloat(r.hsTotal.toString()) : null,
+        minutos: r.cantidad ? parseFloat(r.cantidad.toString()) : 0,
+        fecha: r.fecha.toISOString().substring(0, 10),
+        desglosePasos
+      };
+    });
+    res.json({
+      success: true,
+      data: {
+        fecha: fechaParam,
+        totalTareas: items.length,
+        horasTotales: items.reduce((acc, i) => acc + (i.hsTotal || 0), 0),
+        tareas: items
+      }
+    });
+  } catch (error) {
+    logger2.error("Error fetching terminados timers", error);
+    res.status(500).json({ success: false, error: { code: "TERMINADOS_FETCH_ERROR", message: "Error al listar tareas terminadas" } });
   }
 });
 

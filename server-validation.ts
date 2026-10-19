@@ -188,8 +188,18 @@ export const TimerChecklistSchema = z.object({
     id: z.string(),
     texto: z.string(),
     completado: z.boolean(),
+    completadoAt: z.string().optional(),
+    duracionSegundos: z.number().nonnegative().optional(),
   })),
   currentTask: z.string().optional(),
+});
+
+/**
+ * Timer Add Paso (Gerardo agregando tarea en vivo a operario)
+ */
+export const TimerAddPasoSchema = z.object({
+  usuario: z.string().min(1, 'Usuario requerido'),
+  texto: z.string().min(1, 'El texto del paso no puede estar vacío').max(200, 'Texto demasiado largo'),
 });
 
 /**
