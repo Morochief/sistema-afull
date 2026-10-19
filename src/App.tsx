@@ -75,6 +75,7 @@ interface SessionUser {
 
 const MARKUP_RATE_KEY = 'afull_markup_rate';
 const ACTIVE_TAB_KEY = 'afull_active_tab';
+const CACHED_SESSION_KEY = 'afull_cached_session';
 
 function AppInner() {
   const { showToast } = useNotif();
@@ -106,7 +107,14 @@ function AppInner() {
   const [dbState, setDbState] = useState<DatabaseState | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [session, setSession] = useState<SessionUser | null>(null);
+  // Hidratación inmediata: si ya había una sesión previa en el navegador, montarla sin parpadeo de Login
+  const [session, setSession] = useState<SessionUser | null>(() => {
+    try {
+      const cached = localStorage.getItem(CACHED_SESSION_KEY);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return null;
+  });
   const [markupRate, setMarkupRate] = useState<number>(0.35);
   const [isImporting, setIsImporting] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -167,6 +175,7 @@ function AppInner() {
       // Solo cerrar sesión si el servidor respondió 401 explícitamente.
       // Otros errores (red, 500, servidor reiniciándose) NO cierran sesión.
       if (meResponse.status === 401) {
+        localStorage.removeItem(CACHED_SESSION_KEY);
         setSession(null);
         setLoading(false);
         clearTimeout(timeoutId);
@@ -174,15 +183,15 @@ function AppInner() {
       }
 
       if (!meResponse.ok) {
-        // Error de red o servidor caído — mantener sesión existente, no cerrar
-        setSession(null);
-        setLoading(false);
+        // Error de red o servidor temporalmente ocupado — mantener sesión cacheada si existe
         clearTimeout(timeoutId);
+        setLoading(false);
         return;
       }
 
       const meResult = await meResponse.json();
       if (!meResult.success || !meResult.data?.user) {
+        localStorage.removeItem(CACHED_SESSION_KEY);
         setSession(null);
         setLoading(false);
         clearTimeout(timeoutId);
@@ -190,6 +199,9 @@ function AppInner() {
       }
 
       const currentUser = meResult.data.user;
+      try {
+        localStorage.setItem(CACHED_SESSION_KEY, JSON.stringify(currentUser));
+      } catch {}
       setSession(currentUser);
 
       // Si el usuario no es Admin y está en una pestaña no permitida, mandar a registro
@@ -222,8 +234,6 @@ function AppInner() {
     } catch (error: any) {
       if (error.name === 'AbortError') {
         setFetchError('La conexión tardó demasiado tiempo. Verificá tu señal de internet móvil.');
-      } else {
-        setSession(null);
       }
     } finally {
       clearTimeout(timeoutId);
@@ -270,9 +280,7 @@ function AppInner() {
   };
 
   useEffect(() => {
-    if (session) {
-      fetchDbState();
-    } else {
+    if (!session) {
       setLoading(false);
     }
   }, [session]);
@@ -308,13 +316,16 @@ function AppInner() {
 
   // --- AUTH HANDLERS ---
   const handleLoginSuccess = (user: SessionUser) => {
+    try {
+      localStorage.setItem(CACHED_SESSION_KEY, JSON.stringify(user));
+    } catch {}
     setSession(user);
     // RBAC: Non-admin users start on 'registro' tab
     if (user.rol !== 'Admin') {
       setActiveTab('registro');
     }
-    // SECURITY Phase 2 Fix #5: Don't store token - it's in httpOnly cookie
-    // Just store user info for display
+    // Fetch fresh database data for newly authenticated user
+    fetchDbState();
   };
 
   const handleLogout = async () => {
@@ -330,6 +341,7 @@ function AppInner() {
     
     clearCSRFToken(); // Clear CSRF token cache
     sessionStorage.removeItem(ACTIVE_TAB_KEY);
+    localStorage.removeItem(CACHED_SESSION_KEY);
     setSession(null);
     setDbState(null);
     setActiveTab('dashboard');
