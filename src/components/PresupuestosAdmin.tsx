@@ -131,6 +131,8 @@ export default function PresupuestosAdmin({ clientes, pedidos, proyectos, onConv
   const [otPresupuestoSeleccionado, setOtPresupuestoSeleccionado] = useState<Presupuesto | null>(null);
   const [otSelectedItemIds, setOtSelectedItemIds] = useState<string[]>([]);
   const [catalogoInsumos, setCatalogoInsumos] = useState<any[]>([]);
+  const [showCalculadoraAdhesivo, setShowCalculadoraAdhesivo] = useState(false);
+  const [menuAbiertoId, setMenuAbiertoId] = useState<string | null>(null);
 
   useEffect(() => {
     authFetchJSON<{ success: boolean; data: { insumos: any[] } }>('/api/insumos')
