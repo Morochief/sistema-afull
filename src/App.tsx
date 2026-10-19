@@ -215,25 +215,14 @@ function AppInner() {
         setActiveTab('registro');
       }
 
-      // Then load app data
-      const response = await fetch('/api/data', {
-        credentials: 'include',
-        signal: controller.signal
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          setDbState(result.data);
-        } else {
-          setFetchError(result.error?.message || 'Error al procesar datos iniciales');
-        }
-      } else {
-        setFetchError('Error de conexión al cargar base de datos');
-      }
+      // Load app data using the resilient fetchDbState with automatic retries
+      clearTimeout(timeoutId);
+      await fetchDbState();
     } catch (error: any) {
       if (error.name === 'AbortError') {
         setFetchError('La conexión tardó demasiado tiempo. Verificá tu señal de internet móvil.');
+      } else {
+        setFetchError('Error de conexión al verificar credenciales.');
       }
     } finally {
       clearTimeout(timeoutId);
@@ -281,13 +270,20 @@ function AppInner() {
       }
       
       const result = await response.json();
-      setDbState(result.data || result); // Support both formats
+      if (result.success && result.data) {
+        setDbState(result.data);
+      } else if (result.data || result.clientes) {
+        setDbState(result.data || result);
+      } else {
+        throw new Error(result.error?.message || 'Formato de base de datos no reconocido.');
+      }
     } catch (err: any) {
+      console.error('[Sistema aFull] Error al sincronizar base de datos:', err);
       if (retries > 0) {
         await new Promise(r => setTimeout(r, 1500));
         return fetchDbState(retries - 1);
       }
-      setFetchError(err.message || 'Error de red.');
+      setFetchError(err.message || 'Error de red al conectar con el servidor.');
     } finally {
       setLoading(false);
     }
